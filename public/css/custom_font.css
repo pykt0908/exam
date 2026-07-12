@@ -1,0 +1,131 @@
+@font-face {
+    font-family: 'LINESeedSansTH';
+    src: url('../font/LINESeedSansTH_W_Th.woff2') format('woff2');
+    font-weight: 100;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'LINESeedSansTH';
+    src: url('../font/LINESeedSansTH_W_Rg.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'LINESeedSansTH';
+    src: url('../font/LINESeedSansTH_W_Bd.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'LINESeedSansTH';
+    src: url('../font/LINESeedSansTH_W_XBd.woff2') format('woff2');
+    font-weight: 800;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'LINESeedSansTH';
+    src: url('../font/LINESeedSansTH_W_He.woff2') format('woff2');
+    font-weight: 900;
+    font-style: normal;
+}
+
+body, 
+h1, h2, h3, h4, h5, h6, 
+.main-header, 
+.main-sidebar, 
+.content-wrapper, 
+.register-box, 
+.login-box, 
+.form-control, 
+.btn, 
+.badge,
+.table {
+    font-family: 'LINESeedSansTH', sans-serif !important;
+}
+
+/* Submenu indentation inside sidebar (Only when sidebar is expanded) */
+body:not(.sidebar-collapse) .nav-sidebar .nav-treeview > .nav-item > .nav-link {
+    padding-left: 2.2rem !important;
+}
+
+/* Sidebar active state override - Text and icon color change only */
+.nav-sidebar .nav-item > .nav-link.active {
+    background-color: transparent !important;
+    color: #007bff !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+}
+
+.nav-sidebar .nav-item > .nav-link.active > .nav-icon {
+    color: #007bff !important;
+}
+
+#navbar-clock {
+    cursor: default !important;
+    pointer-events: none;
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+}
+
+/* Sticky bottom user card in sidebar */
+.sidebar {
+    padding-bottom: 70px !important;
+    position: relative !important;
+}
+
+#sidebar-user-card {
+    position: absolute !important;
+    bottom: 8px !important;
+    left: 8px !important;
+    right: 8px !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    border-radius: 10px !important;
+    z-index: 1020 !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    overflow: hidden !important;
+    transition: background 0.2s !important;
+}
+
+#sidebar-user-card:hover {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+#sidebar-user-submenu {
+    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Collapsed sidebar: icon-only mode */
+.sidebar-collapse #sidebar-user-card {
+    left: 4px !important;
+    right: 4px !important;
+}
+.sidebar-collapse #sidebar-user-toggle span,
+.sidebar-collapse #sidebar-user-toggle #sidebar-user-chevron {
+    display: none !important;
+}
+.sidebar-collapse #sidebar-user-toggle {
+    justify-content: center !important;
+    padding: 10px 0 !important;
+}
+.sidebar-collapse #sidebar-user-submenu {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: calc(100% + 4px) !important;
+    width: 160px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.3) !important;
+}
+
+/* Hide default AdminLTE top navbar logout button */
+.navbar-nav.ml-auto a[onclick*="logout-form"],
+.navbar-nav.ml-auto a[href*="logout"] {
+    display: none !important;
+}
