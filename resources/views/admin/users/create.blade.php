@@ -38,7 +38,7 @@
                             <div id="photo-preview-wrapper" class="mb-3">
                                 <img id="photo-preview"
                                      src="{{ asset('images/default-avatar.png') }}"
-                                     class="rounded-circle shadow"
+                                     class="rounded-circle"
                                      style="width:160px;height:160px;object-fit:cover;border:3px solid #dee2e6;">
                             </div>
                             <label class="btn btn-outline-primary btn-sm font-weight-bold">

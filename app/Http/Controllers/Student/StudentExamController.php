@@ -16,15 +16,17 @@ class StudentExamController extends Controller
     public function index()
     {
         $student = Auth::user();
+        $student->load('enrolledSubjects');
         
         // List active exams that the student can take (only for enrolled subjects)
-        $enrolledSubjectIds = $student->enrolledSubjects()->pluck('subjects.id');
+        $enrolledSubjectIds = $student->enrolledSubjects->pluck('id');
 
         $exams = Exam::where('is_active', true)
+            ->where('approval_status', 'approved')
             ->whereIn('subject_id', $enrolledSubjectIds)
             ->with('subject')
             ->withCount('questions')
-            ->orderBy('created_at', 'desc')
+            ->orderByRaw('CASE WHEN starts_at IS NULL THEN 1 ELSE 0 END, starts_at ASC, id ASC')
             ->get();
 
         // Previous attempts
@@ -38,18 +40,23 @@ class StudentExamController extends Controller
 
     public function lobby(Exam $exam)
     {
-        if (!$exam->is_active) {
-            abort(404, 'ข้อสอบนี้ไม่เปิดให้เข้าทำ');
+        if (!$exam->is_active || !$exam->isApproved()) {
+            abort(404, 'ข้อสอบนี้ยังไม่เปิดให้เข้าทำหรือไม่ผ่านการอนุมัติ');
         }
 
-        $hasPassed = ExamAttempt::where('user_id', Auth::id())
-            ->where('exam_id', $exam->id)
-            ->where('status', 'completed')
-            ->where('is_passed', true)
-            ->exists();
+        $student = Auth::user();
+        $student->load('enrolledSubjects');
+        $eligibility = $student->getExamEligibility($exam);
+        if (!$eligibility['eligible']) {
+            return redirect()->route('student.dashboard')->with('error', 'คุณไม่มีสิทธิ์เข้าสอบวิชานี้ (' . ($eligibility['reason'] ?: 'ถูกระงับสิทธิ์') . ') กรุณาติดต่ออาจารย์ผู้สอนหรือฝ่ายการเงิน/ทะเบียน');
+        }
 
-        if ($hasPassed) {
-            return redirect()->route('student.dashboard')->with('error', 'คุณผ่านเกณฑ์การสอบวิชานี้เรียบร้อยแล้ว ไม่จำเป็นต้องสอบซ่อม');
+        if ($exam->isUpcoming()) {
+            return redirect()->route('student.dashboard')->with('error', 'ยังไม่ถึงกำหนดเวลาสอบ ข้อสอบจะเปิดให้เข้าทำในวันที่ ' . $exam->starts_at->format('d/m/Y H:i น.'));
+        }
+
+        if ($exam->isExpired()) {
+            return redirect()->route('student.dashboard')->with('error', 'หมดเวลาการทำข้อสอบชุดนี้แล้ว (ปิดระบบเมื่อ ' . $exam->ends_at->format('d/m/Y H:i น.') . ')');
         }
 
         $completedAttemptsCount = ExamAttempt::where('user_id', Auth::id())
@@ -57,30 +64,49 @@ class StudentExamController extends Controller
             ->where('status', 'completed')
             ->count();
 
-        if ($completedAttemptsCount >= $exam->max_attempts) {
-            return redirect()->route('student.dashboard')->with('error', 'คุณทำข้อสอบนี้ครบกำหนดจำนวนครั้งแล้ว (' . $exam->max_attempts . ' ครั้ง)');
-        }
+        $allowedAttempts = $exam->getAllowedAttemptsForUser(Auth::id());
+        $extraAttempts = $exam->getExtraAttemptsForUser(Auth::id());
 
-        $exam->load('subject')->loadCount('questions');
-        return view('student.exam.lobby', compact('exam'));
-    }
-
-    public function start(Request $request, Exam $exam)
-    {
-        if (!$exam->is_active) {
-            abort(404, 'ข้อสอบนี้ไม่เปิดให้เข้าทำ');
-        }
-
-        $student = Auth::user();
-
-        $hasPassed = ExamAttempt::where('user_id', $student->id)
+        $hasPassed = ExamAttempt::where('user_id', Auth::id())
             ->where('exam_id', $exam->id)
             ->where('status', 'completed')
             ->where('is_passed', true)
             ->exists();
 
-        if ($hasPassed) {
+        if ($completedAttemptsCount >= $allowedAttempts) {
+            if ($hasPassed) {
+                return redirect()->route('student.dashboard')->with('error', 'คุณผ่านเกณฑ์การสอบวิชานี้เรียบร้อยแล้ว');
+            }
+            return redirect()->route('student.dashboard')->with('error', 'คุณทำข้อสอบนี้ครบกำหนดจำนวนครั้งแล้ว (' . $allowedAttempts . ' ครั้ง) หากต้องการสอบแก้ตัว กรุณาติดต่ออาจารย์ผู้สอน');
+        }
+
+        if ($hasPassed && $extraAttempts === 0) {
             return redirect()->route('student.dashboard')->with('error', 'คุณผ่านเกณฑ์การสอบวิชานี้เรียบร้อยแล้ว ไม่จำเป็นต้องสอบซ่อม');
+        }
+
+        $exam->load('subject')->loadCount('questions');
+        return view('student.exam.lobby', compact('exam', 'completedAttemptsCount', 'allowedAttempts'));
+    }
+
+    public function start(Request $request, Exam $exam)
+    {
+        if (!$exam->is_active || !$exam->isApproved()) {
+            abort(404, 'ข้อสอบนี้ยังไม่เปิดให้เข้าทำหรือไม่ผ่านการอนุมัติ');
+        }
+
+        $student = Auth::user();
+        $student->load('enrolledSubjects');
+        $eligibility = $student->getExamEligibility($exam);
+        if (!$eligibility['eligible']) {
+            return redirect()->route('student.dashboard')->with('error', 'คุณไม่มีสิทธิ์เข้าสอบวิชานี้ (' . ($eligibility['reason'] ?: 'ถูกระงับสิทธิ์') . ') กรุณาติดต่ออาจารย์ผู้สอนหรือฝ่ายการเงิน/ทะเบียน');
+        }
+
+        if ($exam->isUpcoming()) {
+            return redirect()->route('student.dashboard')->with('error', 'ยังไม่ถึงกำหนดเวลาสอบ ข้อสอบจะเปิดให้เข้าทำในวันที่ ' . $exam->starts_at->format('d/m/Y H:i น.'));
+        }
+
+        if ($exam->isExpired()) {
+            return redirect()->route('student.dashboard')->with('error', 'หมดเวลาการทำข้อสอบชุดนี้แล้ว (ปิดระบบเมื่อ ' . $exam->ends_at->format('d/m/Y H:i น.') . ')');
         }
 
         $completedAttemptsCount = ExamAttempt::where('user_id', $student->id)
@@ -88,8 +114,24 @@ class StudentExamController extends Controller
             ->where('status', 'completed')
             ->count();
 
-        if ($completedAttemptsCount >= $exam->max_attempts) {
+        $allowedAttempts = $exam->getAllowedAttemptsForUser($student->id);
+        $extraAttempts = $exam->getExtraAttemptsForUser($student->id);
+
+        $hasPassed = ExamAttempt::where('user_id', $student->id)
+            ->where('exam_id', $exam->id)
+            ->where('status', 'completed')
+            ->where('is_passed', true)
+            ->exists();
+
+        if ($completedAttemptsCount >= $allowedAttempts) {
+            if ($hasPassed) {
+                return redirect()->route('student.dashboard')->with('error', 'คุณผ่านเกณฑ์การสอบวิชานี้เรียบร้อยแล้ว');
+            }
             return redirect()->route('student.dashboard')->with('error', 'คุณทำข้อสอบนี้ครบกำหนดจำนวนครั้งแล้ว');
+        }
+
+        if ($hasPassed && $extraAttempts === 0) {
+            return redirect()->route('student.dashboard')->with('error', 'คุณผ่านเกณฑ์การสอบวิชานี้เรียบร้อยแล้ว ไม่จำเป็นต้องสอบซ่อม');
         }
 
         // If there's an existing in-progress attempt, redirect to it instead of creating a new one
@@ -99,6 +141,7 @@ class StudentExamController extends Controller
             ->first();
 
         if ($existingAttempt) {
+            session()->put('exam_just_started_' . $existingAttempt->id, true);
             return redirect()->route('student.exam.take', [$exam->id, $existingAttempt->id]);
         }
 
@@ -115,14 +158,22 @@ class StudentExamController extends Controller
             }
         }
 
+        // Determine attempt number for this student and exam
+        $attemptNumber = ExamAttempt::where('user_id', $student->id)
+            ->where('exam_id', $exam->id)
+            ->count() + 1;
+
         // Create new attempt
         $attempt = ExamAttempt::create([
             'user_id' => $student->id,
             'exam_id' => $exam->id,
+            'attempt_number' => $attemptNumber,
             'started_at' => now(),
             'total_questions' => $exam->questions()->count(),
             'status' => 'in_progress',
         ]);
+
+        session()->put('exam_just_started_' . $attempt->id, true);
 
         return redirect()->route('student.exam.take', [$exam->id, $attempt->id]);
     }
@@ -134,6 +185,13 @@ class StudentExamController extends Controller
             abort(403, 'เข้าถึงส่วนนี้ไม่ได้');
         }
 
+        $student = Auth::user();
+        $student->load('enrolledSubjects');
+        $eligibility = $student->getExamEligibility($exam);
+        if (!$eligibility['eligible']) {
+            return redirect()->route('student.dashboard')->with('error', 'คุณไม่มีสิทธิ์เข้าสอบวิชานี้ (' . ($eligibility['reason'] ?: 'ถูกระงับสิทธิ์') . ') กรุณาติดต่ออาจารย์ผู้สอนหรือฝ่ายการเงิน/ทะเบียน');
+        }
+
         if ($attempt->status === 'completed') {
             return redirect()->route('student.exam.result', $attempt->id)
                 ->with('error', 'ข้อสอบนี้ถูกส่งไปเรียบร้อยแล้ว');
@@ -143,11 +201,28 @@ class StudentExamController extends Controller
         $started = $attempt->started_at;
         $duration = $exam->duration_minutes;
         $expiresAt = $started->copy()->addMinutes($duration);
+        if ($exam->ends_at && $exam->ends_at->lt($expiresAt)) {
+            $expiresAt = $exam->ends_at;
+        }
         $timeRemainingSeconds = $expiresAt->timestamp - now()->timestamp;
 
         // If time is up, auto-submit
         if ($timeRemainingSeconds <= 0) {
             return $this->submit($attempt);
+        }
+
+        // Check if this is initial entry from lobby or a page refresh/re-entry
+        $isInitialEntry = session()->pull('exam_just_started_' . $attempt->id, false);
+        $wasRefreshed = false;
+
+        if (!$isInitialEntry && $exam->max_focus_escapes > 0) {
+            $lastAjaxEscape = session('last_ajax_focus_escape_at_' . $attempt->id, 0);
+            // If an AJAX focus escape was already recorded within the last 3 seconds (e.g. from pagehide/visibilitychange right before reload), avoid double-counting
+            if (now()->timestamp - $lastAjaxEscape >= 3) {
+                $attempt->increment('focus_escape_count');
+                $attempt->refresh();
+            }
+            $wasRefreshed = true;
         }
 
         // If focus escape limit exceeded, auto-submit
@@ -196,13 +271,26 @@ class StudentExamController extends Controller
             ->pluck('answer_text', 'question_id')
             ->toArray();
 
-        return view('student.exam.take', compact('exam', 'attempt', 'questions', 'savedAnswers', 'savedTextAnswers', 'timeRemainingSeconds'));
+        return view('student.exam.take', compact('exam', 'attempt', 'questions', 'savedAnswers', 'savedTextAnswers', 'timeRemainingSeconds', 'wasRefreshed'));
     }
 
     public function saveAnswer(Request $request, ExamAttempt $attempt)
     {
         if ($attempt->user_id !== Auth::id() || $attempt->status !== 'in_progress') {
             return response()->json(['error' => 'Unauthorized or exam already completed'], 403);
+        }
+
+        // Check if student exam eligibility is revoked in real-time
+        $attempt->loadMissing('exam');
+        $student = Auth::user()->fresh();
+        $student->load('enrolledSubjects');
+        $eligibility = $student->getExamEligibility($attempt->exam);
+        if (!$eligibility['eligible']) {
+            return response()->json([
+                'ineligible' => true,
+                'error' => 'สิทธิ์การสอบของคุณถูกระงับ (' . ($eligibility['reason'] ?: 'ติดต่อฝ่ายการเงิน/ทะเบียน') . ')',
+                'reason' => $eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ (ติดต่อฝ่ายการเงิน/ทะเบียน)'
+            ], 403);
         }
 
         $request->validate([
@@ -273,12 +361,67 @@ class StudentExamController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function checkEligibility(ExamAttempt $attempt)
+    {
+        if ($attempt->user_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        if ($attempt->status !== 'in_progress') {
+            return response()->json([
+                'eligible' => false,
+                'completed' => true,
+                'reason' => 'การสอบชุดนี้เสร็จสิ้นหรือถูกส่งไปแล้ว',
+                'message' => 'การสอบชุดนี้เสร็จสิ้นหรือถูกส่งไปแล้ว'
+            ]);
+        }
+
+        $attempt->loadMissing('exam');
+        $student = Auth::user()->fresh();
+        $student->load('enrolledSubjects');
+        $eligibility = $student->getExamEligibility($attempt->exam);
+
+        if (!$eligibility['eligible']) {
+            return response()->json([
+                'eligible' => false,
+                'reason' => $eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ (ติดต่อฝ่ายการเงิน/ทะเบียน)',
+                'message' => 'คุณถูกระงับสิทธิ์การสอบ: ' . ($eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ (ติดต่อฝ่ายการเงิน/ทะเบียน)')
+            ]);
+        }
+
+        return response()->json([
+            'eligible' => true,
+            'reason' => null
+        ]);
+    }
+
     public function recordFocusEscape(ExamAttempt $attempt)
     {
         if ($attempt->user_id !== Auth::id() || $attempt->status !== 'in_progress') {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
+        $attempt->loadMissing('exam');
+        $student = Auth::user()->fresh();
+        $student->load('enrolledSubjects');
+        $eligibility = $student->getExamEligibility($attempt->exam);
+        if (!$eligibility['eligible']) {
+            return response()->json([
+                'ineligible' => true,
+                'error' => 'สิทธิ์การสอบของคุณถูกระงับ',
+                'reason' => $eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ'
+            ], 403);
+        }
+
+        $lastAjax = session('last_ajax_focus_escape_at_' . $attempt->id, 0);
+        if (now()->timestamp - $lastAjax < 2) {
+            return response()->json([
+                'success' => true,
+                'focus_escape_count' => $attempt->focus_escape_count,
+            ]);
+        }
+
+        session(['last_ajax_focus_escape_at_' . $attempt->id => now()->timestamp]);
         $attempt->increment('focus_escape_count');
         $attempt->refresh();
 
@@ -292,6 +435,18 @@ class StudentExamController extends Controller
     {
         if ($attempt->user_id !== Auth::id() || $attempt->status !== 'in_progress') {
             return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $attempt->loadMissing('exam');
+        $student = Auth::user()->fresh();
+        $student->load('enrolledSubjects');
+        $eligibility = $student->getExamEligibility($attempt->exam);
+        if (!$eligibility['eligible']) {
+            return response()->json([
+                'ineligible' => true,
+                'error' => 'สิทธิ์การสอบของคุณถูกระงับ',
+                'reason' => $eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ'
+            ], 403);
         }
 
         $request->validate(['section_id' => ['required']]);
@@ -340,43 +495,72 @@ class StudentExamController extends Controller
             return redirect()->route('student.exam.result', $attempt->id);
         }
 
+        $attempt->loadMissing('exam');
+        $student = Auth::user()->fresh();
+        $student->load('enrolledSubjects');
+        $eligibility = $student->getExamEligibility($attempt->exam);
+        if (!$eligibility['eligible']) {
+            return redirect()->route('student.dashboard')->with('error', 'คุณไม่มีสิทธิ์ส่งข้อสอบวิชานี้เนื่องจากถูกระงับสิทธิ์ (' . ($eligibility['reason'] ?: 'ถูกระงับสิทธิ์') . ')');
+        }
+
         $attempt->load('exam.questions');
         $exam = $attempt->exam;
 
-        // Calculate score
+        $hasEssay = $exam->questions->where('type', 'essay')->count() > 0;
+        $gradingStatus = $hasEssay ? 'pending_grading' : 'graded';
+
+        // Calculate score and populate score_awarded for each answer
         $studentAnswers = StudentAnswer::where('exam_attempt_id', $attempt->id)->get();
-        $score = 0;
+        $rawScore = 0.0;
         
         foreach ($studentAnswers as $ans) {
-            if ($ans->is_correct) {
-                // Find question score
-                $question = $exam->questions->firstWhere('id', $ans->question_id);
-                if ($question) {
-                    $score += $question->score;
-                }
+            $question = $exam->questions->firstWhere('id', $ans->question_id);
+            if ($question) {
+                $awarded = $ans->is_correct ? (float)$question->score : 0.0;
+                $ans->update(['score_awarded' => $awarded]);
+                $rawScore += $awarded;
             }
         }
 
-        // Total possible score
-        $totalScore = $exam->questions->sum('score');
+        // Total possible raw score & target exam total score
+        $totalRawScore = (float)$exam->questions->sum('score');
+        $examTargetScore = (float)($exam->total_score ?? $totalRawScore);
 
-        // Check if passed
-        $passingPercentage = $exam->passing_percentage;
-        $percentageObtained = $totalScore > 0 ? ($score / $totalScore) * 100 : 0;
-        $isPassed = $percentageObtained >= $passingPercentage;
+        // Proportional Scaling: Final Score = (rawScore / totalRawScore) * examTargetScore
+        if ($totalRawScore > 0 && $examTargetScore > 0) {
+            $finalScore = round(($rawScore / $totalRawScore) * $examTargetScore, 2);
+        } else {
+            $finalScore = round($rawScore, 2);
+        }
+
+        // Check if passed (only if no pending essay questions)
+        if ($hasEssay) {
+            $isPassed = null; // Do not determine pass/fail yet until teacher grades
+        } else {
+            $passingPercentage = $exam->passing_percentage;
+            $percentageObtained = $examTargetScore > 0 ? ($finalScore / $examTargetScore) * 100 : 0;
+            $isPassed = $percentageObtained >= $passingPercentage;
+        }
 
         // Update attempt
         $attempt->update([
             'completed_at' => now(),
-            'score' => $score,
+            'score' => $finalScore,
+            'raw_score' => $rawScore,
+            'total_raw_score' => $totalRawScore,
             'is_passed' => $isPassed,
             'status' => 'completed',
+            'grading_status' => $gradingStatus,
         ]);
 
         session()->flash('just_submitted', true);
 
+        $successMsg = $hasEssay 
+            ? 'ส่งข้อสอบเรียบร้อยแล้ว (มีข้อสอบข้อเขียนที่อยู่ระหว่างรอผู้สอนตรวจให้คะแนน)' 
+            : 'ส่งข้อสอบและบันทึกคะแนนเรียบร้อยแล้ว';
+
         return redirect()->route('student.exam.result', $attempt->id)
-            ->with('success', 'ส่งข้อสอบและบันทึกคะแนนเรียบร้อยแล้ว');
+            ->with('success', $successMsg);
     }
 
     public function result(ExamAttempt $attempt)
@@ -413,6 +597,22 @@ class StudentExamController extends Controller
             ->pluck('is_correct', 'question_id')
             ->toArray();
 
-        return view('student.exam.result', compact('attempt', 'savedAnswers', 'savedTextAnswers', 'correctness'));
+        $awardedScores = StudentAnswer::where('exam_attempt_id', $attempt->id)
+            ->pluck('score_awarded', 'question_id')
+            ->toArray();
+
+        $teacherFeedbacks = StudentAnswer::where('exam_attempt_id', $attempt->id)
+            ->whereNotNull('teacher_feedback')
+            ->pluck('teacher_feedback', 'question_id')
+            ->toArray();
+
+        return view('student.exam.result', compact(
+            'attempt',
+            'savedAnswers',
+            'savedTextAnswers',
+            'correctness',
+            'awardedScores',
+            'teacherFeedbacks'
+        ));
     }
 }

@@ -4,7 +4,7 @@
 
 @section('content_header')
     <div>
-        <h1 class="text-dark font-weight-bold">กำลังทำข้อสอบ</h1>
+        <!-- <-h1 class="text-dark font-weightbold">กำลังทำข้อสอบ</h1> -->
         <h5 class="text-muted mt-1">{{ $exam->title }} ({{ $exam->subject->code }})</h5>
     </div>
 @stop
@@ -16,6 +16,27 @@
     $sectionCount = count($sectionIds);
     $hasSections = $sectionCount > 1 || ($sectionCount === 1 && $sectionIds[0] !== null);
 @endphp
+
+{{-- ===== REVOKED ELIGIBILITY FULLSCREEN OVERLAY ===== --}}
+<div id="revokedEligibilityOverlay" class="d-none" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.96); z-index: 999999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 20px;">
+    <div class="card shadow-lg border-danger text-center p-4 p-md-5" style="max-width: 520px; border-radius: 16px; border-width: 2px; background: #ffffff;">
+        <div class="mb-3">
+            <div class="mx-auto text-danger rounded-circle d-flex align-items-center justify-content-center" style="width: 84px; height: 84px; background-color: #fee2e2;">
+                <i class="fas fa-ban fa-3x text-danger"></i>
+            </div>
+        </div>
+        <h3 class="font-weight-bold text-dark mb-2">คุณถูกระงับสิทธิ์การเข้าสอบ!</h3>
+        <div class="alert alert-danger py-2 px-3 mb-3 text-left font-weight-bold" style="font-size: 0.95rem; border-radius: 8px;">
+            <i class="fas fa-exclamation-circle mr-1"></i> สาเหตุ: <span id="revokedReasonText">ระงับสิทธิ์สอบ (ติดต่อฝ่ายการเงิน/ทะเบียน)</span>
+        </div>
+        <p class="text-secondary mb-4" style="font-size: 0.95rem; line-height: 1.6;">
+            ระบบได้ทำการปิดสิทธิ์และระงับการทำข้อสอบชุดนี้ของคุณเรียบร้อยแล้ว ไม่สามารถเลือกคำตอบ บันทึก หรือส่งข้อสอบได้อีกต่อไป กรุณาติดต่ออาจารย์ผู้สอนหรือฝ่ายการเงิน/ทะเบียน
+        </p>
+        <a href="{{ route('student.dashboard') }}" class="btn btn-danger btn-lg font-weight-bold px-4 shadow-sm" style="border-radius: 8px;">
+            <i class="fas fa-arrow-left mr-2"></i> กลับสู่หน้าหลักนักศึกษา
+        </a>
+    </div>
+</div>
 
 <form id="examForm" action="{{ route('student.exam.submit', $attempt->id) }}" method="post">
     @csrf
@@ -68,9 +89,6 @@
         <div class="card card-outline card-primary shadow-sm mb-3 question-card" id="question-{{ $question->id }}">
             <div class="card-header bg-light py-2">
                 <h6 class="card-title font-weight-bold text-dark mb-0">ข้อที่ {{ $overallIndex + 1 }}</h6>
-                <div class="card-tools">
-                    <span class="badge badge-primary px-2 py-1">{{ $question->score }} คะแนน</span>
-                </div>
             </div>
             <div class="card-body py-3">
                 <div class="font-weight-bold text-dark mb-3" style="font-size:0.97rem;line-height:1.6;">{!! $question->question_text !!}</div>
@@ -603,6 +621,83 @@
             updateTimer();
             var timerInterval = setInterval(updateTimer, 1000);
 
+            // ====================================================
+            // REVOKED EXAM ELIGIBILITY HANDLER & HEARTBEAT
+            // ====================================================
+            var isRevoked = false;
+
+            function showRevokedEligibility(reason) {
+                if (isRevoked) return;
+                isRevoked = true;
+                isSubmitted = true; // Prevent anti-cheat focus escapes or timeout auto-submit
+
+                if (typeof timerInterval !== 'undefined') {
+                    clearInterval(timerInterval);
+                }
+                if (typeof heartbeatInterval !== 'undefined') {
+                    clearInterval(heartbeatInterval);
+                }
+
+                // Exit fullscreen if active
+                if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen().catch(function() {});
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    }
+                }
+
+                // Lock and disable all exam inputs and submission
+                $('input, textarea, button, select').prop('disabled', true);
+                $('.choice-box').css('pointer-events', 'none').css('opacity', '0.5');
+                $('#examForm').off('submit').on('submit', function(e) { e.preventDefault(); return false; });
+
+                var displayReason = reason || 'ระงับสิทธิ์สอบระดับผู้ใช้งาน (ติดต่อฝ่ายการเงิน/ทะเบียน)';
+                $('#revokedReasonText').text(displayReason);
+                $('#revokedEligibilityOverlay').removeClass('d-none').css('display', 'flex');
+
+                // Display modal notice
+                Swal.fire({
+                    icon: 'error',
+                    title: 'คุณถูกระงับสิทธิ์การสอบ!',
+                    html: '<div class="text-left py-2 px-3 mb-3 font-weight-bold text-danger" style="background:#fee2e2; border:1px solid #f87171; border-radius:8px;"><i class="fas fa-ban mr-1"></i> สาเหตุ: ' + $('<div>').text(displayReason).html() + '</div><p class="text-muted text-sm mb-0">ระบบได้ทำการปิดสิทธิ์และระงับการทำข้อสอบของคุณในวิชานี้ทันที กรุณาติดต่ออาจารย์ผู้สอนหรือฝ่ายการเงิน/ทะเบียน</p>',
+                    confirmButtonText: 'รับทราบ และกลับสู่หน้าหลัก',
+                    confirmButtonColor: '#dc3545',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showCancelButton: false
+                }).then(function() {
+                    window.location.href = "{{ route('student.dashboard') }}";
+                });
+            }
+
+            // Real-time Heartbeat Polling (Checks eligibility every 8 seconds)
+            var heartbeatInterval = setInterval(function() {
+                if (isRevoked || isSubmitted) {
+                    clearInterval(heartbeatInterval);
+                    return;
+                }
+
+                $.ajax({
+                    url: "{{ route('student.exam.checkEligibility', $attempt->id) }}",
+                    method: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}"
+                    },
+                    dataType: "json",
+                    success: function(res) {
+                        if (res && res.eligible === false && !res.completed) {
+                            showRevokedEligibility(res.reason);
+                        }
+                    },
+                    error: function(xhr) {
+                        if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.ineligible) {
+                            showRevokedEligibility(xhr.responseJSON.reason);
+                        }
+                    }
+                });
+            }, 8000);
+
             // Click behavior for Choice Box
             $('.choice-box').click(function(e) {
                 if (!$(e.target).is('input')) {
@@ -740,6 +835,7 @@
                     cancelButtonText: 'ยกเลิก'
                 }).then((result) => {
                     if (result.isConfirmed) {
+                        isSubmitted = true;
                         form.submit();
                     }
                 });
@@ -752,6 +848,8 @@
             var focusEscapeCount = {{ $attempt->focus_escape_count ?? 0 }};
             var isSubmitted = false;
             var isWarningOpen = false;
+            var lastEscapeReason = '';
+            var isWarningModalShown = false;
 
             function enterFullscreen() {
                 var elem = document.documentElement;
@@ -765,25 +863,53 @@
             }
 
             function handleFocusEscape(reason) {
+                if (isSubmitted || isWarningOpen) {
+                    return;
+                }
                 isWarningOpen = true;
-                // Persist to database first, then handle UI
-                $.ajax({
-                    url: "{{ route('student.exam.focusEscape', $attempt->id) }}",
-                    method: "POST",
-                    data: { _token: "{{ csrf_token() }}" },
-                    success: function(res) {
-                        focusEscapeCount = res.focus_escape_count;
-                        showFocusEscapeWarning(reason);
-                    },
-                    error: function() {
-                        // Fallback: increment locally if AJAX fails
-                        focusEscapeCount++;
-                        showFocusEscapeWarning(reason);
-                    }
-                });
+                lastEscapeReason = reason;
+
+                // Immediately increment count and show warning modal without waiting for network lag
+                focusEscapeCount++;
+                showFocusEscapeWarning(reason);
+
+                // Persist to database in background (with keepalive: true so iOS suspend does not drop it)
+                var token = "{{ csrf_token() }}";
+                var url = "{{ route('student.exam.focusEscape', $attempt->id) }}";
+
+                if (window.fetch) {
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRF-TOKEN': token,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: '_token=' + encodeURIComponent(token),
+                        keepalive: true
+                    }).then(function(res) {
+                        return res.json();
+                    }).then(function(res) {
+                        if (res && res.focus_escape_count !== undefined) {
+                            focusEscapeCount = res.focus_escape_count;
+                        }
+                    }).catch(function() {});
+                } else {
+                    $.ajax({
+                        url: url,
+                        method: "POST",
+                        data: { _token: token },
+                        success: function(res) {
+                            if (res && res.focus_escape_count !== undefined) {
+                                focusEscapeCount = res.focus_escape_count;
+                            }
+                        }
+                    });
+                }
             }
 
             function showFocusEscapeWarning(reason) {
+                isWarningModalShown = true;
                 
                 if (maxFocusEscapes > 0 && focusEscapeCount >= maxFocusEscapes) {
                     isSubmitted = true;
@@ -814,6 +940,13 @@
                         allowEscapeKey: false
                     }).then(() => {
                         isWarningOpen = false;
+                        isWarningModalShown = false;
+                        lastEscapeReason = '';
+                        lastHeartbeat = Date.now();
+                        lastTickTime = Date.now();
+                        unfocusedDuration = 0;
+                        touchFromBottom = false;
+                        pageGracePeriodUntil = Date.now() + 1000;
                         if (forceFullscreen) {
                             enterFullscreen();
                         }
@@ -821,7 +954,32 @@
                 }
             }
 
-            if (forceFullscreen) {
+            var lastTickTime = Date.now();
+            var pageGracePeriodUntil = Date.now() + 2500;
+            var unfocusedDuration = 0;
+            var touchFromBottom = false;
+            var touchStartTime = 0;
+
+            @if(!empty($wasRefreshed))
+                isWarningOpen = true;
+                Swal.fire({
+                    title: 'คำเตือน!',
+                    text: 'คุณได้ทำการรีเฟรชหน้าจอข้อสอบ! ห้ามรีเฟรชหรือออกจากหน้าจอข้อสอบเด็ดขาด! (ทำผิดแล้ว {{ $attempt->focus_escape_count }} / {{ $exam->max_focus_escapes }} ครั้ง หากครบจะส่งข้อสอบอัตโนมัติ)',
+                    icon: 'warning',
+                    confirmButtonText: 'ตกลง, กลับเข้าสู่การสอบ',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                }).then(() => {
+                    isWarningOpen = false;
+                    lastTickTime = Date.now();
+                    unfocusedDuration = 0;
+                    touchFromBottom = false;
+                    pageGracePeriodUntil = Date.now() + 1000;
+                    if (forceFullscreen) {
+                        enterFullscreen();
+                    }
+                });
+            @elseif($exam->force_fullscreen)
                 // Show fullscreen prompt modal immediately on page load
                 Swal.fire({
                     title: 'คำชี้แจงความปลอดภัย',
@@ -831,9 +989,15 @@
                     allowOutsideClick: false,
                     allowEscapeKey: false
                 }).then((result) => {
+                    lastTickTime = Date.now();
+                    unfocusedDuration = 0;
+                    touchFromBottom = false;
+                    pageGracePeriodUntil = Date.now() + 1000;
                     enterFullscreen();
                 });
+            @endif
 
+            if (forceFullscreen) {
                 $(document).on('fullscreenchange webkitfullscreenchange mozfullscreenchange MSFullscreenChange', function() {
                     if (!document.fullscreenElement && !document.webkitIsFullScreen && !document.mozFullScreen && !document.msFullscreenElement) {
                         if (!isSubmitted && !isWarningOpen) {
@@ -843,12 +1007,103 @@
                 });
             }
 
+            var isPageUnloading = false;
+            window.addEventListener('beforeunload', function() {
+                isPageUnloading = true;
+            });
+
             if (maxFocusEscapes > 0) {
+                // 1. Desktop & Window blur
                 $(window).on('blur', function() {
-                    if (!isSubmitted && !isWarningOpen) {
+                    if (isPageUnloading) return;
+                    if (!isSubmitted && !isWarningOpen && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
                         handleFocusEscape('คุณสลับหน้าจอหรือเปิดแท็บใหม่!');
                     }
                 });
+
+                // 2. Mobile Visibility Change
+                document.addEventListener('visibilitychange', function() {
+                    if (isPageUnloading) return;
+                    if (document.visibilityState === 'hidden' || document.hidden) {
+                        if (!isSubmitted && !isWarningOpen && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
+                            handleFocusEscape('คุณสลับหน้าจอหรือเปิดแอปพลิเคชันอื่น!');
+                        }
+                    }
+                });
+
+                // 3. iOS App Switcher Gesture Detection (Bottom swipe-up canceled by OS)
+                window.addEventListener('touchstart', function(e) {
+                    if (e.touches && e.touches.length > 0) {
+                        var y = e.touches[0].clientY;
+                        // iOS Home indicator zone is bottom ~85px
+                        if (y >= window.innerHeight - 85) {
+                            touchFromBottom = true;
+                            touchStartTime = Date.now();
+                        } else {
+                            touchFromBottom = false;
+                        }
+                    }
+                }, { passive: true });
+
+                window.addEventListener('touchcancel', function(e) {
+                    if (touchFromBottom && (Date.now() - touchStartTime < 3000)) {
+                        touchFromBottom = false;
+                        if (!isSubmitted && !isWarningOpen && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
+                            handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
+                        }
+                    }
+                }, { passive: true });
+
+                window.addEventListener('touchend', function() {
+                    touchFromBottom = false;
+                }, { passive: true });
+
+                // 4. Returning to page from background / App Switcher
+                function checkBackgroundGap() {
+                    var now = Date.now();
+                    var delta = now - lastTickTime;
+                    lastTickTime = now;
+                    if (now > pageGracePeriodUntil && delta > 750) {
+                        if (!isSubmitted && !isWarningOpen && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
+                            handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
+                        }
+                    }
+                }
+
+                window.addEventListener('pageshow', checkBackgroundGap);
+                window.addEventListener('focus', checkBackgroundGap);
+
+                // 5. Suspension gap and continuous document focus polling
+                setInterval(function() {
+                    var now = Date.now();
+                    var delta = now - lastTickTime;
+                    lastTickTime = now;
+
+                    if (now < pageGracePeriodUntil) {
+                        return;
+                    }
+
+                    if (isSubmitted || isWarningOpen || (typeof Swal !== 'undefined' && Swal.isVisible())) {
+                        unfocusedDuration = 0;
+                        return;
+                    }
+
+                    // A: Thread suspension gap (browser paused/backgrounded by iOS)
+                    if (delta > 750) {
+                        handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
+                        return;
+                    }
+
+                    // B: document.hasFocus() check (SpringBoard or other window holds focus)
+                    if (typeof document.hasFocus === 'function' && !document.hasFocus()) {
+                        unfocusedDuration += 150;
+                        if (unfocusedDuration >= 450) {
+                            handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
+                        }
+                    } else {
+                        unfocusedDuration = 0;
+                    }
+                }, 150);
             }
 
             // Disable copy, cut, paste and context menu (right click) to prevent cheating

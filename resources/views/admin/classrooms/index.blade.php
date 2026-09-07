@@ -32,23 +32,18 @@
     </div>
 
     <div class="card shadow-sm mt-3">
-        @if(!$searchPerformed)
-            <div class="card-body text-center py-5">
-                <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                <h5 class="text-muted font-weight-bold">กรุณากรอกคำค้นหาและกดปุ่ม "ค้นหาข้อมูล" เพื่อเริ่มต้นแสดงข้อมูลห้องเรียน</h5>
-            </div>
-        @else
-            <div class="card-header">
-                <h3 class="card-title font-weight-bold text-dark"><i class="fas fa-list mr-2"></i>ห้องเรียนทั้งหมดในระบบ ({{ $classrooms->count() }} ห้อง)</h3>
-            </div>
-            <div class="card-body p-3">
+        <div class="card-header">
+            <h3 class="card-title font-weight-bold text-dark"><i class="fas fa-list mr-2"></i>ห้องเรียนทั้งหมดในระบบ ({{ $classrooms->count() }} ห้อง)</h3>
+        </div>
+        <div class="card-body p-3">
             <div class="table-responsive">
                 <table id="classrooms-table" class="table table-bordered table-striped table-hover mb-0">
                     <thead>
                         <tr>
-                            <th style="width: 10%">#</th>
+                            <th style="width: 8%">#</th>
                             <th>ชื่อห้องเรียน / ระดับชั้น</th>
-                            <th style="width: 25%" class="text-center">จำนวนนักเรียน</th>
+                            <th style="width: 15%" class="text-center">จำนวนนักเรียน</th>
+                            <th style="width: 25%" class="text-center">สถานะสิทธิ์การสอบ</th>
                             <th class="text-center" style="width: 1%; white-space: nowrap;">การจัดการ</th>
                         </tr>
                     </thead>
@@ -56,13 +51,23 @@
                         @forelse($classrooms as $index => $room)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td>{{ $room->name }}</td>
+                                <td class="font-weight-bold text-dark">{{ $room->name }}</td>
                                 <td class="text-center">
-                                    {{ $room->students_count }} คน
+                                    <span class="badge badge-light border px-2 py-1 font-weight-bold">{{ $room->students_count }} คน</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge badge-success px-2 py-1 font-weight-normal mr-1">
+                                        <i class="fas fa-check-circle mr-1"></i>มีสิทธิ์: {{ $room->eligible_students_count }}
+                                    </span>
+                                    @if($room->ineligible_students_count > 0)
+                                        <span class="badge badge-danger px-2 py-1 font-weight-normal">
+                                            <i class="fas fa-ban mr-1"></i>ระงับสิทธิ์: {{ $room->ineligible_students_count }}
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="text-center" style="white-space: nowrap;">
-                                    <a href="{{ route('admin.classrooms.show', $room->id) }}" class="btn btn-sm btn-info font-weight-bold shadow-xs mr-1" title="ดูรายชื่อนักศึกษา">
-                                        <i class="fas fa-users mr-1"></i> ดูรายชื่อ
+                                    <a href="{{ route('admin.classrooms.show', $room->id) }}" class="btn btn-sm btn-primary font-weight-bold shadow-xs mr-1" title="จัดการสิทธิ์สอบและดูรายชื่อนักศึกษา">
+                                        <i class="fas fa-user-check mr-1"></i> จัดการสิทธิ์สอบ
                                     </a>
                                     <button type="button" class="btn btn-sm btn-warning font-weight-bold text-white shadow-xs mr-1" 
                                             data-toggle="modal" data-target="#editClassroomModal{{ $room->id }}" title="แก้ไขชื่อห้อง">
@@ -72,7 +77,7 @@
                                           data-text="คุณแน่ใจหรือไม่ที่จะลบห้องเรียนนี้? (นักเรียนในห้องนี้จะเปลี่ยนเป็นสถานะไม่ได้ระบุห้องเรียน)">
                                         @csrf
                                         @method('delete')
-                                        <button type="submit" class="btn btn-sm btn-danger font-weight-bold shadow-xs" title="ลบ">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger font-weight-bold shadow-xs" title="ลบ">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </form>
@@ -115,7 +120,6 @@
                 </table>
             </div>
         </div>
-        @endif
     </div>
 
     <!-- Add Classroom Modal -->

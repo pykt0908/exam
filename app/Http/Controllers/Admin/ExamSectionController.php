@@ -28,9 +28,21 @@ class ExamSectionController extends Controller
         }
     }
 
+    private function authorizeExamEditable(Exam $exam)
+    {
+        $user = auth()->user();
+        if ($user->isAdmin()) {
+            return;
+        }
+        if (!$exam->canBeEdited()) {
+            abort(403, 'ข้อสอบนี้อยู่ระหว่างรอการอนุมัติหรือได้รับการอนุมัติแล้ว ไม่สามารถแก้ไขได้ หากต้องการแก้ไขกรุณาดึงข้อสอบกลับมาเป็นฉบับร่างก่อน');
+        }
+    }
+
     public function store(Request $request, Exam $exam)
     {
         $this->authorizeExam($exam);
+        $this->authorizeExamEditable($exam);
 
         $request->validate([
             'title' => ['required', 'string', 'max:255'],
@@ -56,6 +68,7 @@ class ExamSectionController extends Controller
     public function update(Request $request, Exam $exam, ExamSection $section)
     {
         $this->authorizeExam($exam);
+        $this->authorizeExamEditable($exam);
         
         if ($section->exam_id !== $exam->id) {
             abort(400, 'Invalid Section');
@@ -81,6 +94,7 @@ class ExamSectionController extends Controller
     public function destroy(Exam $exam, ExamSection $section)
     {
         $this->authorizeExam($exam);
+        $this->authorizeExamEditable($exam);
 
         if ($section->exam_id !== $exam->id) {
             abort(400, 'Invalid Section');

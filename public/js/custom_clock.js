@@ -113,4 +113,11 @@ $(document).ready(function() {
         // Remove original item from nav
         userItem.closest('li').remove();
     }
+
+    // Keep sidebar treeview submenus open by default
+    $('.nav-sidebar .has-treeview').each(function() {
+        var treeview = $(this);
+        treeview.addClass('menu-open');
+        treeview.children('.nav-treeview').show();
+    });
 });

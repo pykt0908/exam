@@ -1,0 +1,14 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. ป้องกันการเข้าถึงไฟล์ .env และไฟล์ระบบที่สำคัญโดยตรง (ตอบกลับเป็น 403 Forbidden)
+    RedirectMatch 403 /\.(key|env|git|json|yml|lock)$
+    RedirectMatch 403 ^/(app|bootstrap|config|database|resources|routes|storage|tests)/
+
+    # 2. ส่งต่อ (Redirect) ทุก Request ที่เข้ามาหน้าแรกให้ไปทำงานที่โฟลเดอร์ public/
+    RewriteRule ^$ public/ [L]
+
+    # 3. ส่งต่อ Request อื่นๆ (เช่น /login, /admin) ให้ชี้เข้าไปที่ public/...
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

@@ -14,116 +14,92 @@
 @stop
 
 @section('content')
-    @if(auth()->user()->isStaff())
-        <div class="card shadow-sm mt-3">
-            <div class="card-header bg-light">
-                <h3 class="card-title font-weight-bold text-dark mb-0"><i class="fas fa-filter mr-2"></i>ตัวกรองและค้นหา</h3>
-            </div>
-            <div class="card-body">
-                <form action="{{ route('admin.subjects.index') }}" method="GET" class="form-row">
-                    <input type="hidden" name="search" value="1">
-                    <div class="form-group col-md-9 mb-2 mb-md-0">
-                        <input type="text" name="q" class="form-control w-100" value="{{ request('q') }}" placeholder="ค้นหารหัสวิชา หรือ ชื่อรายวิชา...">
-                    </div>
-                    <div class="form-group col-md-3 mb-0">
-                        <button type="submit" class="btn btn-primary btn-block font-weight-bold shadow-sm">
-                            <i class="fas fa-search mr-2"></i>ค้นหาข้อมูล
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    @endif
-
     <div class="card shadow-sm mt-3">
         <div class="card-body p-3">
-            @if(auth()->user()->isAdmin() && !$searchPerformed)
-                <div class="text-center py-5">
-                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                    <h5 class="text-muted font-weight-bold">กรุณากรอกข้อมูลค้นหาด้านบนเพื่อเริ่มต้นแสดงข้อมูลรายวิชา</h5>
-                </div>
-            @else
-                <div class="table-responsive">
-                    <table id="subjects-table" class="table table-bordered table-striped table-hover mb-0">
-                        <thead>
+            <div class="table-responsive">
+                <table id="subjects-table" class="table table-bordered table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 8%">#</th>
+                            <th style="width: 20%">รหัสวิชา</th>
+                            <th style="width: 37%">ชื่อรายวิชา</th>
+                            <th style="width: 20%">หมวดวิชา / แผนก</th>
+                            <th style="width: 1%; white-space: nowrap;" class="text-center">การจัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($subjects as $index => $subject)
                             <tr>
-                                <th style="width: 10%">#</th>
-                                <th style="width: 25%">รหัสวิชา</th>
-                                <th style="width: 45%">ชื่อรายวิชา</th>
-                                <th style="width: 1%; white-space: nowrap;" class="text-center">การจัดการ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($subjects as $index => $subject)
-                                <tr>
-                                    <td>{{ $index + 1 }}</td>
-                                    <td>{{ $subject->code }}</td>
-                                    <td>{{ $subject->name }}</td>
-                                    <td class="text-center" style="white-space: nowrap;">
-                                        <a href="{{ route('admin.subjects.students.index', $subject->id) }}" class="btn btn-sm btn-info font-weight-bold shadow-xs mr-1">
-                                            <i class="fas fa-user-graduate mr-1"></i> นักศึกษา ({{ $subject->students_count }})
-                                        </a>
-                                        @if(auth()->user()->isAdmin() || $subject->teachers->contains(auth()->id()))
-                                        <button type="button" class="btn btn-sm btn-warning font-weight-bold text-white shadow-xs mr-1" 
-                                                data-toggle="modal" data-target="#editSubjectModal{{ $subject->id }}">
-                                            <i class="fas fa-edit mr-1"></i> แก้ไข
+                                <td>{{ $index + 1 }}</td>
+                                <td class="font-weight-bold text-dark">{{ $subject->code }}</td>
+                                <td class="text-dark">{{ $subject->name }}</td>
+                                <td class="text-secondary">
+                                    {{ $subject->department ? $subject->department->name : '-' }}
+                                </td>
+                                <td class="text-center" style="white-space: nowrap;">
+                                    <a href="{{ route('admin.subjects.students.index', $subject->id) }}" class="btn btn-sm btn-info font-weight-bold shadow-xs mr-1">
+                                        <i class="fas fa-user-graduate mr-1"></i> นักศึกษา ({{ $subject->students_count }})
+                                    </a>
+                                    @if(auth()->user()->isAdmin() || $subject->teachers->contains(auth()->id()))
+                                    <button type="button" class="btn btn-sm btn-warning font-weight-bold text-white shadow-xs mr-1" 
+                                            data-toggle="modal" data-target="#editSubjectModal{{ $subject->id }}">
+                                        <i class="fas fa-edit mr-1"></i> แก้ไข
+                                    </button>
+                                    @endif
+                                    @if(auth()->user()->isAdmin() || $subject->teachers->contains(auth()->id()))
+                                    <form action="{{ route('admin.subjects.destroy', $subject->id) }}" method="post" class="d-inline confirm-delete"
+                                          data-text="คุณแน่ใจหรือไม่ที่จะลบรายวิชานี้? ข้อสอบทั้งหมดในวิชานี้จะถูกลบไปด้วย!">
+                                        @csrf
+                                        @method('delete')
+                                        <button type="submit" class="btn btn-sm btn-danger font-weight-bold shadow-xs">
+                                            <i class="fas fa-trash-alt mr-1"></i> ลบ
                                         </button>
-                                        @endif
-                                        @if(auth()->user()->isAdmin())
-                                        <form action="{{ route('admin.subjects.destroy', $subject->id) }}" method="post" class="d-inline confirm-delete"
-                                              data-text="คุณแน่ใจหรือไม่ที่จะลบรายวิชานี้? ข้อสอบทั้งหมดในวิชานี้จะถูกลบไปด้วย!">
-                                            @csrf
-                                            @method('delete')
-                                            <button type="submit" class="btn btn-sm btn-danger font-weight-bold shadow-xs">
-                                                <i class="fas fa-trash-alt mr-1"></i> ลบ
+                                    </form>
+                                    @endif
+                                </td>
+                            </tr>
+    
+                            @if(auth()->user()->isAdmin() || $subject->teachers->contains(auth()->id()))
+                            <!-- Edit Subject Modal -->
+                            <div class="modal fade" id="editSubjectModal{{ $subject->id }}" tabindex="-1" role="dialog" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-warning">
+                                            <h5 class="modal-title text-white font-weight-bold"><i class="fas fa-edit mr-2"></i>แก้ไขรายวิชา</h5>
+                                            <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
                                             </button>
-                                        </form>
-                                        @endif
-                                    </td>
-                                </tr>
-        
-                                @if(auth()->user()->isAdmin() || $subject->teachers->contains(auth()->id()))
-                                <!-- Edit Subject Modal -->
-                                <div class="modal fade" id="editSubjectModal{{ $subject->id }}" tabindex="-1" role="dialog" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered" role="document">
-                                        <div class="modal-content">
-                                            <div class="modal-header bg-warning">
-                                                <h5 class="modal-title text-white font-weight-bold"><i class="fas fa-edit mr-2"></i>แก้ไขรายวิชา</h5>
-                                                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                                                    <span aria-hidden="true">&times;</span>
-                                                </button>
-                                            </div>
-                                            <form action="{{ route('admin.subjects.update', $subject->id) }}" method="post">
-                                                @csrf
-                                                @method('put')
-                                                <div class="modal-body">
-                                                    <div class="form-group">
-                                                        <label for="code" class="font-weight-bold">รหัสวิชา</label>
-                                                        <input type="text" name="code" class="form-control" value="{{ old('code', $subject->code) }}" required>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label for="name" class="font-weight-bold">ชื่อรายวิชา</label>
-                                                        <input type="text" name="name" class="form-control" value="{{ old('name', $subject->name) }}" required>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary font-weight-bold" data-dismiss="modal">ยกเลิก</button>
-                                                    <button type="submit" class="btn btn-warning text-white font-weight-bold">บันทึกการแก้ไข</button>
-                                                </div>
-                                            </form>
                                         </div>
+                                        <form action="{{ route('admin.subjects.update', $subject->id) }}" method="post">
+                                            @csrf
+                                            @method('put')
+                                            <div class="modal-body">
+                                                <div class="form-group">
+                                                    <label for="code" class="font-weight-bold">รหัสวิชา</label>
+                                                    <input type="text" name="code" class="form-control" value="{{ old('code', $subject->code) }}" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="name" class="font-weight-bold">ชื่อรายวิชา</label>
+                                                    <input type="text" name="name" class="form-control" value="{{ old('name', $subject->name) }}" required>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary font-weight-bold" data-dismiss="modal">ยกเลิก</button>
+                                                <button type="submit" class="btn btn-warning text-white font-weight-bold">บันทึกการแก้ไข</button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
-                                @endif
-                            @empty
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted py-4">ไม่มีข้อมูลรายวิชาในระบบ</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            @endif
+                            </div>
+                            @endif
+                        @empty
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">ไม่มีข้อมูลรายวิชาในระบบ</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

@@ -1,11 +1,11 @@
 @extends('adminlte::page')
-@title('แก้ไขข้อมูลนักศึกษา - ' . $user->name)
+@section('title', 'แก้ไขข้อมูล' . ($user->isStudent() ? 'นักศึกษา' : ($user->isTeacher() ? 'อาจารย์' : 'ผู้ดูแลระบบ')) . ' - ' . $user->name)
 
 @section('content_header')
     <div class="d-flex justify-content-between align-items-center">
-        <h1 class="text-dark font-weight-bold">แก้ไขข้อมูลนักศึกษา</h1>
-        <a href="{{ route('admin.users.index', ['role' => 'student']) }}" class="btn btn-secondary font-weight-bold shadow-sm">
-            <i class="fas fa-arrow-left mr-2"></i>กลับรายชื่อนักศึกษา
+        <h1 class="text-dark font-weight-bold">แก้ไขข้อมูล{{ $user->isStudent() ? 'นักศึกษา' : ($user->isTeacher() ? 'อาจารย์' : 'ผู้ดูแลระบบ') }}</h1>
+        <a href="{{ route('admin.users.index', ['role' => $user->isStudent() ? 'student' : 'staff']) }}" class="btn btn-secondary font-weight-bold shadow-sm">
+            <i class="fas fa-arrow-left mr-2"></i>กลับรายชื่อ{{ $user->isStudent() ? 'นักศึกษา' : 'อาจารย์/ผู้ดูแล' }}
         </a>
     </div>
 @stop
@@ -25,7 +25,7 @@
 <div class="card shadow mt-3">
             <div class="card-header">
                 <h3 class="card-title font-weight-bold text-dark">
-                    <i class="fas fa-user-graduate mr-2"></i>ข้อมูลนักศึกษา: {{ $user->name }}
+                    <i class="fas {{ $user->isStudent() ? 'fa-user-graduate' : ($user->isTeacher() ? 'fa-user-tie' : 'fa-user-shield') }} mr-2"></i>ข้อมูล: {{ $user->name }}
                 </h3>
             </div>
             <form action="{{ route('admin.users.update', $user->id) }}" method="POST" enctype="multipart/form-data">
@@ -53,12 +53,12 @@
                                 @if($user->photo)
                                     <img id="photo-preview"
                                          src="{{ asset('storage/' . $user->photo) }}"
-                                         class="rounded-circle shadow"
+                                         class="rounded-circle"
                                          style="width:160px;height:160px;object-fit:cover;border:3px solid #ffc107;">
                                 @else
                                     <img id="photo-preview"
                                          src="{{ asset('images/default-avatar.png') }}"
-                                         class="rounded-circle shadow"
+                                         class="rounded-circle"
                                          style="width:160px;height:160px;object-fit:cover;border:3px solid #dee2e6;">
                                 @endif
                             </div>
@@ -121,10 +121,42 @@
                                 {{-- Staff (admin/teacher) fields --}}
                                 <div class="form-group">
                                     <label class="font-weight-bold">ประเภทบทบาท <span class="text-danger">*</span></label>
-                                    <select name="role" class="form-control" required>
+                                    <select name="role" id="role-select-edit" class="form-control" required>
                                         <option value="teacher" {{ old('role', $user->role) === 'teacher' ? 'selected' : '' }}>อาจารย์ (Teacher)</option>
                                         <option value="admin" {{ old('role', $user->role) === 'admin' ? 'selected' : '' }}>ผู้ดูแลระบบ (Admin)</option>
                                     </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="font-weight-bold">หมวดวิชา / แผนกวิชา</label>
+                                    <select name="department_id" class="form-control @error('department_id') is-invalid @enderror">
+                                        <option value="">-- ไม่ระบุหมวดวิชา / แผนกวิชา --</option>
+                                        @foreach($departments as $dept)
+                                            <option value="{{ $dept->id }}" {{ old('department_id', $user->department_id) == $dept->id ? 'selected' : '' }}>
+                                                {{ $dept->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('department_id')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                                </div>
+                                <div class="form-group" id="academic-role-group-edit">
+                                    <label class="font-weight-bold d-block">ตำแหน่ง / บทบาทหน้าที่เสริม <span class="text-muted font-weight-normal text-xs">(สามารถเลือกได้มากกว่า 1 ตำแหน่ง)</span></label>
+                                    <div class="d-flex flex-wrap" style="gap: 15px;">
+                                        <div class="custom-control custom-checkbox">
+                                            <input type="checkbox" class="custom-control-input" id="role_academic_deputy" name="academic_roles[]" value="academic_deputy" 
+                                                   {{ (is_array(old('academic_roles', $user->academic_roles)) && in_array('academic_deputy', old('academic_roles', $user->academic_roles))) ? 'checked' : '' }}>
+                                            <label class="custom-control-label font-weight-normal" for="role_academic_deputy">รองผู้อำนวยการฝ่ายวิชาการ</label>
+                                        </div>
+                                        <div class="custom-control custom-checkbox">
+                                            <input type="checkbox" class="custom-control-input" id="role_evaluation_head" name="academic_roles[]" value="evaluation_head" 
+                                                   {{ (is_array(old('academic_roles', $user->academic_roles)) && in_array('evaluation_head', old('academic_roles', $user->academic_roles))) ? 'checked' : '' }}>
+                                            <label class="custom-control-label font-weight-normal" for="role_evaluation_head">หัวหน้างานวัดและประเมินผล</label>
+                                        </div>
+                                        <div class="custom-control custom-checkbox">
+                                            <input type="checkbox" class="custom-control-input" id="role_department_head" name="academic_roles[]" value="department_head" 
+                                                   {{ (is_array(old('academic_roles', $user->academic_roles)) && in_array('department_head', old('academic_roles', $user->academic_roles))) ? 'checked' : '' }}>
+                                            <label class="custom-control-label font-weight-normal" for="role_department_head">หัวหน้าสาขา</label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="font-weight-bold">รหัสประจำตัวครู <span class="text-danger">*</span></label>
@@ -152,15 +184,13 @@
                 <div class="card-footer d-flex justify-content-between">
                     <div>
                         {{-- Delete user button (triggers outside form) --}}
-                        @if(auth()->id() !== $user->id)
-                            <button type="button" id="btn-delete-user" class="btn btn-danger font-weight-bold"
-                                    data-text="คุณแน่ใจหรือไม่ที่จะลบ {{ $user->name }}? ประวัติการสอบทั้งหมดจะถูกลบไปด้วย!">
-                                <i class="fas fa-trash mr-1"></i>ลบนักศึกษา
-                            </button>
-                        @endif
+                        <button type="button" id="btn-delete-user" class="btn btn-danger font-weight-bold"
+                                data-text="คุณแน่ใจหรือไม่ที่จะลบ {{ $user->name }}? {{ auth()->id() === $user->id ? '(หากลบบัญชีที่กำลังใช้งานอยู่ ระบบจะทำการออกจากระบบทันที)' : ($user->isStudent() ? 'ประวัติการสอบทั้งหมดจะถูกลบไปด้วย!' : '') }}">
+                            <i class="fas fa-trash mr-1"></i>ลบ{{ $user->isStudent() ? 'นักศึกษา' : 'ผู้ใช้งาน' }}
+                        </button>
                     </div>
                     <div>
-                        <a href="{{ route('admin.users.index', ['role' => 'student']) }}" class="btn btn-secondary font-weight-bold mr-2">
+                        <a href="{{ route('admin.users.index', ['role' => $user->isStudent() ? 'student' : 'staff']) }}" class="btn btn-secondary font-weight-bold mr-2">
                             <i class="fas fa-times mr-1"></i>ยกเลิก
                         </a>
                         <button type="submit" class="btn btn-warning text-white font-weight-bold">
@@ -191,15 +221,18 @@
 @section('js')
 <script>
     // Photo preview on file change
-    document.getElementById('photo-input').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            document.getElementById('photo-preview').src = ev.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
+    var photoInput = document.getElementById('photo-input');
+    if (photoInput) {
+        photoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                document.getElementById('photo-preview').src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 
     @if(session('success'))
     Swal.fire({
@@ -224,44 +257,48 @@
     @endif
     // Delete photo button
     @if($user->photo)
-    document.getElementById('btn-delete-photo').addEventListener('click', function() {
-        Swal.fire({
-            title: 'ลบรูปภาพ?',
-            text: 'ต้องการลบรูปภาพของนักศึกษาคนนี้ใช่ไหม?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'ใช่, ลบเลย!',
-            cancelButtonText: 'ยกเลิก'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                document.getElementById('delete-photo-form').submit();
-            }
+    var btnDeletePhoto = document.getElementById('btn-delete-photo');
+    if (btnDeletePhoto) {
+        btnDeletePhoto.addEventListener('click', function() {
+            Swal.fire({
+                title: 'ลบรูปภาพ?',
+                text: 'ต้องการลบรูปภาพของผู้ใช้งานคนนี้ใช่ไหม?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'ใช่, ลบเลย!',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('delete-photo-form').submit();
+                }
+            });
         });
-    });
+    }
     @endif
 
     // Delete user button
-    @if(auth()->id() !== $user->id)
-    document.getElementById('btn-delete-user').addEventListener('click', function() {
-        var text = this.getAttribute('data-text') || 'ข้อมูลนี้จะถูกลบและไม่สามารถกู้คืนได้!';
-        Swal.fire({
-            title: 'คุณแน่ใจหรือไม่?',
-            text: text,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'ใช่, ต้องการลบ!',
-            cancelButtonText: 'ยกเลิก'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                document.getElementById('delete-user-form').submit();
-            }
+    var btnDeleteUser = document.getElementById('btn-delete-user');
+    if (btnDeleteUser) {
+        btnDeleteUser.addEventListener('click', function() {
+            var text = this.getAttribute('data-text') || 'ข้อมูลนี้จะถูกลบและไม่สามารถกู้คืนได้!';
+            Swal.fire({
+                title: 'คุณแน่ใจหรือไม่?',
+                text: text,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'ใช่, ต้องการลบ!',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('delete-user-form').submit();
+                }
+            });
         });
-    });
-    @endif
+    }
 </script>
 @stop
 

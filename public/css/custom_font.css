@@ -64,6 +64,22 @@ body:not(.sidebar-collapse) .nav-sidebar .nav-treeview > .nav-item > .nav-link {
     color: #007bff !important;
 }
 
+/* Remove gray background from parent menus of submenus (treeview headers) */
+.nav-sidebar .has-treeview > .nav-link,
+.nav-sidebar .has-treeview.menu-open > .nav-link,
+[class*="sidebar-light-"] .nav-sidebar > .nav-item.has-treeview > .nav-link,
+[class*="sidebar-light-"] .nav-sidebar > .nav-item.has-treeview.menu-open > .nav-link {
+    background-color: transparent !important;
+    color: #343a40 !important;
+    box-shadow: none !important;
+}
+
+.nav-sidebar .has-treeview > .nav-link:hover,
+[class*="sidebar-light-"] .nav-sidebar > .nav-item.has-treeview > .nav-link:hover {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+    color: #212529 !important;
+}
+
 #navbar-clock {
     cursor: default !important;
     pointer-events: none;

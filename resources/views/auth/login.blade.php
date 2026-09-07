@@ -1,5 +1,7 @@
 @extends('adminlte::master')
 
+@section('title', 'ระบบบริหารจัดการสอบ วิทยาลัยเทคโนโลยีศรีราชา')
+
 @section('adminlte_css')
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
@@ -15,22 +17,47 @@
             -webkit-overflow-scrolling: auto;
         }
         body.login-page {
-            background: url('{{ asset('images/bg.jpg') }}') no-repeat center center fixed !important;
-            background-size: cover !important;
             display: flex;
             align-items: center;
             justify-content: center;
+            background-color: #0a192f !important;
         }
-        body.login-page::before {
-            content: '';
+        /* Fixed background image container for mobile (iOS/Android) and desktop */
+        .login-bg-image {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(10, 25, 47, 0.55);
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background-image: url('{{ asset('images/bg.jpg') }}');
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: cover;
             z-index: 0;
+            pointer-events: none;
+            -webkit-transform: translate3d(0, 0, 0);
+            transform: translate3d(0, 0, 0);
+        }
+        /* Dark overlay for contrast and glassmorphism effect */
+        .login-bg-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: rgba(10, 25, 47, 0.55);
+            z-index: 1;
+            pointer-events: none;
         }
         .login-box {
             position: relative;
-            z-index: 1;
+            z-index: 2;
             width: 430px;
             max-width: 92%;
             /* Allow internal scroll if content is taller than screen (small devices) */
@@ -121,6 +148,10 @@
 @section('classes_body', 'login-page')
 
 @section('body')
+    <!-- Background image and dark overlay for both desktop and mobile -->
+    <div class="login-bg-image"></div>
+    <div class="login-bg-overlay"></div>
+
     <div class="login-box">
         <!-- Glassmorphism Card -->
         <div class="card glass-card border-0 py-2">

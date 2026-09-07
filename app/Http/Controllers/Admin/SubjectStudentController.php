@@ -10,52 +10,80 @@ use Illuminate\Http\Request;
 
 class SubjectStudentController extends Controller
 {
-    public function index(Subject $subject)
+    public function index(Request $request, Subject $subject)
     {
         $this->authorizeSubject($subject);
-        $enrolledStudents = $subject->students()->with('classroom')->orderBy('name')->get();
-        $classrooms = Classroom::orderBy('name')->get();
-        
-        $availableStudents = User::where('role', 'student')
-            ->whereNotIn('id', $enrolledStudents->pluck('id'))
-            ->with('classroom')
-            ->orderBy('name')
-            ->get();
+        $selectedClassroomId = $request->get('classroom_id');
 
-        return view('admin.subjects.students', compact('subject', 'enrolledStudents', 'classrooms', 'availableStudents'));
+        if ($selectedClassroomId) {
+            $selectedClassroom = Classroom::findOrFail($selectedClassroomId);
+            $students = $subject->students()
+                ->where('classroom_id', $selectedClassroom->id)
+                ->orderBy('student_code', 'asc')
+                ->get();
+
+            return view('admin.subjects.students', compact('subject', 'selectedClassroom', 'students'));
+        }
+
+        // List classrooms enrolled in this subject
+        $enrolledClassrooms = Classroom::whereHas('users', function($q) use ($subject) {
+            $q->whereHas('enrolledSubjects', function($sq) use ($subject) {
+                $sq->where('subjects.id', $subject->id);
+            });
+        })->withCount(['users as subject_students_count' => function($q) use ($subject) {
+            $q->where('role', 'student')
+              ->whereHas('enrolledSubjects', function($sq) use ($subject) {
+                  $sq->where('subjects.id', $subject->id);
+              });
+        }])->orderBy('name')->get();
+
+        $allClassrooms = Classroom::withCount(['users as users_count' => function($q) {
+            $q->where('role', 'student');
+        }])->orderBy('name')->get();
+        $totalStudentsCount = $subject->students()->count();
+
+        return view('admin.subjects.students', compact('subject', 'enrolledClassrooms', 'allClassrooms', 'totalStudentsCount'));
     }
 
     public function store(Request $request, Subject $subject)
     {
         $this->authorizeSubject($subject);
-        $request->validate([
-            'enroll_type' => ['required', 'string', 'in:classroom,individual'],
-            'classroom_id' => ['required_if:enroll_type,classroom', 'nullable', 'exists:classrooms,id'],
-            'student_ids' => ['required_if:enroll_type,individual', 'nullable', 'array'],
-            'student_ids.*' => ['exists:users,id'],
-        ], [
-            'classroom_id.required_if' => 'กรุณาเลือกห้องเรียน',
-            'student_ids.required_if' => 'กรุณาเลือกนักศึกษาอย่างน้อย 1 คน',
-        ]);
 
-        if ($request->enroll_type === 'classroom') {
-            $studentIds = User::where('role', 'student')
-                ->where('classroom_id', $request->classroom_id)
-                ->pluck('id')
-                ->toArray();
-
-            if (empty($studentIds)) {
-                return redirect()->back()->withErrors(['error' => 'ไม่พบนักศึกษาในห้องเรียนที่เลือก']);
-            }
-
-            $subject->students()->syncWithoutDetaching($studentIds);
-            
-            $classroom = Classroom::find($request->classroom_id);
-            return redirect()->back()->with('success', "เพิ่มนักศึกษาจากห้อง {$classroom->name} เข้าร่วมรายวิชาเรียบร้อยแล้ว");
-        } else {
-            $subject->students()->syncWithoutDetaching($request->student_ids);
-            return redirect()->back()->with('success', 'เพิ่มนักศึกษาเข้าร่วมรายวิชาเรียบร้อยแล้ว');
+        $classroomIds = $request->input('classroom_ids');
+        if (empty($classroomIds) && $request->filled('classroom_id')) {
+            $classroomIds = [$request->input('classroom_id')];
         }
+
+        if (empty($classroomIds) || !is_array($classroomIds)) {
+            return redirect()->back()->withErrors(['classroom_ids' => 'กรุณาเลือกห้องเรียน / ระดับชั้นอย่างน้อย 1 ห้อง']);
+        }
+
+        $classrooms = Classroom::whereIn('id', $classroomIds)->get();
+        if ($classrooms->isEmpty()) {
+            return redirect()->back()->withErrors(['classroom_ids' => 'ไม่พบห้องเรียนที่เลือกในระบบ']);
+        }
+
+        $studentIds = User::where('role', 'student')
+            ->whereIn('classroom_id', $classrooms->pluck('id'))
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($studentIds)) {
+            return redirect()->back()->withErrors(['error' => 'ไม่พบนักศึกษาในห้องเรียนที่เลือก']);
+        }
+
+        $subject->students()->syncWithoutDetaching($studentIds);
+
+        $classroomNames = $classrooms->pluck('name')->implode(', ');
+        $roomCount = $classrooms->count();
+        $studentCount = count($studentIds);
+
+        $msg = $roomCount === 1
+            ? "เพิ่มห้องเรียน {$classroomNames} เข้าร่วมรายวิชาเรียบร้อยแล้ว ({$studentCount} คน)"
+            : "เพิ่มห้องเรียนจำนวน {$roomCount} ห้อง ({$classroomNames}) เข้าร่วมรายวิชาเรียบร้อยแล้ว (รวม {$studentCount} คน)";
+
+        return redirect()->route('admin.subjects.students.index', $subject->id)
+            ->with('success', $msg);
     }
 
     public function destroy(Subject $subject, User $student)
@@ -63,6 +91,20 @@ class SubjectStudentController extends Controller
         $this->authorizeSubject($subject);
         $subject->students()->detach($student->id);
         return redirect()->back()->with('success', 'นำนักศึกษาออกจากรายวิชาเรียบร้อยแล้ว');
+    }
+
+    public function destroyClassroom(Subject $subject, Classroom $classroom)
+    {
+        $this->authorizeSubject($subject);
+        $studentIds = User::where('classroom_id', $classroom->id)
+            ->where('role', 'student')
+            ->pluck('id')
+            ->toArray();
+
+        $subject->students()->detach($studentIds);
+
+        return redirect()->route('admin.subjects.students.index', $subject->id)
+            ->with('success', "นำห้องเรียน {$classroom->name} และนักศึกษาทั้งหมดออกจากรายวิชาเรียบร้อยแล้ว");
     }
 
     public function bulkDestroy(Request $request, Subject $subject)

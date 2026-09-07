@@ -3,15 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 
-#[Fillable(['exam_attempt_id', 'question_id', 'choice_id', 'answer_text', 'is_correct'])]
 class StudentAnswer extends Model
 {
+    protected $fillable = ['exam_attempt_id', 'question_id', 'choice_id', 'answer_text', 'is_correct', 'score_awarded', 'teacher_feedback'];
     protected function casts(): array
     {
         return [
             'is_correct' => 'boolean',
+            'score_awarded' => 'float',
         ];
     }
 

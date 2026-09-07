@@ -4,34 +4,31 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subject;
+use App\Models\Department;
 use Illuminate\Http\Request;
 
 class SubjectController extends Controller
 {
     public function index(Request $request)
     {
-        $searchPerformed = false;
-        $subjects = collect();
         $user = auth()->user();
 
-        if ($user->isTeacher() || $request->has('search')) {
-            $searchPerformed = true;
-            $query = $user->isAdmin()
-                ? Subject::query()
-                : $user->enrolledSubjects();
+        $query = $user->isAdmin()
+            ? Subject::query()
+            : $user->enrolledSubjects();
 
-            if ($request->filled('q')) {
-                $q = $request->get('q');
-                $query->where(function($query) use ($q) {
-                    $query->where('code', 'like', "%{$q}%")
-                          ->orWhere('name', 'like', "%{$q}%");
-                });
-            }
-
-            $subjects = $query->with(['teachers'])->withCount('students')->orderBy('code')->get();
+        if ($request->filled('q')) {
+            $q = $request->get('q');
+            $query->where(function($query) use ($q) {
+                $query->where('code', 'like', "%{$q}%")
+                      ->orWhere('name', 'like', "%{$q}%");
+            });
         }
 
-        return view('admin.subjects.index', compact('subjects', 'searchPerformed'));
+        $subjects = $query->with(['teachers', 'department'])->withCount('students')->orderBy('code')->get();
+        $departments = Department::orderBy('name')->get();
+
+        return view('admin.subjects.index', compact('subjects', 'departments'));
     }
 
     public function store(Request $request)
@@ -39,13 +36,21 @@ class SubjectController extends Controller
         $request->validate([
             'code' => ['required', 'string', 'max:50', 'unique:subjects,code'],
             'name' => ['required', 'string', 'max:255'],
+            'department_id' => ['nullable', 'exists:departments,id'],
         ], [
             'code.unique' => 'รหัสวิชานี้มีอยู่ในระบบแล้ว',
         ]);
 
-        $subject = Subject::create($request->only('code', 'name'));
+        $data = $request->only('code', 'name', 'department_id');
 
-        if (auth()->user()->isTeacher()) {
+        // If department_id was not explicitly specified, auto-assign from the creating teacher/staff's department
+        if (empty($data['department_id']) && auth()->user()->department_id) {
+            $data['department_id'] = auth()->user()->department_id;
+        }
+
+        $subject = Subject::create($data);
+
+        if (auth()->user()->isStaff()) {
             $subject->teachers()->attach(auth()->id());
         }
 
@@ -65,19 +70,24 @@ class SubjectController extends Controller
         $request->validate([
             'code' => ['required', 'string', 'max:50', 'unique:subjects,code,' . $subject->id],
             'name' => ['required', 'string', 'max:255'],
+            'department_id' => ['nullable', 'exists:departments,id'],
         ], [
             'code.unique' => 'รหัสวิชานี้มีอยู่ในระบบแล้ว',
         ]);
 
-        $subject->update($request->only('code', 'name'));
+        $subject->update($request->only('code', 'name', 'department_id'));
 
         return redirect()->route('admin.subjects.index')->with('success', 'อัปเดตข้อมูลรายวิชาเรียบร้อยแล้ว');
     }
 
     public function destroy(Subject $subject)
     {
-        if (!auth()->user()->isAdmin()) {
-            abort(403, 'เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถลบรายวิชาได้');
+        $user = auth()->user();
+        if (!$user->isAdmin()) {
+            $teaches = $user->enrolledSubjects()->where('subject_id', $subject->id)->exists();
+            if (!$teaches) {
+                abort(403, 'คุณไม่มีสิทธิ์ลบรายวิชานี้');
+            }
         }
 
         $subject->delete();

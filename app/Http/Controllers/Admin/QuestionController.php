@@ -54,6 +54,7 @@ class QuestionController extends Controller
     public function store(Request $request, Exam $exam)
     {
         $this->authorizeExam($exam);
+        $this->authorizeExamEditable($exam);
         
         $rules = [
             'question_text' => ['required', 'string'],
@@ -132,6 +133,7 @@ class QuestionController extends Controller
     public function update(Request $request, Exam $exam, Question $question)
     {
         $this->authorizeExam($exam);
+        $this->authorizeExamEditable($exam);
         
         $rules = [
             'question_text' => ['required', 'string'],
@@ -204,6 +206,7 @@ class QuestionController extends Controller
     public function destroy(Request $request, Exam $exam, Question $question)
     {
         $this->authorizeExam($exam);
+        $this->authorizeExamEditable($exam);
         $question->delete();
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -220,19 +223,37 @@ class QuestionController extends Controller
     public function recalculateScores(Exam $exam)
     {
         $this->authorizeExam($exam);
+        $this->authorizeExamEditable($exam);
         $questionsCount = Question::where('exam_id', $exam->id)->count();
 
         if ($questionsCount === 0) {
             return redirect()->back()->withErrors(['error' => 'ไม่สามารถคำนวณคะแนนได้เนื่องจากยังไม่มีคำถามในข้อสอบนี้']);
         }
 
-        $scorePerQuestion = $exam->total_score / $questionsCount;
-        $scorePerQuestion = round($scorePerQuestion, 2);
+        $rawScorePerQuestion = $exam->total_score / $questionsCount;
+        $roundedScore = round($rawScorePerQuestion, 2);
+        $isCleanDivision = abs(($roundedScore * $questionsCount) - (float)$exam->total_score) < 0.001;
 
-        Question::where('exam_id', $exam->id)->update(['score' => $scorePerQuestion]);
+        if ($isCleanDivision) {
+            Question::where('exam_id', $exam->id)->update(['score' => $roundedScore]);
+            $title = "คำนวณคะแนนต่อข้อเรียบร้อย";
+            $msg = "คำนวณคะแนนต่อข้อให้อัตโนมัติเรียบร้อยแล้ว (ข้อละ {$roundedScore} คะแนน จากคะแนนรวม {$exam->total_score} คะแนน จำนวนทั้งหมด {$questionsCount} ข้อ)";
+            $icon = "success";
+        } else {
+            // Set 1.0 raw point per question so proportional scaling can convert accurately
+            Question::where('exam_id', $exam->id)->update(['score' => 1.0]);
+            $title = "การคำนวณคะแนนตามสัดส่วน (Proportional Scaling)";
+            $msg = "เนื่องจากคะแนนเต็ม ({$exam->total_score}) หารจำนวนข้อ ({$questionsCount} ข้อ) ไม่ลงตัว ระบบจึงกำหนดคะแนนคำถามทุกข้อเป็น 1.0 คะแนนดิบ (รวม {$questionsCount} คะแนนดิบ) โดยระบบจะคำนวณแปลงสัดส่วนคะแนนเป็น {$exam->total_score} คะแนนให้อัตโนมัติเมื่อนักเรียนส่งข้อสอบ";
+            $icon = "info";
+        }
 
         return redirect()->route('admin.exams.questions.index', $exam->id)
-            ->with('success', "คำนวณคะแนนต่อข้อให้อัตโนมัติเรียบร้อยแล้ว (ข้อละ {$scorePerQuestion} คะแนน จากคะแนนรวม {$exam->total_score} คะแนน จำนวนทั้งหมด {$questionsCount} ข้อ)");
+            ->with('recalculate_info', [
+                'title' => $title,
+                'message' => $msg,
+                'icon' => $icon,
+            ])
+            ->with('success', $msg);
     }
 
     public function uploadImage(Request $request)
@@ -264,6 +285,17 @@ class QuestionController extends Controller
         $teaches = $user->enrolledSubjects()->where('subject_id', $exam->subject_id)->exists();
         if (!$teaches) {
             abort(403, 'คุณไม่มีสิทธิ์จัดการคำถามสำหรับข้อสอบในวิชานี้');
+        }
+    }
+
+    private function authorizeExamEditable(Exam $exam)
+    {
+        $user = auth()->user();
+        if ($user->isAdmin()) {
+            return;
+        }
+        if (!$exam->canBeEdited()) {
+            abort(403, 'ข้อสอบนี้อยู่ระหว่างรอการอนุมัติหรือได้รับการอนุมัติแล้ว ไม่สามารถแก้ไขได้ หากต้องการแก้ไขกรุณาดึงข้อสอบกลับมาเป็นฉบับร่างก่อน');
         }
     }
 }

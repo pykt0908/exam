@@ -3,11 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 
-#[Fillable(['exam_id', 'exam_section_id', 'type', 'question_text', 'question_image', 'score', 'essay_answer'])]
 class Question extends Model
 {
+    protected $fillable = ['exam_id', 'exam_section_id', 'type', 'question_text', 'question_image', 'score', 'essay_answer'];
     protected function casts(): array
     {
         return [
