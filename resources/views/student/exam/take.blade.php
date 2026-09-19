@@ -2,6 +2,17 @@
 
 @section('title', 'กำลังทำข้อสอบ')
 
+@section('meta_tags')
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'STC Exam') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicons/apple-icon-180x180.png') }}">
+    <link rel="manifest" href="{{ asset('favicons/manifest.json') }}">
+@stop
+
 @section('content_header')
     <div>
         <!-- <-h1 class="text-dark font-weightbold">กำลังทำข้อสอบ</h1> -->
@@ -47,13 +58,34 @@
 
     @if($hasSections)
     {{-- ===== SECTION-BY-SECTION MODE ===== --}}
-    <div id="section-progress-bar" class="mb-3">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-            <small class="text-muted font-weight-bold" id="section-progress-label">ตอนที่ 1 / {{ $sectionCount }}</small>
-            <small class="text-muted" id="section-progress-pct">0%</small>
-        </div>
-        <div class="progress" style="height:5px; border-radius:3px;">
-            <div class="progress-bar bg-info" id="section-progress-fill" style="width:0%; transition: width 0.4s ease;"></div>
+    <div class="card shadow-sm border-0 mb-4 bg-white" style="border-radius: 12px;">
+        <div class="card-body p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                <div class="d-flex flex-wrap align-items-center section-tabs-container">
+                    @foreach($sections as $sId => $sQuestions)
+                    @php
+                        $sIndex  = array_search($sId, $sectionIds);
+                        $sFirst  = $sQuestions->first();
+                        $sTitle  = $sFirst && $sFirst->examSection ? $sFirst->examSection->title : 'ตอนที่ ' . ($sIndex + 1);
+                        $sCount  = $sQuestions->count();
+                    @endphp
+                    <button type="button"
+                            class="btn btn-sm btn-section-tab {{ $sIndex === 0 ? 'btn-primary' : 'btn-outline-secondary bg-white' }} font-weight-bold px-3 py-2 mr-2 mb-1 shadow-xs"
+                            data-section-index="{{ $sIndex }}"
+                            style="border-radius: 8px;">
+                        <i class="fas fa-layer-group mr-1"></i> {{ $sTitle }}
+                        <span class="badge {{ $sIndex === 0 ? 'badge-light text-primary' : 'badge-secondary' }} ml-1">{{ $sCount }} ข้อ</span>
+                    </button>
+                    @endforeach
+                </div>
+                <div class="text-right">
+                    <small class="text-muted font-weight-bold" id="section-progress-label">ตอนที่ 1 / {{ $sectionCount }}</small>
+                    <small class="text-primary font-weight-bold ml-1" id="section-progress-pct">0%</small>
+                </div>
+            </div>
+            <div class="progress" style="height:6px; border-radius:4px;">
+                <div class="progress-bar bg-info" id="section-progress-fill" style="width:0%; transition: width 0.4s ease;"></div>
+            </div>
         </div>
     </div>
 
@@ -101,7 +133,7 @@
                               class="form-control exam-textarea"
                               rows="4"
                               placeholder="กรอกคำตอบของคุณที่นี่..."
-                              style="font-size:0.95rem;padding:9px 12px;border-radius:8px;">{{ $savedTextAnswers[$question->id] ?? '' }}</textarea>
+                              style="font-size:16px;padding:9px 12px;border-radius:8px;">{{ $savedTextAnswers[$question->id] ?? '' }}</textarea>
                 </div>
                 @else
                 <div class="row">
@@ -131,19 +163,31 @@
         @endforeach
 
         {{-- Section footer action --}}
-        <div class="d-flex justify-content-end mt-4 mb-5">
-            @if(!$isLast)
-            <button type="button" class="btn btn-info btn-next-section font-weight-bold px-5 py-2 shadow-sm"
-                    data-section-id="{{ $sectId ?? 'null' }}"
-                    data-section-title="{{ $sectTitle }}"
-                    data-next-index="{{ $sectionIndex + 1 }}">
-                ส่วนถัดไป <i class="fas fa-chevron-right ml-2"></i>
-            </button>
-            @else
-            <button type="submit" class="btn btn-primary font-weight-bold px-5 py-2 shadow-sm">
-                <i class="fas fa-paper-plane mr-2"></i> ส่งข้อสอบ
-            </button>
-            @endif
+        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-4 mb-5 pt-3 border-top gap-2">
+            <div class="mb-2 mb-sm-0 w-100 w-sm-auto text-left">
+                @if(!$isFirst)
+                <button type="button" class="btn btn-outline-secondary btn-prev-section font-weight-bold px-4 py-2 shadow-xs"
+                        data-target-index="{{ $sectionIndex - 1 }}"
+                        style="border-radius: 8px;">
+                    <i class="fas fa-arrow-left mr-2"></i> ย้อนกลับไปตอนก่อนหน้า
+                </button>
+                @endif
+            </div>
+
+            <div class="w-100 w-sm-auto text-right">
+                @if(!$isLast)
+                <button type="button" class="btn btn-primary btn-next-section font-weight-bold px-5 py-2 shadow-sm"
+                        data-target-index="{{ $sectionIndex + 1 }}"
+                        style="border-radius: 8px;">
+                    ทำตอนถัดไป <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+                @else
+                <button type="submit" class="btn btn-success font-weight-bold px-5 py-2 shadow-sm"
+                        style="border-radius: 8px;">
+                    <i class="fas fa-paper-plane mr-2"></i> ส่งข้อสอบ
+                </button>
+                @endif
+            </div>
         </div>
     </div>
     @endforeach
@@ -170,7 +214,7 @@
                           class="form-control exam-textarea"
                           rows="4"
                           placeholder="กรอกคำตอบของคุณที่นี่..."
-                          style="font-size:0.95rem;padding:9px 12px;border-radius:8px;">{{ $savedTextAnswers[$question->id] ?? '' }}</textarea>
+                          style="font-size:16px;padding:9px 12px;border-radius:8px;">{{ $savedTextAnswers[$question->id] ?? '' }}</textarea>
             </div>
             @else
             <div class="row">
@@ -235,7 +279,11 @@
                     $nIndex = array_search($nSectId, $sectionIds);
                 @endphp
                 <div class="mt-2 mb-1 font-weight-bold text-dark text-xs nav-section-group"
-                     data-nav-section-index="{{ $nIndex }}">{{ $nTitle }}</div>
+                     data-nav-section-index="{{ $nIndex }}"
+                     style="cursor: pointer;"
+                     title="คลิกเพื่อสลับไปยังตอนนี้">
+                    <i class="fas fa-layer-group text-info mr-1"></i> {{ $nTitle }}
+                </div>
                 <div class="nav-buttons-container mb-2 nav-section-btns"
                      data-nav-section-index="{{ $nIndex }}">
                     @foreach($nSectQuestions as $q)
@@ -268,41 +316,38 @@
 
     </div>{{-- end row --}}
 </form>
-
-{{-- ===== Section Score Modal ===== --}}
-<div class="modal fade" id="sectionScoreModal" tabindex="-1" data-backdrop="static" data-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius:16px;overflow:hidden;">
-            <div class="modal-body text-center p-5">
-                <div class="mb-3">
-                    <i class="fas fa-check-circle text-success" style="font-size:3rem;"></i>
-                </div>
-                <h4 class="font-weight-bold text-dark mb-1" id="modal-section-title">สิ้นสุดตอน</h4>
-                <p class="text-muted mb-4" id="modal-section-answered"></p>
-
-                <div class="p-3 mb-4 rounded" style="background:#f0fdf4;border:2px solid #bbf7d0;">
-                    <div class="text-muted text-sm mb-1">คะแนนที่ได้ในตอนนี้</div>
-                    <div class="font-weight-bold" style="font-size:2rem;color:#16a34a;" id="modal-score-display">—</div>
-                </div>
-
-                <button type="button" class="btn btn-info btn-block font-weight-bold py-2 shadow-sm" id="modal-next-btn">
-                    ทำส่วนถัดไป <i class="fas fa-chevron-right ml-2"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 @stop
 
 
 @section('css')
     <style>
-        /* Prevent text selection during exam */
-        body {
+        /* Prevent text selection and mobile viewport zooming during exam */
+        html, body {
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
             user-select: none;
+            touch-action: pan-x pan-y;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+            overscroll-behavior-y: none !important;
+            overscroll-behavior: none !important;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Prevent iPadOS Safari from bounce-scrolling and revealing the URL bar */
+        .wrapper, .content-wrapper, .main-header {
+            overscroll-behavior-y: none !important;
+            overscroll-behavior: none !important;
+        }
+
+        /* Prevent mobile browsers (iOS Safari) from zooming when focusing inputs/textareas */
+        .exam-textarea,
+        textarea,
+        input,
+        select,
+        .form-control {
+            font-size: 16px !important;
         }
 
         /* Hide main sidebar to maximize exam focus */
@@ -497,76 +542,71 @@
             // ====================================================
             var sectionCount = {{ $sectionCount ?? 1 }};
             var hasSections  = {{ ($hasSections ?? false) ? 'true' : 'false' }};
-            var pendingNextIndex = null;
+            var currentSectionIndex = 0;
 
             function updateSectionProgress(currentIndex) {
-                var pct = Math.round(((currentIndex) / sectionCount) * 100);
+                var pct = Math.round(((currentIndex + 1) / sectionCount) * 100);
                 $('#section-progress-fill').css('width', pct + '%');
                 $('#section-progress-pct').text(pct + '%');
                 $('#section-progress-label').text('ตอนที่ ' + (currentIndex + 1) + ' / ' + sectionCount);
             }
 
-            // "ส่วนถัดไป" button click
-            $(document).on('click', '.btn-next-section', function() {
-                var btn        = $(this);
-                var sectionId  = btn.data('section-id');
-                var sectionTitle = btn.data('section-title');
-                var nextIndex  = btn.data('next-index');
+            function advanceToSection(targetIndex) {
+                targetIndex = parseInt(targetIndex);
+                if (isNaN(targetIndex) || targetIndex < 0 || targetIndex >= sectionCount) return;
+                currentSectionIndex = targetIndex;
 
-                pendingNextIndex = nextIndex;
-
-                // Disable button while loading
-                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i> กำลังโหลด...');
-
-                $.ajax({
-                    url: "{{ route('student.exam.sectionScore', $attempt->id) }}",
-                    method: "POST",
-                    data: {
-                        _token: "{{ csrf_token() }}",
-                        section_id: sectionId
-                    },
-                    success: function(res) {
-                        // Populate modal
-                        $('#modal-section-title').text('สิ้นสุด ' + sectionTitle);
-                        $('#modal-section-answered').text('คุณตอบแล้ว ' + res.answered + ' / ' + res.question_count + ' ข้อ');
-                        $('#modal-score-display').text(res.earned + ' / ' + res.total + ' คะแนน');
-                        $('#sectionScoreModal').modal('show');
-                    },
-                    error: function() {
-                        // Even on error, allow proceeding
-                        pendingNextIndex = nextIndex;
-                        advanceToNextSection(nextIndex);
-                        btn.prop('disabled', false).html('ส่วนถัดไป <i class="fas fa-chevron-right ml-2"></i>');
-                    }
-                });
-            });
-
-            // Modal "ทำส่วนถัดไป" button
-            $('#modal-next-btn').on('click', function() {
-                $('#sectionScoreModal').modal('hide');
-                if (pendingNextIndex !== null) {
-                    advanceToNextSection(pendingNextIndex);
-                    pendingNextIndex = null;
-                }
-            });
-
-            function advanceToNextSection(nextIndex) {
                 // Hide all panels, show target
                 var panels = $('.exam-section-panel');
                 panels.addClass('d-none');
-                var $next = panels.filter('[data-section-index="' + nextIndex + '"]');
-                $next.removeClass('d-none');
+                var $targetPanel = panels.filter('[data-section-index="' + targetIndex + '"]');
+                $targetPanel.removeClass('d-none');
+
+                // Update section tabs styling
+                $('.btn-section-tab').removeClass('btn-primary').addClass('btn-outline-secondary bg-white');
+                $('.btn-section-tab .badge').removeClass('badge-light text-primary').addClass('badge-secondary');
+                var $activeTab = $('.btn-section-tab[data-section-index="' + targetIndex + '"]');
+                $activeTab.removeClass('btn-outline-secondary bg-white').addClass('btn-primary');
+                $activeTab.find('.badge').removeClass('badge-secondary').addClass('badge-light text-primary');
 
                 // Update progress bar
-                updateSectionProgress(nextIndex);
+                updateSectionProgress(targetIndex);
 
-                // Scroll to top
-                $('html, body').animate({ scrollTop: 0 }, 350);
-
-                // Re-enable any "next" button
-                $('.btn-next-section').prop('disabled', false)
-                    .html('ส่วนถัดไป <i class="fas fa-chevron-right ml-2"></i>');
+                // Update ScrollSpy active question
+                if (typeof updateActiveQuestionNav === 'function') {
+                    updateActiveQuestionNav();
+                }
             }
+
+            // "ส่วนถัดไป" button click - immediately advance to next section without score modal
+            $(document).on('click', '.btn-next-section', function() {
+                var nextIndex = $(this).data('target-index');
+                advanceToSection(nextIndex);
+                $('html, body').animate({ scrollTop: 0 }, 300);
+            });
+
+            // "ย้อนกลับไปตอนก่อนหน้า" button click
+            $(document).on('click', '.btn-prev-section', function() {
+                var prevIndex = $(this).data('target-index');
+                advanceToSection(prevIndex);
+                $('html, body').animate({ scrollTop: 0 }, 300);
+            });
+
+            // Section tab button click
+            $(document).on('click', '.btn-section-tab', function() {
+                var targetIndex = $(this).data('section-index');
+                advanceToSection(targetIndex);
+                $('html, body').animate({ scrollTop: 0 }, 300);
+            });
+
+            // Navigator section group header click
+            $(document).on('click', '.nav-section-group', function() {
+                var targetIndex = $(this).data('nav-section-index');
+                if (targetIndex !== undefined && targetIndex !== false) {
+                    advanceToSection(targetIndex);
+                    $('html, body').animate({ scrollTop: 0 }, 300);
+                }
+            });
 
             // Init progress on page load
             if (hasSections) {
@@ -770,22 +810,45 @@
                 });
             });
 
-            // Smooth scroll for anchor tags
-            $('a[href^="#"]').on('click', function(e) {
+            // Smooth scroll for anchor tags (with automatic section switching!)
+            $('a[href^="#question-"]').on('click', function(e) {
+                e.preventDefault();
+                var targetId = this.hash;
+                var $target = $(targetId);
+                if (!$target.length) return;
+
+                // If question belongs to another section panel that is currently hidden, show that section first!
+                var $parentPanel = $target.closest('.exam-section-panel');
+                if ($parentPanel.length && $parentPanel.hasClass('d-none')) {
+                    var targetSectionIndex = $parentPanel.data('section-index');
+                    advanceToSection(targetSectionIndex);
+                }
+
+                var offset = $(window).width() < 768 ? 120 : 80;
+                setTimeout(function() {
+                    $('html, body').stop().animate({
+                        'scrollTop': $target.offset().top - offset
+                    }, 400, 'swing');
+                }, 50);
+            });
+
+            // Fallback smooth scroll for other anchor tags
+            $('a[href^="#"]:not([href^="#question-"])').on('click', function(e) {
                 e.preventDefault();
                 var target = this.hash;
                 var $target = $(target);
+                if (!$target.length) return;
                 var offset = $(window).width() < 768 ? 120 : 80;
                 $('html, body').stop().animate({
                     'scrollTop': $target.offset().top - offset
-                }, 500, 'swing');
+                }, 400, 'swing');
             });
 
             // ScrollSpy highlight active question in navigator
             function updateActiveQuestionNav() {
                 var scrollPosition = $(window).scrollTop() + 150; // offset
                 var activeId = null;
-                $('.question-card').each(function() {
+                $('.question-card:visible').each(function() {
                     var card = $(this);
                     var top = card.offset().top;
                     var bottom = top + card.outerHeight();
@@ -850,6 +913,15 @@
             var isWarningOpen = false;
             var lastEscapeReason = '';
             var isWarningModalShown = false;
+
+            // iPad & Standalone PWA detection
+            var isIPad = (/Macintosh/i.test(navigator.userAgent) && (navigator.maxTouchPoints && navigator.maxTouchPoints > 1)) || /iPad/i.test(navigator.userAgent);
+            var isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+            var lastTouchInteractionTime = Date.now();
+
+            function isFullscreenActive() {
+                return !!(document.fullscreenElement || document.webkitFullscreenElement || document.webkitIsFullScreen || document.mozFullScreen || document.msFullscreenElement);
+            }
 
             function enterFullscreen() {
                 var elem = document.documentElement;
@@ -959,6 +1031,7 @@
             var unfocusedDuration = 0;
             var touchFromBottom = false;
             var touchStartTime = 0;
+            var touchStartsAtTop = false;
 
             @if(!empty($wasRefreshed))
                 isWarningOpen = true;
@@ -981,9 +1054,13 @@
                 });
             @elseif($exam->force_fullscreen)
                 // Show fullscreen prompt modal immediately on page load
+                var ipadNoticeHtml = (isIPad && !isStandalone)
+                    ? '<div class="alert alert-info text-left mt-3 py-2 px-3 mb-0" style="font-size: 0.88rem; border-radius: 8px;"><i class="fas fa-tablet-alt mr-1"></i> <b>คำแนะนำสำหรับ iPad:</b> เพื่อการทำข้อสอบแบบเต็มจอ 100% โดยไม่มีแถบ URL รบกวน สามารถกดปุ่มแชร์ใน Safari แล้วเลือก <b>"เพิ่มไปยังหน้าจอโฮม"</b> (Add to Home Screen) หรือแตะปุ่ม <b>aA</b> บนช่อง URL แล้วเลือก <b>"ซ่อนแถบเครื่องมือ"</b> ได้ครับ</div>'
+                    : '';
+
                 Swal.fire({
                     title: 'คำชี้แจงความปลอดภัย',
-                    text: 'ข้อสอบนี้บังคับให้ทำในโหมดเต็มหน้าจอ (Fullscreen) เท่านั้น ห้ามสลับหน้าจอหรือปิดโหมดเต็มหน้าจอเด็ดขาด!',
+                    html: 'ข้อสอบนี้บังคับให้ทำในโหมดเต็มหน้าจอ (Fullscreen) เท่านั้น ห้ามสลับหน้าจอหรือปิดโหมดเต็มหน้าจอเด็ดขาด!' + ipadNoticeHtml,
                     icon: 'warning',
                     confirmButtonText: 'เข้าสู่โหมดเต็มหน้าจอเพื่อเริ่มทำข้อสอบ',
                     allowOutsideClick: false,
@@ -999,8 +1076,13 @@
 
             if (forceFullscreen) {
                 $(document).on('fullscreenchange webkitfullscreenchange mozfullscreenchange MSFullscreenChange', function() {
-                    if (!document.fullscreenElement && !document.webkitIsFullScreen && !document.mozFullScreen && !document.msFullscreenElement) {
+                    if (!isFullscreenActive()) {
                         if (!isSubmitted && !isWarningOpen) {
+                            // If user is on iPad/iOS and was actively scrolling/touching within the last 1500ms while tab is still visible,
+                            // it was caused by Safari's dynamic URL bar gesture rather than an intentional exit
+                            if ((isIPad || /iPhone|iPad|iPod/i.test(navigator.userAgent)) && document.visibilityState === 'visible' && (Date.now() - lastTouchInteractionTime < 1500)) {
+                                return;
+                            }
                             handleFocusEscape('คุณกดยกเลิกโหมดเต็มหน้าจอ!');
                         }
                     }
@@ -1031,10 +1113,17 @@
                     }
                 });
 
-                // 3. iOS App Switcher Gesture Detection (Bottom swipe-up canceled by OS)
+                // 3. iOS App Switcher Gesture Detection & Touch Interaction Tracking
                 window.addEventListener('touchstart', function(e) {
+                    lastTouchInteractionTime = Date.now();
                     if (e.touches && e.touches.length > 0) {
                         var y = e.touches[0].clientY;
+                        // Prevent rubber band pull-down at top edge on iPad Safari
+                        if (y <= 50 && window.scrollY <= 5) {
+                            touchStartsAtTop = true;
+                        } else {
+                            touchStartsAtTop = false;
+                        }
                         // iOS Home indicator zone is bottom ~85px
                         if (y >= window.innerHeight - 85) {
                             touchFromBottom = true;
@@ -1044,6 +1133,15 @@
                         }
                     }
                 }, { passive: true });
+
+                window.addEventListener('touchmove', function(e) {
+                    lastTouchInteractionTime = Date.now();
+                    if (touchStartsAtTop && window.scrollY <= 0 && e.touches && e.touches.length > 0) {
+                        if (e.touches[0].clientY > 50 && e.cancelable) {
+                            e.preventDefault();
+                        }
+                    }
+                }, { passive: false });
 
                 window.addEventListener('touchcancel', function(e) {
                     if (touchFromBottom && (Date.now() - touchStartTime < 3000)) {
@@ -1056,6 +1154,15 @@
 
                 window.addEventListener('touchend', function() {
                     touchFromBottom = false;
+                    touchStartsAtTop = false;
+                    lastTouchInteractionTime = Date.now();
+
+                    // If fullscreen was momentarily dropped or minimized by Safari on iPad, restore it on user touch
+                    if (forceFullscreen && !isSubmitted && !isWarningOpen && !isWarningModalShown) {
+                        if (!isFullscreenActive() && document.visibilityState === 'visible') {
+                            enterFullscreen();
+                        }
+                    }
                 }, { passive: true });
 
                 // 4. Returning to page from background / App Switcher
@@ -1116,6 +1223,17 @@
             $(document).on('selectstart', function(e) {
                 e.preventDefault();
             });
+
+            // Prevent mobile pinch-to-zoom and gesture zooming during exam
+            document.addEventListener('touchstart', function(e) {
+                if (e.touches && e.touches.length > 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
+            document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
+            document.addEventListener('gestureend', function(e) { e.preventDefault(); });
         });
     </script>
 @stop

@@ -47,6 +47,7 @@ class ExamSectionController extends Controller
         $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'instruction' => ['nullable', 'string'],
+            'total_score' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $maxOrder = ExamSection::where('exam_id', $exam->id)->max('sort_order') ?? 0;
@@ -55,6 +56,7 @@ class ExamSectionController extends Controller
             'exam_id' => $exam->id,
             'title' => $request->title,
             'instruction' => $request->instruction,
+            'total_score' => $request->filled('total_score') ? $request->total_score : null,
             'sort_order' => $maxOrder + 1,
         ]);
 
@@ -77,11 +79,13 @@ class ExamSectionController extends Controller
         $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'instruction' => ['nullable', 'string'],
+            'total_score' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $section->update([
             'title' => $request->title,
             'instruction' => $request->instruction,
+            'total_score' => $request->filled('total_score') ? $request->total_score : null,
         ]);
 
         return response()->json([

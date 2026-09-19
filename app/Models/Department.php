@@ -19,6 +19,11 @@ class Department extends Model
         return $this->hasMany(User::class)->whereIn('role', ['admin', 'teacher']);
     }
 
+    public function subjects(): HasMany
+    {
+        return $this->hasMany(Subject::class);
+    }
+
     public function headTeacher(): ?User
     {
         if ($this->relationLoaded('teachers')) {

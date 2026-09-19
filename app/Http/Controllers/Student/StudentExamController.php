@@ -7,6 +7,7 @@ use App\Models\Exam;
 use App\Models\Question;
 use App\Models\Choice;
 use App\Models\ExamAttempt;
+use App\Models\ExamSection;
 use App\Models\StudentAnswer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -236,6 +237,7 @@ class StudentExamController extends Controller
             ->select('questions.*')
             ->orderByRaw('COALESCE(exam_sections.sort_order, 99999) ASC')
             ->orderByRaw('COALESCE(exam_sections.id, 99999) ASC')
+            ->orderByRaw('COALESCE(questions.sort_order, questions.id) ASC')
             ->orderBy('questions.id', 'ASC')
             ->with(['examSection', 'choices' => function($query) {
                 // Select only id, question_id, choice_text, choice_image to avoid leaking is_correct via frontend
@@ -459,7 +461,7 @@ class StudentExamController extends Controller
 
         $questionIds   = $questions->pluck('id');
         $questionCount = $questions->count();
-        $totalScore    = $questions->sum('score');
+        $totalScore    = (float)$questions->sum('score');
 
         // Get student answers for this section
         $studentAnswers = StudentAnswer::where('exam_attempt_id', $attempt->id)
@@ -467,18 +469,29 @@ class StudentExamController extends Controller
             ->get();
 
         $answeredCount = $studentAnswers->count();
-        $earnedScore   = 0;
+        $earnedScore   = 0.0;
         foreach ($studentAnswers as $ans) {
             if ($ans->is_correct) {
                 $q = $questions->firstWhere('id', $ans->question_id);
-                if ($q) $earnedScore += $q->score;
+                if ($q) $earnedScore += (float)$q->score;
             }
+        }
+
+        $section = $sectionId ? ExamSection::find($sectionId) : null;
+        $displayEarned = $earnedScore;
+        $displayTotal = $totalScore;
+
+        if ($section && $section->total_score !== null && (float)$section->total_score > 0) {
+            $displayTotal = (float)$section->total_score;
+            $displayEarned = $totalScore > 0 ? round(($earnedScore / $totalScore) * $displayTotal, 2) : 0.0;
         }
 
         return response()->json([
             'success'        => true,
-            'earned'         => $earnedScore,
-            'total'          => $totalScore,
+            'earned'         => $displayEarned,
+            'total'          => $displayTotal,
+            'raw_earned'     => $earnedScore,
+            'raw_total'      => $totalScore,
             'answered'       => $answeredCount,
             'question_count' => $questionCount,
         ]);
@@ -503,59 +516,76 @@ class StudentExamController extends Controller
             return redirect()->route('student.dashboard')->with('error', 'คุณไม่มีสิทธิ์ส่งข้อสอบวิชานี้เนื่องจากถูกระงับสิทธิ์ (' . ($eligibility['reason'] ?: 'ถูกระงับสิทธิ์') . ')');
         }
 
-        $attempt->load('exam.questions');
+        $attempt->load(['exam.questions', 'exam.sections']);
         $exam = $attempt->exam;
 
-        $hasEssay = $exam->questions->where('type', 'essay')->count() > 0;
-        $gradingStatus = $hasEssay ? 'pending_grading' : 'graded';
+        $essayQuestions = $exam->questions->where('type', 'essay');
+        $hasEssayWithoutKey = $essayQuestions->contains(function ($q) {
+            return empty(trim($q->essay_answer ?? ''));
+        });
+        $gradingStatus = $hasEssayWithoutKey ? 'pending_grading' : 'graded';
 
         // Calculate score and populate score_awarded for each answer
-        $studentAnswers = StudentAnswer::where('exam_attempt_id', $attempt->id)->get();
-        $rawScore = 0.0;
+        $studentAnswers = StudentAnswer::where('exam_attempt_id', $attempt->id)->get()->keyBy('question_id');
         
-        foreach ($studentAnswers as $ans) {
-            $question = $exam->questions->firstWhere('id', $ans->question_id);
-            if ($question) {
-                $awarded = $ans->is_correct ? (float)$question->score : 0.0;
-                $ans->update(['score_awarded' => $awarded]);
-                $rawScore += $awarded;
+        foreach ($exam->questions as $question) {
+            $ans = $studentAnswers->get($question->id);
+            if ($question->type === 'essay') {
+                $hasKey = !empty(trim($question->essay_answer ?? ''));
+                if ($hasKey) {
+                    $studentText = trim($ans->answer_text ?? '');
+                    $expectedText = trim($question->essay_answer);
+                    $isCorrect = (!empty($studentText) && mb_strtolower($studentText) === mb_strtolower($expectedText));
+                    $awarded = $isCorrect ? (float)$question->score : 0.0;
+                    if ($ans) {
+                        $ans->update([
+                            'is_correct' => $isCorrect,
+                            'score_awarded' => $awarded,
+                        ]);
+                    } else {
+                        StudentAnswer::create([
+                            'exam_attempt_id' => $attempt->id,
+                            'question_id' => $question->id,
+                            'choice_id' => null,
+                            'answer_text' => null,
+                            'is_correct' => false,
+                            'score_awarded' => 0.0,
+                        ]);
+                    }
+                } else {
+                    if ($ans) {
+                        $ans->update([
+                            'is_correct' => false,
+                            'score_awarded' => null,
+                        ]);
+                    }
+                }
+            } else {
+                if ($ans) {
+                    $awarded = $ans->is_correct ? (float)$question->score : 0.0;
+                    $ans->update(['score_awarded' => $awarded]);
+                }
             }
         }
 
-        // Total possible raw score & target exam total score
-        $totalRawScore = (float)$exam->questions->sum('score');
-        $examTargetScore = (float)($exam->total_score ?? $totalRawScore);
-
-        // Proportional Scaling: Final Score = (rawScore / totalRawScore) * examTargetScore
-        if ($totalRawScore > 0 && $examTargetScore > 0) {
-            $finalScore = round(($rawScore / $totalRawScore) * $examTargetScore, 2);
-        } else {
-            $finalScore = round($rawScore, 2);
-        }
-
-        // Check if passed (only if no pending essay questions)
-        if ($hasEssay) {
-            $isPassed = null; // Do not determine pass/fail yet until teacher grades
-        } else {
-            $passingPercentage = $exam->passing_percentage;
-            $percentageObtained = $examTargetScore > 0 ? ($finalScore / $examTargetScore) * 100 : 0;
-            $isPassed = $percentageObtained >= $passingPercentage;
-        }
+        // Set grading status before calculation
+        $attempt->grading_status = $gradingStatus;
+        $calc = $attempt->calculateFinalScore();
 
         // Update attempt
         $attempt->update([
             'completed_at' => now(),
-            'score' => $finalScore,
-            'raw_score' => $rawScore,
-            'total_raw_score' => $totalRawScore,
-            'is_passed' => $isPassed,
+            'score' => $calc['score'],
+            'raw_score' => $calc['raw_score'],
+            'total_raw_score' => $calc['total_raw_score'],
+            'is_passed' => $calc['is_passed'],
             'status' => 'completed',
             'grading_status' => $gradingStatus,
         ]);
 
         session()->flash('just_submitted', true);
 
-        $successMsg = $hasEssay 
+        $successMsg = $hasEssayWithoutKey 
             ? 'ส่งข้อสอบเรียบร้อยแล้ว (มีข้อสอบข้อเขียนที่อยู่ระหว่างรอผู้สอนตรวจให้คะแนน)' 
             : 'ส่งข้อสอบและบันทึกคะแนนเรียบร้อยแล้ว';
 
@@ -574,9 +604,56 @@ class StudentExamController extends Controller
               ->select('questions.*')
               ->orderByRaw('COALESCE(exam_sections.sort_order, 99999) ASC')
               ->orderByRaw('COALESCE(exam_sections.id, 99999) ASC')
+              ->orderByRaw('COALESCE(questions.sort_order, questions.id) ASC')
               ->orderBy('questions.id', 'ASC');
         }, 'exam.questions.examSection', 'exam.questions.choices']);
         $exam = $attempt->exam;
+
+        // If attempt is marked pending_grading, but all essay questions now have keys, sync and mark as graded
+        if ($attempt->isPendingGrading()) {
+            $essayQuestions = $attempt->exam->questions->where('type', 'essay');
+            $hasEssayWithoutKey = $essayQuestions->contains(function ($q) {
+                return empty(trim($q->essay_answer ?? ''));
+            });
+
+            if (!$hasEssayWithoutKey && $essayQuestions->isNotEmpty()) {
+                $studentAnswers = StudentAnswer::where('exam_attempt_id', $attempt->id)->get()->keyBy('question_id');
+                foreach ($attempt->exam->questions as $q) {
+                    if ($q->type === 'essay') {
+                        $ans = $studentAnswers->get($q->id);
+                        $studentText = trim($ans->answer_text ?? '');
+                        $expectedText = trim($q->essay_answer ?? '');
+                        $isCorrect = (!empty($studentText) && mb_strtolower($studentText) === mb_strtolower($expectedText));
+                        $awarded = $isCorrect ? (float)$q->score : 0.0;
+                        if ($ans) {
+                            $ans->update([
+                                'is_correct' => $isCorrect,
+                                'score_awarded' => $awarded,
+                            ]);
+                        } else {
+                            StudentAnswer::create([
+                                'exam_attempt_id' => $attempt->id,
+                                'question_id' => $q->id,
+                                'choice_id' => null,
+                                'answer_text' => null,
+                                'is_correct' => false,
+                                'score_awarded' => 0.0,
+                            ]);
+                        }
+                    }
+                }
+                $attempt->grading_status = 'graded';
+                $calc = $attempt->calculateFinalScore();
+                $attempt->update([
+                    'score' => $calc['score'],
+                    'raw_score' => $calc['raw_score'],
+                    'total_raw_score' => $calc['total_raw_score'],
+                    'is_passed' => $calc['is_passed'],
+                    'grading_status' => 'graded',
+                ]);
+                $attempt->refresh();
+            }
+        }
 
         // If allow_review is disabled and the student didn't just submit the exam, block review
         if (!$exam->allow_review && !session('just_submitted')) {

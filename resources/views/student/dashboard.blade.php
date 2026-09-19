@@ -2,6 +2,10 @@
 
 @section('title', 'หน้าแรกนักศึกษา')
 
+@section('meta_tags')
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+@stop
+
 @section('content_header')
 <!-- <h3 class="text-dark font-weight-bold">ระบบสอบออนไลน์</h1> -->
 @stop
@@ -184,7 +188,7 @@
                                             @elseif($exam->isExpired())
                                                 <span class="text-danger font-weight-bold">หมดเวลาสอบแล้ว</span>
                                             @elseif($completedAttemptsCount >= $allowedAttempts)
-                                                <span class="text-muted font-weight-bold">สอบครบแล้ว</span>
+                                                <span class="text-success font-weight-bold">สอบแล้ว</span>
                                             @elseif($completedAttemptsCount > 0)
                                                 <span class="text-info font-weight-bold">สอบซ่อมได้</span>
                                             @else
@@ -325,7 +329,7 @@
                                         @elseif($exam->isExpired())
                                             <span class="text-danger font-weight-bold text-sm">หมดเวลาสอบแล้ว</span>
                                         @elseif($completedAttemptsCount >= $allowedAttempts)
-                                            <span class="text-muted font-weight-bold text-sm">สอบครบแล้ว</span>
+                                            <span class="text-success font-weight-bold text-sm">สอบแล้ว</span>
                                         @elseif($completedAttemptsCount > 0)
                                             <span class="text-info font-weight-bold text-sm">สอบซ่อมได้</span>
                                         @else
@@ -403,6 +407,18 @@
 
 @section('css')
 <style>
+    html, body {
+        touch-action: pan-x pan-y;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+    }
+
+    @media (max-width: 768px) {
+        input, textarea, select, .form-control {
+            font-size: 16px !important;
+        }
+    }
+
     .student-avatar {
         width: 120px;
         height: 120px;

@@ -19,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Pagination\Paginator::useBootstrapFour();
+
         if (str_starts_with(config('app.url'), 'https://')) {
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
@@ -39,7 +41,19 @@ class AppServiceProvider extends ServiceProvider
                     'icon' => 'far fa-clock',
                     'id' => 'navbar-clock',
                     'url' => '#',
-                    'class' => 'text-white font-weight-bold',
+                    'classes' => 'text-white font-weight-bold',
+                ]);
+
+                // Add refresh button to top navbar right side
+                $event->menu->add([
+                    'text' => '',
+                    'topnav_right' => true,
+                    'icon' => 'fas fa-sync-alt',
+                    'id' => 'navbar-refresh-btn',
+                    'url' => '#',
+                    'classes' => 'text-white navbar-refresh-link',
+                    'title' => 'รีเฟรชหน้าจอ (Reload)',
+                    'onclick' => "var i=this.querySelector('i');if(i){i.classList.add('fa-spin');}window.location.reload();return false;",
                 ]);
 
                 if ($user->isStaff()) {

@@ -7,6 +7,7 @@ use App\Models\Classroom;
 use App\Models\Exam;
 use App\Models\ExamAttempt;
 use App\Models\StudentAnswer;
+use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -19,40 +20,171 @@ class ExamGradingController extends Controller
     {
         $user = auth()->user();
 
-        // Base query for exams accessible to the user
-        $examsQuery = Exam::orderBy('title');
+        // 1. Subjects query (accessible to current user)
+        $subjectsQuery = Subject::with('department')->withCount(['exams'])->orderBy('code');
+        if ($user->isTeacher()) {
+            $subjectsQuery->whereHas('teachers', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            });
+        }
+        $subjects = $subjectsQuery->get();
+
+        // Pending attempts count per subject for Step 1 badges
+        $pendingCountsBySubject = ExamAttempt::where('status', 'completed')
+            ->where('grading_status', 'pending_grading')
+            ->join('exams', 'exam_attempts.exam_id', '=', 'exams.id')
+            ->groupBy('exams.subject_id')
+            ->selectRaw('exams.subject_id, count(*) as count')
+            ->pluck('count', 'subject_id');
+
+        // 2. Read filter inputs
+        $subjectId = $request->filled('subject_id') ? (int) $request->subject_id : null;
+        $examId = $request->filled('exam_id') ? (int) $request->exam_id : null;
+        $classroomId = $request->filled('classroom_id') ? (int) $request->classroom_id : null;
+
+        // If teacher, make sure selected subject belongs to teacher
+        if ($subjectId && $user->isTeacher()) {
+            if (!$subjects->contains('id', $subjectId)) {
+                $subjectId = null;
+            }
+        }
+
+        // If exam_id is specified, validate and sync with subject
+        if ($examId) {
+            $examCheck = Exam::find($examId);
+            if ($examCheck) {
+                if ($user->isTeacher()) {
+                    $teaches = $examCheck->subject && $examCheck->subject->teachers()->where('users.id', $user->id)->exists();
+                    if (!$teaches) {
+                        $examId = null;
+                        $examCheck = null;
+                    }
+                }
+                if ($examCheck) {
+                    if (!$subjectId) {
+                        $subjectId = $examCheck->subject_id;
+                    } elseif ($subjectId !== $examCheck->subject_id) {
+                        // User selected a subject that doesn't match this exam, reset examId
+                        $examId = null;
+                    }
+                }
+            } else {
+                $examId = null;
+            }
+        }
+
+        // Determine Current Step (1: เลือกรายวิชา, 2: เลือกชุดข้อสอบ, 3: ตรวจข้อสอบตามห้องเรียน)
+        $currentStep = 1;
+        if ($subjectId && !$examId) {
+            $currentStep = 2;
+        } elseif ($examId) {
+            $currentStep = 3;
+        }
+
+        // 3. Exams query (filtered by subject_id if chosen)
+        $examsQuery = Exam::orderBy('title')
+            ->withCount([
+                'examAttempts as pending_attempts_count' => function ($q) {
+                    $q->where('status', 'completed')->where('grading_status', 'pending_grading');
+                },
+                'examAttempts as completed_attempts_count' => function ($q) {
+                    $q->where('status', 'completed');
+                },
+                'questions'
+            ]);
+
         if ($user->isTeacher()) {
             $examsQuery->whereHas('subject.teachers', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
+                $q->where('users.id', $user->id);
             });
+        }
+        if ($subjectId) {
+            $examsQuery->where('subject_id', $subjectId);
         }
         $exams = $examsQuery->get();
 
-        // Base query for completed attempts
+        // 4. Classrooms query: "กรองตามห้องที่มีสิทธิ์สอบข้อสอบนั้นได้"
+        if ($examId) {
+            $targetSubjectId = $subjectId;
+            $classrooms = Classroom::where(function ($query) use ($targetSubjectId, $examId) {
+                $query->whereHas('users', function ($q) use ($targetSubjectId) {
+                    $q->where('role', 'student')->whereHas('enrolledSubjects', function ($q2) use ($targetSubjectId) {
+                        $q2->where('subjects.id', $targetSubjectId);
+                    });
+                })->orWhereHas('users.examAttempts', function ($a) use ($examId) {
+                    $a->where('exam_id', $examId)->where('status', 'completed');
+                });
+            })->orderBy('name')->get();
+        } elseif ($subjectId) {
+            $classrooms = Classroom::whereHas('users', function ($q) use ($subjectId) {
+                $q->where('role', 'student')->whereHas('enrolledSubjects', function ($q2) use ($subjectId) {
+                    $q2->where('subjects.id', $subjectId);
+                });
+            })->orderBy('name')->get();
+        } else {
+            if ($user->isTeacher()) {
+                $classrooms = Classroom::whereHas('users', function ($q) use ($user) {
+                    $q->where('role', 'student')->whereHas('enrolledSubjects.teachers', function ($q2) use ($user) {
+                        $q2->where('users.id', $user->id);
+                    });
+                })->orderBy('name')->get();
+            } else {
+                $classrooms = Classroom::orderBy('name')->get();
+            }
+        }
+
+        // Reset classroomId if not among eligible classrooms
+        if ($classroomId && !$classrooms->contains('id', $classroomId)) {
+            $classroomId = null;
+        }
+
+        // 5. Base query for completed attempts
         $baseQuery = ExamAttempt::with(['user.classroom', 'exam.subject'])
             ->where('status', 'completed');
 
         if ($user->isTeacher()) {
             $baseQuery->whereHas('exam.subject.teachers', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
+                $q->where('users.id', $user->id);
             });
         }
 
-        // Stats
-        $pendingCount = (clone $baseQuery)->where('grading_status', 'pending_grading')->count();
-        $gradedCount = (clone $baseQuery)->where('grading_status', 'graded')->count();
-        $totalCount = (clone $baseQuery)->count();
+        // 6. Build filter query (for stats and list)
+        $filterQuery = clone $baseQuery;
 
-        // Filters
-        $attemptsQuery = clone $baseQuery;
-
-        if ($request->filled('exam_id')) {
-            $attemptsQuery->where('exam_id', $request->exam_id);
+        if ($examId) {
+            $filterQuery->where('exam_id', $examId);
+        } elseif ($subjectId) {
+            $filterQuery->whereHas('exam', function ($q) use ($subjectId) {
+                $q->where('subject_id', $subjectId);
+            });
         }
 
+        if ($classroomId) {
+            $filterQuery->whereHas('user', function ($q) use ($classroomId) {
+                $q->where('classroom_id', $classroomId);
+            });
+        }
+
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $filterQuery->whereHas('user', function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%")
+                    ->orWhere('student_code', 'like', "%{$q}%");
+            });
+        }
+
+        // 7. Stats
+        $pendingCount = (clone $filterQuery)->where('grading_status', 'pending_grading')->count();
+        $gradedCount = (clone $filterQuery)->where('grading_status', 'graded')->count();
+        $totalCount = (clone $filterQuery)->count();
+
+        // 8. Apply grading status filter
+        $attemptsQuery = clone $filterQuery;
+        $statusParam = $request->input('grading_status');
+
         if ($request->filled('grading_status')) {
-            if ($request->grading_status !== 'all') {
-                $attemptsQuery->where('grading_status', $request->grading_status);
+            if ($statusParam !== 'all') {
+                $attemptsQuery->where('grading_status', $statusParam);
             }
         } else {
             // Default filter: if there are pending attempts, show pending first
@@ -61,28 +193,20 @@ class ExamGradingController extends Controller
             }
         }
 
-        if ($request->filled('classroom_id')) {
-            $classroomId = $request->classroom_id;
-            $attemptsQuery->whereHas('user', function ($q) use ($classroomId) {
-                $q->where('classroom_id', $classroomId);
-            });
-        }
-
-        if ($request->filled('q')) {
-            $q = $request->q;
-            $attemptsQuery->whereHas('user', function ($query) use ($q) {
-                $query->where('name', 'like', "%{$q}%")
-                    ->orWhere('student_code', 'like', "%{$q}%");
-            });
-        }
-
-        $attempts = $attemptsQuery->orderBy('completed_at', 'desc')->paginate(25);
-        $classrooms = Classroom::orderBy('name')->get();
+        $attempts = $attemptsQuery->orderBy('completed_at', 'desc')
+            ->paginate(25)
+            ->appends($request->query());
 
         return view('admin.grading.index', compact(
             'attempts',
+            'subjects',
             'exams',
             'classrooms',
+            'subjectId',
+            'examId',
+            'classroomId',
+            'currentStep',
+            'pendingCountsBySubject',
             'pendingCount',
             'gradedCount',
             'totalCount'
@@ -113,6 +237,7 @@ class ExamGradingController extends Controller
                     ->select('questions.*')
                     ->orderByRaw('COALESCE(exam_sections.sort_order, 99999) ASC')
                     ->orderByRaw('COALESCE(exam_sections.id, 99999) ASC')
+                    ->orderByRaw('COALESCE(questions.sort_order, questions.id) ASC')
                     ->orderBy('questions.id', 'ASC');
             },
             'exam.questions.examSection',
@@ -177,10 +302,8 @@ class ExamGradingController extends Controller
         DB::transaction(function () use ($request, $attempt) {
             $scores = $request->input('scores', []);
             $comments = $request->input('comments', []);
-            $attempt->load('exam.questions');
+            $attempt->load(['exam.questions', 'exam.sections']);
             $questions = $attempt->exam->questions;
-
-            $rawScore = 0;
 
             foreach ($questions as $question) {
                 $answer = StudentAnswer::firstOrNew([
@@ -213,26 +336,16 @@ class ExamGradingController extends Controller
                         $answer->save();
                     }
                 }
-
-                $rawScore += ($answer->score_awarded ?? 0.0);
             }
 
-            $totalRawScore = (float)$questions->sum('score');
-            $examTargetScore = (float)($attempt->exam->total_score ?? $totalRawScore);
-
-            $finalScore = ($totalRawScore > 0 && $examTargetScore > 0)
-                ? round(($rawScore / $totalRawScore) * $examTargetScore, 2)
-                : round($rawScore, 2);
-
-            $passingPercentage = $attempt->exam->passing_percentage;
-            $percentageObtained = $examTargetScore > 0 ? ($finalScore / $examTargetScore) * 100 : 0;
-            $isPassed = $percentageObtained >= $passingPercentage;
+            $attempt->grading_status = 'graded';
+            $calc = $attempt->calculateFinalScore();
 
             $attempt->update([
-                'score' => $finalScore,
-                'raw_score' => $rawScore,
-                'total_raw_score' => $totalRawScore,
-                'is_passed' => $isPassed,
+                'score' => $calc['score'],
+                'raw_score' => $calc['raw_score'],
+                'total_raw_score' => $calc['total_raw_score'],
+                'is_passed' => $calc['is_passed'],
                 'grading_status' => 'graded',
             ]);
         });

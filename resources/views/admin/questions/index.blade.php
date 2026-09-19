@@ -6,7 +6,7 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap">
         <!-- Left: Title & score text -->
         <div>
-            <div class="text-dark text-md mb-1">ข้อสอบ: {{ $exam->title }} <span class="text-muted">({{ $exam->subject->code }} {{ $exam->subject->name }})</span></div>
+            <div class="text-dark text-md font-weight-bold mb-1"> {{ $exam->title }} รายวิชา {{ $exam->subject->code }} {{ $exam->subject->name }}</div>
             <div class="text-secondary text-md">
                 คะแนนรวม: <span class="text-primary">{{ number_format($exam->total_score, 2) }}</span> คะแนน
             </div>
@@ -18,34 +18,34 @@
                 <form id="recalculate-form" action="{{ route('admin.exams.recalculate-scores', $exam->id) }}" method="POST" class="d-inline mr-2">
                     @csrf
                     <button type="button" id="recalculate-btn" class="btn btn-warning font-weight-bold shadow-sm">
-                        <i class="fas fa-calculator mr-2"></i>คำนวณคะแนนอัตโนมัติ
+                        คำนวณคะแนน
                     </button>
                 </form>
             @endif
             <button type="button" class="btn btn-outline-info font-weight-bold shadow-sm mr-2" data-toggle="modal" data-target="#examSettingsModal">
-                <i class="fas fa-cog mr-2"></i>ตั้งค่าข้อสอบ
+                ตั้งค่าข้อสอบ
             </button>
             <a href="{{ route('admin.exams.student-attempts.index', $exam->id) }}" class="btn btn-outline-primary font-weight-bold shadow-sm mr-2" title="จัดการเปิดให้สอบเพิ่ม/สอบซ่อมเป็นรายคน">
-                <i class="fas fa-user-clock mr-1"></i>เปิดสอบเพิ่มรายคน
+                เปิดสอบเพิ่มรายคน
             </a>
             <form action="{{ route('admin.exams.duplicate', $exam->id) }}" method="POST" class="d-inline mr-2 confirm-duplicate"
                   data-text="ต้องการคัดลอกข้อสอบ '{{ $exam->title }}' ใช่หรือไม่? ข้อสอบชุดใหม่จะถูกสร้างเป็น 'ฉบับร่าง' และต้องยื่นขออนุมัติใหม่ก่อนเปิดใช้งาน">
                 @csrf
                 <button type="submit" class="btn btn-outline-secondary font-weight-bold shadow-sm" title="คัดลอกข้อสอบ (Duplicate)">
-                    <i class="fas fa-copy mr-1"></i>คัดลอกข้อสอบ
+                    คัดลอกข้อสอบ
                 </button>
             </form>
             <button id="save-all-btn" class="btn btn-primary font-weight-bold shadow-sm mr-2" disabled>
-                <i class="fas fa-save mr-2"></i>บันทึกทั้งหมด <span id="unsaved-count" class="badge badge-warning ml-1 d-none">0</span>
+                บันทึกทั้งหมด <span id="unsaved-count" class="badge badge-warning ml-1 d-none">0</span>
             </button>
             <button id="add-question-btn" class="btn btn-success font-weight-bold shadow-sm">
-                <i class="fas fa-plus mr-2"></i>เพิ่มคำถามใหม่
+               เพิ่มคำถามใหม่
             </button>
         </div>
 
         <!-- Right: Back button -->
         <div class="d-flex align-items-center">
-            <a href="{{ route('admin.exams.index') }}" class="btn btn-secondary font-weight-bold shadow-sm">
+            <a href="{{ route('admin.exams.index') }}" class="btn btn-danger font-weight-bold shadow-sm">
                 <i class="fas fa-arrow-left mr-2"></i>กลับหน้าข้อสอบ
             </a>
         </div>
@@ -202,13 +202,13 @@
                                     <label class="font-weight-bold text-xs">คะแนนเต็ม</label>
                                     <div class="input-group input-group-sm">
                                         <input type="number" name="total_score" id="total_score_input" step="0.01" class="form-control px-2" value="{{ old('total_score', $exam->total_score) }}" min="0.01" required>
-                                        <div class="input-group-append">
+                                        <!-- <div class="input-group-append">
                                             <button type="button" id="auto-calc-score-btn" class="btn btn-outline-info btn-sm" title="คำนวณคะแนนรวมอัตโนมัติจากคะแนนทุกข้อ">
                                                 <i class="fas fa-calculator"></i>
                                             </button>
-                                        </div>
+                                        </div> -->
                                     </div>
-                                    <small class="text-muted" style="font-size:10px;">กด <i class="fas fa-calculator"></i> คำนวณจากทุกข้อ</small>
+                                    
                                 </div>
                             </div>
                         </div>
@@ -256,12 +256,40 @@
             <div id="quiz-builder-container">
                 @php
                     $globalQuestionIndex = 0;
+                    $hasSectionScores = $sections->contains(fn($s) => $s->total_score !== null && (float)$s->total_score > 0);
+                    $sumSectionScores = $sections->sum(fn($s) => (float)($s->total_score ?? 0));
+                    $totalExamRaw = $sections->sum(fn($s) => (float)$s->questions->sum('score'));
                 @endphp
+
+                @if($hasSectionScores)
+                    <div class="alert {{ abs($sumSectionScores - (float)$exam->total_score) < 0.01 ? 'alert-light' : 'alert-light' }} shadow-sm mb-4 border-0">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                            <div>
+                                <h6 class="font-weight-bold mb-1">
+                                    การคิดคะแนนแยกตามตอน
+                                </h6>
+                                <div class="text-md">
+                                    ผลรวมคะแนนที่คุณกำหนด คือ <strong class="font-weight-bold">{{ number_format($sumSectionScores, 2) }}</strong> คะแนน คะแนนเต็มข้อสอบคือ <strong class="font-weight-bold">{{ number_format($exam->total_score, 2) }}</strong> คะแนน
+                                    @if(abs($sumSectionScores - (float)$exam->total_score) > 0.01)
+                                        <span class="text-danger font-weight-bold ml-2">
+                                            <i class="fas fa-exclamation-triangle mr-1"></i>กรุณาปรับคะแนนให้ถูกต้อง
+                                        </span>
+                                    @else
+                                        <span class="text-success font-weight-bold ml-2">
+                                            <i class="fas fa-check-circle mr-1"></i>ถูกต้อง
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 @foreach($sections as $sectIndex => $section)
                     <div class="card card-section mb-5 border-info shadow-sm" id="section-card-{{ $section->id }}" data-section-id="{{ $section->id }}">
-                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center py-3">
+                        <div class="card-header bg-light text-dark d-flex justify-content-between align-items-center py-3">
                             <h5 class="font-weight-bold mb-0">
-                                <i class="fas fa-layer-group mr-2"></i>ตอนที่ {{ $sectIndex + 1 }}: <span class="section-title-label">{{ $section->title }}</span>
+                                 {{ $sectIndex + 1 }}. <span class="section-title-label">{{ $section->title }}</span>
                             </h5>
                             <div class="card-tools">
                                 <button type="button" class="btn btn-sm btn-success text-white save-section-btn mr-1 shadow-sm font-weight-bold">
@@ -280,13 +308,42 @@
                                         <input type="text" class="form-control section-title-input" value="{{ $section->title }}" placeholder="เช่น ตอนที่ 1: ข้อสอบปรนัย" required>
                                     </div>
                                 </div>
-                                <div class="col-md-8">
+                                <div class="col-md-5">
                                     <div class="form-group mb-3">
                                         <label class="font-weight-bold text-dark text-xs">คำชี้แจงประจำตอน</label>
                                         <input type="text" class="form-control section-instruction-input" value="{{ $section->instruction }}" placeholder="เช่น จงเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว">
                                     </div>
                                 </div>
+                                <div class="col-md-3">
+                                    <div class="form-group mb-3">
+                                        <label class="font-weight-bold text-dark text-xs text-primary">
+                                            <i class="fas fa-bullseye mr-1"></i>คะแนนเต็มตอน (เป้าหมาย)
+                                        </label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" step="0.5" min="0" class="form-control section-total-score-input font-weight-bold text-primary" value="{{ $section->total_score !== null ? $section->total_score : '' }}" placeholder="ตามคะแนนดิบ">
+                                            <div class="input-group-append">
+                                                <span class="input-group-text text-xs">คะแนน</span>
+                                            </div>
+                                        </div>
+                                        <small class="text-muted d-block mt-1" style="font-size: 11px;">เว้นว่างเพื่อคิดตามคะแนนดิบ</small>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- Section info badges strip -->
+                            <!-- <div class="d-flex align-items-center flex-wrap mb-2 px-1">
+                                <span class="text-dark text-md mr-2 py-1 px-2">
+                                   ข้อสอบมีจำนวน {{ $section->questions->count() }} ข้อ
+                                </span>
+                                <span class="text-dark text-md mr-2 py-1 px-2 text-dark">
+                                    คะแนนดิบรวมคิดเป็น <strong>{{ $section->questions->sum('score') }}</strong> คะแนน
+                                </span>
+                                @if($section->total_score !== null)
+                                    <span class="text-dark text-md mr-2 py-1 px-2">
+                                       คิดคะแนนรวมทั้งตอนเท่ากับ <strong>{{ $section->total_score }}</strong> คะแนน
+                                    </span>
+                                @endif
+                            </div> -->
 
                             <!-- List of Questions inside this section -->
                             <div class="section-questions-container mt-4">
@@ -297,6 +354,15 @@
                                     <div class="card card-question shadow-sm mb-4" id="question-card-{{ $question->id }}" data-id="{{ $question->id }}" data-saved="true">
                                         <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
                                             <div class="d-flex align-items-center">
+                                                <span class="drag-handle text-secondary mr-2 py-1 px-1" title="คลิกลากเพื่อสลับข้อ">
+                                                    <i class="fas fa-grip-vertical fa-lg"></i>
+                                                </span>
+                                                <button type="button" class="btn btn-xs btn-outline-secondary move-question-up mr-1" title="เลื่อนข้อขึ้น">
+                                                    <i class="fas fa-chevron-up"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-xs btn-outline-secondary move-question-down mr-2" title="เลื่อนข้อลง">
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </button>
                                                 <span class="font-weight-bold text-dark mr-3 card-index">ข้อที่ {{ $globalQuestionIndex }}</span>
                                                 <span class="status-badge text-success"><i class="fas fa-check-circle mr-1"></i> บันทึกแล้ว</span>
                                             </div>
@@ -551,10 +617,26 @@
             z-index: 99999 !important;
             background: #fff !important;
         }
+        .drag-handle {
+            cursor: grab;
+            transition: color 0.15s;
+        }
+        .drag-handle:hover {
+            color: #007bff !important;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: #e9ecef !important;
+            border: 2px dashed #007bff !important;
+        }
     </style>
 @stop
 
 @section('js')
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         $(document).ready(function() {
             var examId = {{ $exam->id }};
@@ -747,6 +829,15 @@
                     <div class="card card-question shadow-sm mb-4" id="question-card-${tempId}" data-id="${tempId}" data-saved="false">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
                             <div class="d-flex align-items-center">
+                                <span class="drag-handle text-secondary mr-2 py-1 px-1" title="คลิกลากเพื่อสลับข้อ">
+                                    <i class="fas fa-grip-vertical fa-lg"></i>
+                                </span>
+                                <button type="button" class="btn btn-xs btn-outline-secondary move-question-up mr-1" title="เลื่อนข้อขึ้น">
+                                    <i class="fas fa-chevron-up"></i>
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary move-question-down mr-2" title="เลื่อนข้อลง">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
                                 <span class="font-weight-bold text-dark mr-3 card-index">ข้อที่ --</span>
                                 <span class="status-badge text-warning"><i class="fas fa-exclamation-circle mr-1"></i> ยังไม่ได้บันทึก</span>
                             </div>
@@ -1082,19 +1173,21 @@
                 });
             });
 
-            // Save All Unsaved Questions (Sticky Button Event)
-            $('#save-all-btn').click(function() {
+            // Save All Unsaved Questions (Sequential with Async/Await)
+            $('#save-all-btn').click(async function() {
                 var unsavedCards = $('.card-question[data-saved="false"]');
                 if (unsavedCards.length === 0) return;
 
                 var total = unsavedCards.length;
                 var savedCount = 0;
                 var hasError = false;
+                var btn = $(this);
 
-                showToast('กำลังบันทึกข้อมูลคำถามทั้งหมด...', 'info');
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังบันทึก...');
+                showToast(`เริ่มบันทึกคำถาม ${total} ข้อตามลำดับ...`, 'info');
 
-                unsavedCards.each(function() {
-                    var card = $(this);
+                for (var i = 0; i < unsavedCards.length; i++) {
+                    var card = $(unsavedCards[i]);
                     var id = card.attr('data-id');
                     var isNew = id.toString().indexOf('temp-') !== -1;
                     
@@ -1119,7 +1212,7 @@
                         });
                     }
 
-                    // Validate: essay only needs question text; choice also needs choices + correct answer
+                    // Validate
                     var isInvalid = questionText.trim() === '' ||
                         (type === 'choice' && (hasEmptyChoices || correctChoice === undefined));
 
@@ -1129,104 +1222,192 @@
                             .addClass('text-danger')
                             .html('<i class="fas fa-exclamation-triangle mr-1"></i> กรอกข้อมูลไม่ครบ');
                         hasError = true;
-                        savedCount++;
-                        if (savedCount === total) {
-                            showToast('บันทึกเสร็จสิ้น แต่พบข้อที่ข้อมูลไม่สมบูรณ์', 'danger');
-                            checkUnsavedChanges();
-                        }
-                        return;
+                        continue;
                     }
 
                     var url = isNew ? saveUrlBase : `{{ url('admin/exams') }}/${examId}/questions/${id}`;
                     var method = isNew ? 'POST' : 'PUT';
 
+                    try {
+                        var response = await $.ajax({
+                            url: url,
+                            method: method,
+                            data: {
+                                _token: "{{ csrf_token() }}",
+                                question_text: questionText,
+                                score: score,
+                                type: type,
+                                exam_section_id: examSectionId,
+                                choices: choices,
+                                choice_images: choiceImages,
+                                correct_choice: correctChoice,
+                                essay_answer: essayAnswer
+                            }
+                        });
 
-                    $.ajax({
-                        url: url,
-                        method: method,
-                        data: {
-                            _token: "{{ csrf_token() }}",
-                            question_text: questionText,
-                            score: score,
-                            type: type,
-                            exam_section_id: examSectionId,
-                            choices: choices,
-                            choice_images: choiceImages,
-                            correct_choice: correctChoice,
-                            essay_answer: essayAnswer
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                if (isNew) {
-                                    card.attr('data-id', response.question.id);
-                                    card.attr('id', 'question-card-' + response.question.id);
-                                    card.find('.correct-radio').attr('name', 'correct_choice_' + response.question.id);
-                                }
+                        if (response.success) {
+                            savedCount++;
+                            if (isNew) {
+                                card.attr('data-id', response.question.id);
+                                card.attr('id', 'question-card-' + response.question.id);
+                                card.find('.correct-radio').attr('name', 'correct_choice_' + response.question.id);
+                            }
 
-                                var container = card.find('.choices-container');
-                                if (response.question.type === 'choice' && response.question.choices) {
-                                    container.empty();
-                                    response.question.choices.forEach(function(choice, idx) {
-                                        var choiceImgUrl = choice.choice_image ? `{{ asset('') }}${choice.choice_image}` : '';
-                                        var hasImg = choice.choice_image ? '' : 'd-none';
-                                        var rowHtml = `
-                                            <div class="choice-row mb-3">
-                                                <div class="input-group">
-                                                    <div class="input-group-prepend">
-                                                        <div class="input-group-text bg-white border-right-0">
-                                                            <input type="radio" name="correct_choice_${response.question.id}" class="correct-radio" value="${idx}" ${choice.is_correct ? 'checked' : ''} style="transform: scale(1.25); cursor:pointer;">
-                                                        </div>
+                            var container = card.find('.choices-container');
+                            if (response.question.type === 'choice' && response.question.choices) {
+                                container.empty();
+                                response.question.choices.forEach(function(choice, idx) {
+                                    var choiceImgUrl = choice.choice_image ? `{{ asset('') }}${choice.choice_image}` : '';
+                                    var hasImg = choice.choice_image ? '' : 'd-none';
+                                    var rowHtml = `
+                                        <div class="choice-row mb-3">
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <div class="input-group-text bg-white border-right-0">
+                                                        <input type="radio" name="correct_choice_${response.question.id}" class="correct-radio" value="${idx}" ${choice.is_correct ? 'checked' : ''} style="transform: scale(1.25); cursor:pointer;">
                                                     </div>
-                                                    <input type="text" class="form-control choice-text-input" value="${choice.choice_text}" placeholder="ตัวเลือก ${getAlphabetLetter(idx)}" required>
-                                                    <input type="hidden" class="choice-image-path" value="${choiceImgUrl}">
-                                                    <div class="input-group-append">
-                                                        <button type="button" class="btn btn-outline-info upload-choice-image-btn border-left-0 border-right-0" title="อัปโหลดรูปภาพ"><i class="far fa-image"></i></button>
-                                                        <button type="button" class="btn btn-outline-danger remove-choice-btn border-left-0"><i class="fas fa-times"></i></button>
-                                                    </div>
-                                                    <input type="file" class="choice-image-file" style="display: none;" accept="image/*">
                                                 </div>
-                                                <div class="choice-image-preview-container mt-1 ml-5 ${hasImg}">
-                                                    <div class="position-relative d-inline-block">
-                                                        <img src="${choiceImgUrl}" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
-                                                        <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
-                                                            <i class="fas fa-times" style="font-size: 10px;"></i>
-                                                        </button>
-                                                    </div>
+                                                <input type="text" class="form-control choice-text-input" value="${choice.choice_text}" placeholder="ตัวเลือก ${getAlphabetLetter(idx)}" required>
+                                                <input type="hidden" class="choice-image-path" value="${choiceImgUrl}">
+                                                <div class="input-group-append">
+                                                    <button type="button" class="btn btn-outline-info upload-choice-image-btn border-left-0 border-right-0" title="อัปโหลดรูปภาพ"><i class="far fa-image"></i></button>
+                                                    <button type="button" class="btn btn-outline-danger remove-choice-btn border-left-0"><i class="fas fa-times"></i></button>
+                                                </div>
+                                                <input type="file" class="choice-image-file" style="display: none;" accept="image/*">
+                                            </div>
+                                            <div class="choice-image-preview-container mt-1 ml-5 ${hasImg}">
+                                                <div class="position-relative d-inline-block">
+                                                    <img src="${choiceImgUrl}" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
+                                                    <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
+                                                        <i class="fas fa-times" style="font-size: 10px;"></i>
+                                                    </button>
                                                 </div>
                                             </div>
-                                        `;
-                                        container.append(rowHtml);
-                                    });
-                                }
+                                        </div>
+                                    `;
+                                    container.append(rowHtml);
+                                });
+                            }
 
-                                card.attr('data-saved', 'true');
-                                 card.find('.status-badge')
-                                    .removeClass('text-warning text-danger')
-                                    .addClass('text-success')
-                                    .html('<i class="fas fa-check-circle mr-1"></i> บันทึกแล้ว');
-                            }
-                            
-                            savedCount++;
-                            if (savedCount === total) {
-                                if (hasError) {
-                                    showToast('บันทึกเสร็จสิ้น แต่พบข้อที่ข้อมูลไม่สมบูรณ์', 'danger');
-                                } else {
-                                    showToast('บันทึกคำถามทั้งหมดเรียบร้อยแล้ว!', 'success');
-                                }
-                                checkUnsavedChanges();
-                            }
-                        },
-                        error: function() {
-                            hasError = true;
-                            savedCount++;
-                            if (savedCount === total) {
-                                showToast('พบข้อผิดพลาดในการบันทึกข้อมูลบางส่วน', 'danger');
-                                checkUnsavedChanges();
-                            }
+                            card.attr('data-saved', 'true');
+                            card.find('.status-badge')
+                                .removeClass('text-warning text-danger')
+                                .addClass('text-success')
+                                .html('<i class="fas fa-check-circle mr-1"></i> บันทึกแล้ว');
+                        }
+                    } catch (err) {
+                        hasError = true;
+                        card.find('.status-badge')
+                            .removeClass('text-warning text-success')
+                            .addClass('text-danger')
+                            .html('<i class="fas fa-exclamation-triangle mr-1"></i> ผิดพลาด');
+                    }
+                }
+
+                btn.prop('disabled', false).html('บันทึกทั้งหมด <span id="unsaved-count" class="badge badge-warning ml-1 d-none">0</span>');
+                updateCardIndices();
+                checkUnsavedChanges();
+
+                if (hasError) {
+                    showToast(`บันทึกแล้ว ${savedCount}/${total} ข้อ (มีบางข้อไม่สมบูรณ์)`, 'warning');
+                } else {
+                    showToast(`บันทึกคำถามครบทั้ง ${savedCount} ข้อเรียบร้อยแล้ว`, 'success');
+                }
+            });
+
+            // Initialize SortableJS on question containers
+            function initSortableContainers() {
+                if (typeof Sortable === 'undefined') return;
+                $('.section-questions-container').each(function() {
+                    if ($(this).data('sortable-initialized')) return;
+                    $(this).data('sortable-initialized', true);
+
+                    Sortable.create(this, {
+                        handle: '.drag-handle',
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        onEnd: function(evt) {
+                            var card = $(evt.item);
+                            var newSectionCard = card.closest('.card-section');
+                            var newSectionId = newSectionCard.attr('data-section-id');
+                            card.find('.question-section-id-input').val(newSectionId);
+
+                            saveQuestionsOrder();
                         }
                     });
                 });
+            }
+
+            // Move Question Up Button
+            $(document).on('click', '.move-question-up', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var card = $(this).closest('.card-question');
+                var prev = card.prev('.card-question');
+                if (prev.length > 0) {
+                    card.insertBefore(prev);
+                    saveQuestionsOrder();
+                } else {
+                    showToast('ข้อนี้อยู่ลำดับแรกของตอนนี้แล้ว', 'info');
+                }
             });
+
+            // Move Question Down Button
+            $(document).on('click', '.move-question-down', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var card = $(this).closest('.card-question');
+                var next = card.next('.card-question');
+                if (next.length > 0) {
+                    card.insertAfter(next);
+                    saveQuestionsOrder();
+                } else {
+                    showToast('ข้อนี้อยู่ลำดับสุดท้ายของตอนนี้แล้ว', 'info');
+                }
+            });
+
+            // Save Questions Order to Server
+            function saveQuestionsOrder() {
+                updateCardIndices();
+
+                var orderData = [];
+                var currentSort = 1;
+
+                $('.card-section').each(function() {
+                    var sectionId = $(this).attr('data-section-id');
+                    $(this).find('.card-question').each(function() {
+                        var qId = $(this).attr('data-id');
+                        if (qId && qId.toString().indexOf('temp-') === -1) {
+                            orderData.push({
+                                id: parseInt(qId),
+                                sort_order: currentSort++,
+                                exam_section_id: parseInt(sectionId)
+                            });
+                        }
+                    });
+                });
+
+                if (orderData.length === 0) return;
+
+                $.ajax({
+                    url: "{{ route('admin.exams.questions.reorder', $exam->id) }}",
+                    method: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        order: orderData
+                    },
+                    success: function(res) {
+                        if (res.success) {
+                            showToast(res.message, 'success');
+                        }
+                    },
+                    error: function() {
+                        showToast('เกิดข้อผิดพลาดในการจัดลำดับข้อสอบ', 'danger');
+                    }
+                });
+            }
+
+            initSortableContainers();
 
             // Delete Question Action (AJAX Delete)
             $(document).on('click', '.delete-question-btn', function() {
@@ -1336,7 +1517,7 @@
                 showToast('ลบรูปภาพตัวเลือกแล้ว', 'info');
             });
 
-            // Add Exam Section (With Dialog for Title & Instruction)
+            // Add Exam Section (With Dialog for Title, Instruction & Total Score)
             $('#add-section-btn').click(function() {
                 var nextSectionNum = $('.card-section').length + 1;
                 Swal.fire({
@@ -1347,9 +1528,14 @@
                                 <label class="font-weight-bold text-dark text-sm">ชื่อตอน <span class="text-danger">*</span></label>
                                 <input type="text" id="swal-section-title" class="form-control" value="ตอนที่ ${nextSectionNum}: " placeholder="เช่น ตอนที่ ${nextSectionNum}: ข้อสอบปรนัย" required>
                             </div>
-                            <div class="form-group mb-0">
+                            <div class="form-group mb-3">
                                 <label class="font-weight-bold text-dark text-sm">คำชี้แจงประจำตอน</label>
-                                <textarea id="swal-section-instruction" class="form-control" rows="3" placeholder="เช่น จงเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว"></textarea>
+                                <textarea id="swal-section-instruction" class="form-control" rows="2" placeholder="เช่น จงเลือกคำตอบที่ถูกต้องที่สุดเพียงข้อเดียว"></textarea>
+                            </div>
+                            <div class="form-group mb-0">
+                                <label class="font-weight-bold text-dark text-sm">คะแนนเต็มตอน (เป้าหมาย) <small class="text-muted">(ถ้ามี)</small></label>
+                                <input type="number" step="0.5" min="0" id="swal-section-total-score" class="form-control" placeholder="เว้นว่างไว้หากต้องการคิดตามคะแนนดิบ">
+                                <small class="text-muted">เช่น กำหนด 15 คะแนน สำหรับปรนัย หรือ 5 คะแนน สำหรับอัตนัย</small>
                             </div>
                         </div>
                     `,
@@ -1362,11 +1548,13 @@
                     preConfirm: () => {
                         const title = document.getElementById('swal-section-title').value.trim();
                         const instruction = document.getElementById('swal-section-instruction').value.trim();
+                        const totalScoreVal = document.getElementById('swal-section-total-score').value.trim();
+                        const totalScore = totalScoreVal !== '' ? parseFloat(totalScoreVal) : null;
                         if (!title) {
                             Swal.showValidationMessage('กรุณากรอกชื่อตอน');
                             return false;
                         }
-                        return { title: title, instruction: instruction };
+                        return { title: title, instruction: instruction, total_score: totalScore };
                     }
                 }).then((result) => {
                     if (result.isConfirmed) {
@@ -1378,7 +1566,8 @@
                             data: {
                                 _token: "{{ csrf_token() }}",
                                 title: data.title,
-                                instruction: data.instruction
+                                instruction: data.instruction,
+                                total_score: data.total_score
                             },
                             success: function(response) {
                                 if (response.success) {
@@ -1403,6 +1592,8 @@
                 var sectionId = card.attr('data-section-id');
                 var title = card.find('.section-title-input').val();
                 var instruction = card.find('.section-instruction-input').val();
+                var totalScoreVal = card.find('.section-total-score-input').val();
+                var totalScore = (totalScoreVal !== undefined && totalScoreVal.trim() !== '') ? parseFloat(totalScoreVal) : null;
 
                 if (title.trim() === '') {
                     showToast('กรุณากรอกชื่อตอน!', 'warning');
@@ -1418,12 +1609,16 @@
                     data: {
                         _token: "{{ csrf_token() }}",
                         title: title,
-                        instruction: instruction
+                        instruction: instruction,
+                        total_score: totalScore
                     },
                     success: function(response) {
                         if (response.success) {
                             showToast(response.message, 'success');
                             card.find('.section-title-label').text(title);
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 600);
                         }
                     },
                     error: function(xhr) {
@@ -1435,8 +1630,8 @@
                 });
             });
 
-            // Press Enter inside section title or instruction to save
-            $(document).on('keypress', '.section-title-input, .section-instruction-input', function(e) {
+            // Press Enter inside section title, instruction, or total score to save
+            $(document).on('keypress', '.section-title-input, .section-instruction-input, .section-total-score-input', function(e) {
                 if (e.which === 13) {
                     e.preventDefault();
                     $(this).closest('.card-section').find('.save-section-btn').click();

@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 
 use App\Models\User;
 use App\Models\Classroom;
+use App\Models\Department;
 use Illuminate\Support\Facades\DB;
 
 class ExamController extends Controller
@@ -17,10 +18,45 @@ class ExamController extends Controller
     {
         $user = auth()->user();
 
+        $selectedDepartmentId = $request->get('department_id');
+        $selectedTeacherId = $request->get('teacher_id');
+        $selectedSubjectId = $request->get('subject_id');
+
+        if ($selectedSubjectId && !$selectedDepartmentId) {
+            $currentSubj = Subject::find($selectedSubjectId);
+            if ($currentSubj && $currentSubj->department_id) {
+                $selectedDepartmentId = $currentSubj->department_id;
+            }
+        }
+
+        $departments = Department::orderBy('name')->get();
+
         // Load list options based on role
         if ($user->isAdmin()) {
-            $subjects = Subject::orderBy('code')->get();
-            $teachers = User::whereIn('role', ['admin', 'teacher'])->orderBy('name')->get();
+            // Filter teachers based on selected department
+            $teachersQuery = User::whereIn('role', ['admin', 'teacher'])->orderBy('name');
+            if ($selectedDepartmentId) {
+                $teachersQuery->where('department_id', $selectedDepartmentId);
+            }
+            $teachers = $teachersQuery->get();
+
+            // Filter subjects based on selected teacher or department
+            $subjectsQuery = Subject::with('teachers')->orderBy('code');
+            if ($selectedTeacherId) {
+                // Show subjects taught by this teacher
+                $subjectsQuery->whereHas('teachers', function($q) use ($selectedTeacherId) {
+                    $q->where('users.id', $selectedTeacherId);
+                });
+            } elseif ($selectedDepartmentId) {
+                // Show subjects of this department
+                $subjectsQuery->where(function($q) use ($selectedDepartmentId) {
+                    $q->where('department_id', $selectedDepartmentId)
+                      ->orWhereHas('teachers', function($tq) use ($selectedDepartmentId) {
+                          $tq->where('department_id', $selectedDepartmentId);
+                      });
+                });
+            }
+            $subjects = $subjectsQuery->get();
             $classrooms = Classroom::orderBy('name')->get();
         } else {
             // Teacher - only show subjects they teach and classrooms of students in their subjects
@@ -33,7 +69,7 @@ class ExamController extends Controller
             })->orderBy('name')->get();
         }
 
-        $query = Exam::with(['subject.teachers', 'subject.students.classroom'])->withCount('questions');
+        $query = Exam::with(['subject.teachers', 'approvalLogs.user', 'subject.students.classroom'])->withCount('questions');
 
         // If teacher, strictly enforce scoping to subjects they teach
         if ($user->isTeacher()) {
@@ -42,15 +78,33 @@ class ExamController extends Controller
             });
         }
 
+        // Filter by Department (admin only)
+        if ($user->isAdmin() && $request->filled('department_id')) {
+            $departmentId = $request->get('department_id');
+            $query->whereHas('subject', function($q) use ($departmentId) {
+                $q->where(function($sq) use ($departmentId) {
+                    $sq->where('department_id', $departmentId)
+                       ->orWhereHas('teachers', function($tq) use ($departmentId) {
+                           $tq->where('department_id', $departmentId);
+                       });
+                });
+            });
+        }
+
+        // Filter by Subject
         if ($request->filled('subject_id')) {
             $query->where('subject_id', $request->get('subject_id'));
         }
 
         // Only admin filters by teacher (since teacher is already scoped to self)
-        if ($user->isAdmin() && $request->filled('teacher_id')) {
-            $teacherId = $request->get('teacher_id');
-            $query->whereHas('subject.teachers', function($q) use ($teacherId) {
-                $q->where('user_id', $teacherId);
+        if ($user->isAdmin() && $selectedTeacherId) {
+            $teacherId = $selectedTeacherId;
+            $query->where(function($q) use ($teacherId) {
+                $q->whereHas('subject.teachers', function($sq) use ($teacherId) {
+                    $sq->where('users.id', $teacherId);
+                })->orWhereHas('approvalLogs', function($sq) use ($teacherId) {
+                    $sq->where('action', 'submitted')->where('user_id', $teacherId);
+                });
             });
         }
 
@@ -71,7 +125,9 @@ class ExamController extends Controller
 
         $exams = $query->orderBy('created_at', 'desc')->get();
 
-        return view('admin.exams.index', compact('exams', 'subjects', 'teachers', 'classrooms'));
+        return view('admin.exams.index', compact(
+            'exams', 'subjects', 'teachers', 'departments', 'classrooms', 'selectedDepartmentId'
+        ));
     }
 
     public function create(Request $request)
@@ -287,6 +343,47 @@ class ExamController extends Controller
         });
 
         return redirect()->route('admin.exams.index')->with('success', "คัดลอกข้อสอบ '{$newExam->title}' สำเร็จแล้ว (สถานะ: ฉบับร่าง) กรุณาตรวจสอบและยื่นขออนุมัติใหม่ก่อนเปิดใช้งาน");
+    }
+
+    public function preview(Request $request, Exam $exam)
+    {
+        $user = auth()->user();
+        $isStaffWithAcademicRole = $user->isStaff() && !empty($user->academic_roles);
+        if (!$user->isAdmin() && !$isStaffWithAcademicRole) {
+            $this->authorizeExamSubject($exam);
+        }
+
+        $mode = $request->get('mode', 'approval');
+
+        if ($mode === 'take') {
+            $questions = \App\Models\Question::where('questions.exam_id', $exam->id)
+                ->leftJoin('exam_sections', 'questions.exam_section_id', '=', 'exam_sections.id')
+                ->select('questions.*')
+                ->orderByRaw('COALESCE(exam_sections.sort_order, 99999) ASC')
+                ->orderByRaw('COALESCE(exam_sections.id, 99999) ASC')
+                ->orderByRaw('COALESCE(questions.sort_order, questions.id) ASC')
+                ->orderBy('questions.id', 'ASC')
+                ->with(['examSection', 'choices'])
+                ->get();
+
+            $exam->load(['subject.department', 'subject.teachers', 'sections']);
+
+            return view('admin.exams.preview_take', compact('exam', 'questions'));
+        }
+
+        // Mode: approval
+        $exam->load([
+            'subject.department',
+            'subject.teachers',
+            'sections.questions.choices',
+            'deptApprover',
+            'evalApprover',
+            'academicApprover',
+            'rejecter',
+            'approvalLogs.user'
+        ]);
+
+        return view('admin.exams.preview_approval', compact('exam'));
     }
 
     private function authorizeExamSubject(?Exam $exam = null, $subjectId = null)

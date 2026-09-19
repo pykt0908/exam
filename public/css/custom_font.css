@@ -145,3 +145,61 @@ body:not(.sidebar-collapse) .nav-sidebar .nav-treeview > .nav-item > .nav-link {
 .navbar-nav.ml-auto a[href*="logout"] {
     display: none !important;
 }
+
+/* Navbar Refresh Button */
+#navbar-refresh-btn {
+    display: flex !important;
+    align-items: center !important;
+}
+
+#navbar-refresh-btn .nav-link {
+    cursor: pointer !important;
+    padding: 0.5rem 0.75rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #ffffff !important;
+    font-size: 1rem !important;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+#navbar-refresh-btn .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+#navbar-refresh-btn .nav-link:active i {
+    transform: rotate(180deg);
+}
+
+@media screen and (max-width: 576px) {
+    #navbar-clock {
+        font-size: 0.85rem !important;
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
+    }
+    #navbar-refresh-btn .nav-link {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+}
+
+/* =========================================================================
+   Mobile Viewport & Focus Zoom Prevention (iOS Safari / Mobile Browsers)
+   ========================================================================= */
+@media screen and (max-width: 768px) {
+    /* Prevent iOS Safari from auto-zooming when focusing any form field */
+    .form-control,
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="number"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="url"],
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}
+

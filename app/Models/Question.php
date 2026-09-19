@@ -6,11 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Question extends Model
 {
-    protected $fillable = ['exam_id', 'exam_section_id', 'type', 'question_text', 'question_image', 'score', 'essay_answer'];
+    protected $fillable = ['exam_id', 'exam_section_id', 'type', 'question_text', 'question_image', 'score', 'sort_order', 'essay_answer'];
     protected function casts(): array
     {
         return [
             'score' => 'float',
+            'sort_order' => 'integer',
         ];
     }
 

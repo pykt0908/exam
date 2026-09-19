@@ -20,6 +20,11 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// Public static question/choice image serving route (fallback for web server rewrites)
+Route::get('/uploads/questions/{filename}', [QuestionController::class, 'serveImage'])
+    ->where('filename', '.*')
+    ->name('exams.questions.serve-image');
+
 // Fallback redirect for /home
 Route::get('/home', function () {
     return redirect('/');
@@ -61,6 +66,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/exams/{exam}/submit-approval', [\App\Http\Controllers\Admin\ExamApprovalController::class, 'submit'])->name('exams.submit-approval');
         Route::post('/exams/{exam}/recall-approval', [\App\Http\Controllers\Admin\ExamApprovalController::class, 'recall'])->name('exams.recall-approval');
         Route::post('/exams/{exam}/duplicate', [ExamController::class, 'duplicate'])->name('exams.duplicate');
+        Route::get('/exams/{exam}/preview', [ExamController::class, 'preview'])->name('exams.preview');
 
         // Exam Student Attempts (จัดการสิทธิ์เปิดให้สอบเพิ่มรายคน)
         Route::get('/exams/{exam}/student-attempts', [\App\Http\Controllers\Admin\ExamStudentAttemptController::class, 'index'])->name('exams.student-attempts.index');
@@ -83,6 +89,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/exams/{exam}/questions/{question}', [QuestionController::class, 'destroy'])->name('exams.questions.destroy');
         Route::post('/exams/questions/upload-image', [QuestionController::class, 'uploadImage'])->name('exams.questions.upload-image');
         Route::post('/exams/{exam}/recalculate-scores', [QuestionController::class, 'recalculateScores'])->name('exams.recalculate-scores');
+        Route::post('/exams/{exam}/questions/reorder', [QuestionController::class, 'reorder'])->name('exams.questions.reorder');
 
         // Exam Sections
         Route::post('/exams/{exam}/sections', [\App\Http\Controllers\Admin\ExamSectionController::class, 'store'])->name('exams.sections.store');

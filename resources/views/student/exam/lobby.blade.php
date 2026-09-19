@@ -3,11 +3,16 @@
 @section('title', 'ห้องพักเข้าสอบ')
 
 @section('meta_tags')
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 @stop
 
 @section('css')
 <style>
+    html, body {
+        touch-action: pan-x pan-y;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+    }
     /* ป้องกันหน้าจอมือถือซูมเข้าอัตโนมัติเมื่อกดช่องกรอกรหัสผ่าน (iOS Safari / Mobile Auto-zoom Prevention) */
     #passcode_mobile,
     #passcode_desktop,

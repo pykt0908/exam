@@ -115,4 +115,49 @@ class SubjectClassroomTest extends TestCase
 
         $response->assertSessionHasErrors('classroom_ids');
     }
+
+    public function test_can_add_individual_students_to_subject(): void
+    {
+        $student1 = User::where('student_code', 'S101')->first();
+        $student2 = User::where('student_code', 'S201')->first();
+
+        $response = $this->actingAs($this->admin)->post(route('admin.subjects.students.store', $this->subject->id), [
+            'student_ids' => [$student1->id, $student2->id],
+        ]);
+
+        $response->assertSessionHas('success');
+        $enrolled = $this->subject->fresh()->students;
+        $this->assertCount(2, $enrolled);
+        $this->assertTrue($enrolled->contains('id', $student1->id));
+        $this->assertTrue($enrolled->contains('id', $student2->id));
+        $this->assertFalse($enrolled->contains('student_code', 'S202'));
+    }
+
+    public function test_cannot_add_empty_student_ids(): void
+    {
+        $response = $this->actingAs($this->admin)->post(route('admin.subjects.students.store', $this->subject->id), [
+            'student_ids' => [],
+        ]);
+
+        $response->assertSessionHasErrors('student_ids');
+    }
+
+    public function test_subject_students_index_renders_with_individual_add_modal(): void
+    {
+        $response = $this->actingAs($this->admin)->get(route('admin.subjects.students.index', $this->subject->id));
+        $response->assertStatus(200);
+        $response->assertSee('เพิ่มนักศึกษารายคน');
+        $response->assertSee('id="addIndividualStudentModal"', false);
+    }
+
+    public function test_subject_students_classroom_view_renders_with_individual_add_modal(): void
+    {
+        $response = $this->actingAs($this->admin)->get(route('admin.subjects.students.index', [
+            'subject' => $this->subject->id,
+            'classroom_id' => $this->room1->id,
+        ]));
+        $response->assertStatus(200);
+        $response->assertSee('เพิ่มนักศึกษารายคน');
+        $response->assertSee('id="addIndividualStudentModal"', false);
+    }
 }

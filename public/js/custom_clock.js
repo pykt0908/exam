@@ -120,4 +120,41 @@ $(document).ready(function() {
         treeview.addClass('menu-open');
         treeview.children('.nav-treeview').show();
     });
+
+    // Navbar Refresh button click handler (acts just like browser reload button)
+    $(document).on('click', '#navbar-refresh-btn, #navbar-refresh-btn a, .navbar-refresh-link', function(e) {
+        e.preventDefault();
+        var icon = $(this).find('i');
+        if (icon.length) {
+            icon.addClass('fa-spin');
+        }
+        window.location.reload();
+    });
+
+    // Mobile viewport & pinch zoom prevention on student and exam screens
+    var isStudentOrExam = window.location.pathname.indexOf('/student') !== -1 || $('#examForm').length > 0;
+    if (isStudentOrExam) {
+        // Enforce user-scalable=no on viewport meta
+        var viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+        } else {
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+            document.getElementsByTagName('head')[0].appendChild(meta);
+        }
+
+        // Prevent iOS pinch zoom
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches && event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        // Prevent iOS gesture zoom
+        document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
+        document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
+        document.addEventListener('gestureend', function(e) { e.preventDefault(); });
+    }
 });

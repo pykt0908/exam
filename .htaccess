@@ -5,10 +5,15 @@
     RedirectMatch 403 /\.(key|env|git|json|yml|lock)$
     RedirectMatch 403 ^/(app|bootstrap|config|database|resources|routes|storage|tests)/
 
-    # 2. ส่งต่อ (Redirect) ทุก Request ที่เข้ามาหน้าแรกให้ไปทำงานที่โฟลเดอร์ public/
+    # 2. หากเป็นไฟล์หรือโฟลเดอร์ที่มีอยู่จริง ให้เปิดตรงๆ ได้ทันที (เช่น uploads, css, js)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 3. ส่งต่อ (Redirect) ทุก Request ที่เข้ามาหน้าแรกให้ไปทำงานที่โฟลเดอร์ public/
     RewriteRule ^$ public/ [L]
 
-    # 3. ส่งต่อ Request อื่นๆ (เช่น /login, /admin) ให้ชี้เข้าไปที่ public/...
+    # 4. ส่งต่อ Request อื่นๆ (เช่น /login, /admin) ให้ชี้เข้าไปที่ public/...
     RewriteCond %{REQUEST_URI} !^/public/
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>

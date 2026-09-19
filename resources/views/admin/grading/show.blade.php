@@ -109,6 +109,32 @@
             }
         }
         $passingScore = round(($examTargetScore * ($attempt->exam->passing_percentage ?? 50)) / 100, 2);
+
+        $sections = $attempt->exam->sections;
+        $hasSectionScores = $sections->isNotEmpty() && $sections->contains(fn($s) => $s->total_score !== null && (float)$s->total_score > 0);
+
+        $choiceScoresByQuestion = [];
+        foreach ($choiceQuestions as $q) {
+            $ans = $studentAnswers->get($q->id);
+            $awarded = ($ans && $ans->is_correct) ? (float)$q->score : 0.0;
+            $choiceScoresByQuestion[$q->id] = [
+                'section_id' => $q->exam_section_id,
+                'awarded' => $awarded,
+            ];
+        }
+
+        $essayQuestionSectionMap = [];
+        foreach ($essayQuestions as $q) {
+            $essayQuestionSectionMap[$q->id] = $q->exam_section_id;
+        }
+
+        $sectionMetadata = [];
+        foreach ($sections as $s) {
+            $sectionMetadata[$s->id] = [
+                'target_score' => $s->total_score !== null ? (float)$s->total_score : null,
+                'raw_total' => (float)$s->questions->sum('score'),
+            ];
+        }
     @endphp
 
     <!-- 1. Formal Student & Evaluation Profile Header Card -->
@@ -724,10 +750,15 @@
             var autoChoiceScore = {{ $choiceScoreAwarded }};
             var isPending = {{ $isPending ? 'true' : 'false' }};
             var hasUserEdited = false;
+            var hasSectionScores = {{ $hasSectionScores ? 'true' : 'false' }};
+            var choiceData = @json($choiceScoresByQuestion);
+            var essaySectionMap = @json($essayQuestionSectionMap);
+            var sectionsMeta = @json($sectionMetadata);
 
             // Calculate live totals on input changes
             function recalculateTotals() {
                 var essayTotal = 0;
+                var essayScores = {};
                 $('.score-field').each(function() {
                     var val = parseFloat($(this).val()) || 0;
                     var max = parseFloat($(this).data('max')) || 0;
@@ -739,9 +770,10 @@
                         $(this).val(0);
                     }
                     essayTotal += val;
+                    var qId = $(this).data('question-id');
+                    essayScores[qId] = val;
 
                     // Update question specific text & percentage
-                    var qId = $(this).data('question-id');
                     var percent = max > 0 ? Math.round((val / max) * 100) : 0;
                     $('#score-percentage-' + qId).text(percent + '%');
 
@@ -754,9 +786,34 @@
                 });
 
                 var currentRawTotal = autoChoiceScore + essayTotal;
-                var currentFinalScore = (totalRawScore > 0 && examTargetScore > 0)
-                    ? (currentRawTotal / totalRawScore) * examTargetScore
-                    : currentRawTotal;
+                var currentFinalScore = 0;
+
+                if (hasSectionScores) {
+                    for (var secId in sectionsMeta) {
+                        var meta = sectionsMeta[secId];
+                        var secEarned = 0;
+                        for (var cQId in choiceData) {
+                            if (choiceData[cQId].section_id == secId) {
+                                secEarned += choiceData[cQId].awarded;
+                            }
+                        }
+                        for (var eQId in essayScores) {
+                            if (essaySectionMap[eQId] == secId) {
+                                secEarned += essayScores[eQId];
+                            }
+                        }
+                        if (meta.target_score !== null && meta.target_score > 0) {
+                            var secFinal = meta.raw_total > 0 ? (secEarned / meta.raw_total) * meta.target_score : 0;
+                            currentFinalScore += secFinal;
+                        } else {
+                            currentFinalScore += secEarned;
+                        }
+                    }
+                } else {
+                    currentFinalScore = (totalRawScore > 0 && examTargetScore > 0)
+                        ? (currentRawTotal / totalRawScore) * examTargetScore
+                        : currentRawTotal;
+                }
 
                 var totalFormatted = currentFinalScore.toFixed(2);
                 var percentage = examTargetScore > 0 ? ((currentFinalScore / examTargetScore) * 100).toFixed(1) : 0;

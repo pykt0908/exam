@@ -15,14 +15,43 @@ class SubjectStudentController extends Controller
         $this->authorizeSubject($subject);
         $selectedClassroomId = $request->get('classroom_id');
 
-        if ($selectedClassroomId) {
-            $selectedClassroom = Classroom::findOrFail($selectedClassroomId);
-            $students = $subject->students()
-                ->where('classroom_id', $selectedClassroom->id)
-                ->orderBy('student_code', 'asc')
-                ->get();
+        // Students not yet enrolled in this subject (candidates for individual addition)
+        $enrolledStudentIds = $subject->students()->pluck('users.id')->toArray();
+        $availableStudents = User::where('role', 'student')
+            ->whereNotIn('id', $enrolledStudentIds)
+            ->with('classroom:id,name')
+            ->orderBy('student_code', 'asc')
+            ->get(['id', 'name', 'student_code', 'classroom_id']);
 
-            return view('admin.subjects.students', compact('subject', 'selectedClassroom', 'students'));
+        $allClassrooms = Classroom::withCount(['users as users_count' => function($q) {
+            $q->where('role', 'student');
+        }])->orderBy('name')->get();
+
+        if ($selectedClassroomId) {
+            if ($selectedClassroomId === 'unassigned') {
+                $selectedClassroom = (object)[
+                    'id' => 'unassigned',
+                    'name' => 'ไม่มีกลุ่มเรียน (ไม่ระบุห้อง)'
+                ];
+                $students = $subject->students()
+                    ->whereNull('classroom_id')
+                    ->orderBy('student_code', 'asc')
+                    ->get();
+            } else {
+                $selectedClassroom = Classroom::findOrFail($selectedClassroomId);
+                $students = $subject->students()
+                    ->where('classroom_id', $selectedClassroom->id)
+                    ->orderBy('student_code', 'asc')
+                    ->get();
+            }
+
+            return view('admin.subjects.students', compact(
+                'subject',
+                'selectedClassroom',
+                'students',
+                'allClassrooms',
+                'availableStudents'
+            ));
         }
 
         // List classrooms enrolled in this subject
@@ -37,18 +66,47 @@ class SubjectStudentController extends Controller
               });
         }])->orderBy('name')->get();
 
-        $allClassrooms = Classroom::withCount(['users as users_count' => function($q) {
-            $q->where('role', 'student');
-        }])->orderBy('name')->get();
+        $unassignedStudentsCount = $subject->students()->whereNull('classroom_id')->count();
         $totalStudentsCount = $subject->students()->count();
 
-        return view('admin.subjects.students', compact('subject', 'enrolledClassrooms', 'allClassrooms', 'totalStudentsCount'));
+        return view('admin.subjects.students', compact(
+            'subject',
+            'enrolledClassrooms',
+            'allClassrooms',
+            'availableStudents',
+            'unassignedStudentsCount',
+            'totalStudentsCount'
+        ));
     }
 
     public function store(Request $request, Subject $subject)
     {
         $this->authorizeSubject($subject);
 
+        // 1. เพิ่มนักศึกษารายคน (Individual Students)
+        if ($request->has('student_ids')) {
+            $studentIds = $request->input('student_ids');
+            if (empty($studentIds) || !is_array($studentIds)) {
+                return redirect()->back()->withErrors(['student_ids' => 'กรุณาเลือกนักศึกษาอย่างน้อย 1 คน']);
+            }
+
+            $students = User::where('role', 'student')
+                ->whereIn('id', $studentIds)
+                ->get();
+
+            if ($students->isEmpty()) {
+                return redirect()->back()->withErrors(['student_ids' => 'ไม่พบข้อมูลนักศึกษาที่เลือกในระบบ']);
+            }
+
+            $subject->students()->syncWithoutDetaching($students->pluck('id')->toArray());
+
+            $count = $students->count();
+            $msg = "เพิ่มนักศึกษาจำนวน {$count} คน เข้าร่วมรายวิชาเรียบร้อยแล้ว";
+
+            return redirect()->back()->with('success', $msg);
+        }
+
+        // 2. เพิ่มทั้งกลุ่มเรียน (Classrooms)
         $classroomIds = $request->input('classroom_ids');
         if (empty($classroomIds) && $request->filled('classroom_id')) {
             $classroomIds = [$request->input('classroom_id')];

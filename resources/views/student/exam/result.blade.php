@@ -2,6 +2,25 @@
 
 @section('title', 'ผลการสอบ')
 
+@section('meta_tags')
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+@stop
+
+@section('css')
+<style>
+    html, body {
+        touch-action: pan-x pan-y;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+    }
+    @media (max-width: 768px) {
+        input, textarea, select, .form-control {
+            font-size: 16px !important;
+        }
+    }
+</style>
+@stop
+
 @section('content_header')
 <div class="d-none d-md-block">
     <div class="d-flex justify-content-between align-items-center">
@@ -23,10 +42,11 @@
 
 @section('content')
 @php
-    $isPending = $attempt->isPendingGrading();
-    $totalExamScore = (float) ($attempt->exam->total_score ?? $attempt->exam->questions->sum('score'));
-    $totalRawScore = (float) ($attempt->total_raw_score ?? $attempt->exam->questions->sum('score'));
-    $rawScore = $attempt->raw_score;
+    $breakdown = $attempt->getScoreBreakdown();
+    $isPending = $breakdown['is_pending_essay'] || $attempt->isPendingGrading();
+    $totalExamScore = $breakdown['total_exam_score'];
+    $totalRawScore = $breakdown['total_raw_score'];
+    $rawScore = $breakdown['raw_score'];
     $isScaled = $attempt->isScaled() || ($rawScore !== null && $totalRawScore > 0 && abs($totalRawScore - $totalExamScore) > 0.001);
     $passingScore = round($totalExamScore * ($attempt->exam->passing_percentage / 100), 2);
 @endphp
@@ -45,13 +65,59 @@
         <h5 class="font-weight-bold text-dark mb-3">สรุปผลการสอบ</h5>
         <div class="mb-4" style="font-size: 1.05rem; line-height: 2;">
             @if($attempt->exam->show_score)
-                <div>
-                    คะแนนที่ได้:
+                @if($breakdown['has_essay'])
                     @if($isPending)
-                        <strong class="text-dark">{{ floatval($attempt->score ?? 0) }} / {{ floatval($totalExamScore) }}
-                            คะแนน</strong>
-                        <span class="text-muted">(คะแนนเบื้องต้นเฉพาะข้อปรนัย)</span>
+                        {{-- ถ้าไม่ใส่เฉลย แสดงเหมือนเดิมว่า รอตรวจข้อเขียน --}}
+                        <div>
+                            คะแนนที่ได้:
+                            <strong class="text-dark">{{ floatval($breakdown['choice_score']) }} / {{ floatval($totalExamScore) }}
+                                คะแนน</strong>
+                            <span class="text-muted">(คะแนนเบื้องต้นเฉพาะข้อปรนัย)</span>
+                        </div>
+                        <div>
+                            เกณฑ์คะแนนผ่าน: <strong>{{ $passingScore }} คะแนน</strong> ({{ $attempt->exam->passing_percentage }}%)
+                        </div>
+                        <div>
+                            ผลการประเมิน:
+                            <strong class="text-warning">รอตรวจข้อเขียน (ยังไม่ระบุผลการสอบผ่าน/ไม่ผ่าน
+                                จนกว่าผู้สอนจะตรวจเสร็จสิ้น)</strong>
+                        </div>
                     @else
+                        {{-- ถ้าใส่เฉลย (หรือตรวจแล้ว) ให้ขึ้นว่าข้อเขียนได้เท่าไหร่ และรวมเท่าไหร่ --}}
+                        @if($breakdown['has_choice'])
+                            <div>
+                                คะแนนข้อปรนัย:
+                                <strong class="text-dark">{{ floatval($breakdown['choice_score']) }} /
+                                    {{ floatval($breakdown['choice_total']) }} คะแนน</strong>
+                            </div>
+                        @endif
+                        <div>
+                            คะแนนข้อเขียน:
+                            <strong class="text-dark">{{ floatval($breakdown['essay_score']) }} /
+                                {{ floatval($breakdown['essay_total']) }} คะแนน</strong>
+                        </div>
+                        <div>
+                            คะแนนรวมทั้งหมด:
+                            <strong class="text-dark">{{ floatval($breakdown['total_score']) }} / {{ floatval($totalExamScore) }}
+                                คะแนน</strong>
+                            <span class="text-muted">({{ $breakdown['percentage'] }}%)</span>
+                        </div>
+                        <div>
+                            เกณฑ์คะแนนผ่าน: <strong>{{ $passingScore }} คะแนน</strong> ({{ $attempt->exam->passing_percentage }}%)
+                        </div>
+                        <div>
+                            ผลการประเมิน:
+                            @if($attempt->is_passed)
+                                <strong class="text-success">ผ่าน</strong>
+                            @else
+                                <strong class="text-danger">ไม่ผ่าน</strong>
+                            @endif
+                        </div>
+                    @endif
+                @else
+                    {{-- ข้อสอบปรนัยล้วน --}}
+                    <div>
+                        คะแนนที่ได้:
                         <strong class="text-dark">{{ floatval($attempt->score ?? 0) }} / {{ floatval($totalExamScore) }}
                             คะแนน</strong>
                         @php
@@ -60,29 +126,26 @@
                                 : ($totalExamScore > 0 ? round(($attempt->score / $totalExamScore) * 100, 2) : 0);
                         @endphp
                         <span class="text-muted">({{ $percent }}%)</span>
-                    @endif
 
-                    @if($isScaled && $rawScore !== null)
-                        <div class="text-sm text-muted">
-                            <i class="fas fa-info-circle mr-1"></i>คะแนนดิบที่ทำได้: <strong>{{ floatval($rawScore) }}</strong>
-                            / {{ floatval($totalRawScore) }} {{ $totalRawScore == $attempt->total_questions ? 'ข้อ' : 'คะแนน' }}
-                        </div>
-                    @endif
-                </div>
-                <div>
-                    เกณฑ์คะแนนผ่าน: <strong>{{ $passingScore }} คะแนน</strong> ({{ $attempt->exam->passing_percentage }}%)
-                </div>
-                <div>
-                    ผลการประเมิน:
-                    @if($isPending)
-                        <strong class="text-warning">รอตรวจข้อเขียน (ยังไม่ระบุผลการสอบผ่าน/ไม่ผ่าน
-                            จนกว่าผู้สอนจะตรวจเสร็จสิ้น)</strong>
-                    @elseif($attempt->is_passed)
-                        <strong class="text-success">ผ่านเกณฑ์การสอบ</strong>
-                    @else
-                        <strong class="text-danger">ไม่ผ่านเกณฑ์การสอบ</strong>
-                    @endif
-                </div>
+                        @if($isScaled && $rawScore !== null)
+                            <div class="text-sm text-muted">
+                                <i class="fas fa-info-circle mr-1"></i>คะแนนดิบที่ทำได้: <strong>{{ floatval($rawScore) }}</strong>
+                                / {{ floatval($totalRawScore) }} {{ $totalRawScore == $attempt->total_questions ? 'ข้อ' : 'คะแนน' }}
+                            </div>
+                        @endif
+                    </div>
+                    <div>
+                        เกณฑ์คะแนนผ่าน: <strong>{{ $passingScore }} คะแนน</strong> ({{ $attempt->exam->passing_percentage }}%)
+                    </div>
+                    <div>
+                        ผลการประเมิน:
+                        @if($attempt->is_passed)
+                            <strong class="text-success">ผ่านเกณฑ์การสอบ</strong>
+                        @else
+                            <strong class="text-danger">ไม่ผ่านเกณฑ์การสอบ</strong>
+                        @endif
+                    </div>
+                @endif
             @else
                 <div>
                     สถานะการส่ง: <strong class="text-success">ส่งข้อสอบเรียบร้อยแล้ว</strong>
@@ -168,11 +231,40 @@
                             </div>
                             <div>
                                 <span class="text-muted">คะแนนที่ได้:</span>
-                                @if($isPending)
-                                    <strong class="text-warning">รอผู้สอนตรวจให้คะแนน</strong>
+                                @php
+                                    $hasKey = !empty(trim($question->essay_answer ?? ''));
+                                @endphp
+                                @if($awardedScore !== null)
+                                    @php
+                                        $studentText = trim($studentAnswerText ?? '');
+                                        $expectedText = trim($question->essay_answer ?? '');
+                                        $isMatch = ($hasKey && !empty($studentText) && mb_strtolower($studentText) === mb_strtolower($expectedText));
+                                    @endphp
+                                    <strong class="{{ $awardedScore > 0 ? 'text-success' : 'text-danger' }}">
+                                        {{ floatval($awardedScore) }} / {{ floatval($question->score) }}
+                                        {{ $isScaled ? 'คะแนนดิบ' : 'คะแนน' }}
+                                        @if($hasKey)
+                                            <span class="text-xs font-weight-normal text-muted">
+                                                ({{ $isMatch ? 'ถูกต้องตามเฉลย' : ($awardedScore > 0 ? 'ผู้สอนให้คะแนน' : 'ไม่ตรงตามเฉลย') }})
+                                            </span>
+                                        @endif
+                                    </strong>
+                                @elseif($hasKey)
+                                    @php
+                                        $studentText = trim($studentAnswerText ?? '');
+                                        $expectedText = trim($question->essay_answer ?? '');
+                                        $isMatch = (!empty($studentText) && mb_strtolower($studentText) === mb_strtolower($expectedText));
+                                        $calcAwarded = $isMatch ? (float) $question->score : 0;
+                                    @endphp
+                                    <strong class="{{ $isMatch ? 'text-success' : 'text-danger' }}">
+                                        {{ floatval($calcAwarded) }} / {{ floatval($question->score) }}
+                                        {{ $isScaled ? 'คะแนนดิบ' : 'คะแนน' }}
+                                        <span class="text-xs font-weight-normal text-muted">
+                                            ({{ $isMatch ? 'ถูกต้องตามเฉลย' : 'ไม่ตรงตามเฉลย' }})
+                                        </span>
+                                    </strong>
                                 @else
-                                    <strong>{{ $awardedScore !== null ? floatval($awardedScore) : 0 }} /
-                                        {{ floatval($question->score) }} คะแนน</strong>
+                                    <strong class="text-warning">รอตรวจข้อเขียน</strong>
                                 @endif
                             </div>
                             @if(!empty($feedback))

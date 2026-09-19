@@ -1,6 +1,6 @@
 @extends('adminlte::page')
 
-@section('title', 'ตรวจสอบข้อสอบ - ' . $exam->title)
+@section('title', 'ดูตัวอย่างข้อสอบ (พร้อมเฉลย) - ' . $exam->title)
 
 @section('css')
 <style>
@@ -26,31 +26,25 @@
 <div class="d-flex justify-content-between align-items-center flex-wrap py-2">
     <div>
         <h1 class="text-dark font-weight-bold" style="font-size: 1.75rem;">
-            ตรวจสอบข้อสอบ: {{ $exam->title }}
+            {{ $exam->title }}
         </h1>
         <div class="text-muted mt-1" style="font-size: 1.05rem;">
-            วิชา: <strong class="text-dark">[{{ $exam->subject->code }}] {{ $exam->subject->name }}</strong>
-            @if($exam->subject->department)
-                | หมวด/แผนก: <strong class="text-dark">{{ $exam->subject->department->name }}</strong>
-            @endif
-            | ผู้สร้าง: <strong class="text-primary">{{ $exam->creator_name }}</strong>
+            <strong class="text-dark">รายวิชา {{ $exam->subject->code }} {{ $exam->subject->name }}</strong>
+
+            | อาจารย์ผู้สอน <strong class="text-primary">{{ $exam->creator_name }}</strong>
+
         </div>
     </div>
     <div class="mt-2 mt-md-0">
-        <a href="{{ route('admin.approvals.index') }}" class="btn btn-secondary font-weight-bold shadow-sm mr-2">
-            <i class="fas fa-arrow-left mr-1"></i>กลับหน้ารายการ
+        <a href="{{ route('admin.exams.index', ['subject_id' => $exam->subject_id]) }}"
+            class="btn btn-secondary font-weight-bold shadow-sm mr-2">
+            <i class="fas fa-arrow-left mr-1"></i>กลับหน้ารายการข้อสอบ
         </a>
-
-        @if($canApprove)
-            <button type="button" class="btn btn-danger font-weight-bold shadow-sm mr-2" data-toggle="modal"
-                data-target="#rejectModal">
-                <i class="fas fa-times-circle mr-1"></i>ส่งกลับแก้ไข
-            </button>
-            <button type="button" class="btn btn-success font-weight-bold shadow-sm" data-toggle="modal"
-                data-target="#approveModal">
-                <i class="fas fa-check-circle mr-1"></i>อนุมัติข้อสอบ
-            </button>
-        @endif
+        <a href="{{ route('admin.exams.preview', [$exam->id, 'mode' => 'take']) }}"
+            class="btn btn-success font-weight-bold shadow-sm">
+            <i class="fas fa-user-graduate mr-1"></i>สลับไปมุมมองตอนทำข้อสอบ (ทดลองทำ) <i
+                class="fas fa-arrow-right ml-1"></i>
+        </a>
     </div>
 </div>
 @stop
@@ -61,7 +55,8 @@
     <div class="col-md-4">
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-light py-3">
-                <h5 class="card-title font-weight-bold text-dark mb-0">ข้อมูลการสอบ</h5>
+                <h5 class="card-title font-weight-bold text-dark mb-0"><i
+                        class="fas fa-info-circle text-primary mr-1"></i>ข้อมูลการสอบ</h5>
             </div>
             <div class="card-body p-3 text-dark" style="font-size: 1rem; line-height: 2;">
                 <div class="d-flex justify-content-between border-bottom py-1">
@@ -97,9 +92,8 @@
             </div>
         </div>
 
-
         <!-- Approval Progress Workflow -->
-        <div class="card shadow-sm">
+        <div class="card shadow-sm mb-3">
             <div class="card-header bg-light">
                 <h3 class="card-title font-weight-bold"><i class="fas fa-tasks mr-2"></i>ขั้นตอนการอนุมัติ (Workflow)
                 </h3>
@@ -231,23 +225,16 @@
             <div class="card-header bg-white border-bottom text-center py-4">
                 <h4 class="font-weight-bold text-dark mb-1">{{ $exam->title }}</h4>
                 <div class="text-dark" style="font-size: 1.05rem;">
-                    <strong>รายวิชา {{ $exam->subject->code }}
-                        {{ $exam->subject->name }}</strong>
+                    <strong>รายวิชา {{ $exam->subject->code }} {{ $exam->subject->name }}</strong>
                     @if($exam->subject->department)
                         <strong>สาขาวิชา: {{ $exam->subject->department->name }}</strong>
                     @endif
                 </div>
-                <div class="text-dark text-md ">
-                    <span>ข้อสอบมีจำนวน <strong>{{ $exam->questions->count() }}
-                            ข้อ</strong></span>
-
-                    <span>เวลาทำข้อสอบ <strong>{{ $exam->duration_minutes }}
-                            นาที</strong></span>
-
-                    <span>คะแนนเต็ม <strong>{{ number_format($exam->total_score) }}
-                            คะแนน</strong></span><br>
-                    <span>อาจารย์ผู้สอน
-                        <strong>{{ $exam->creator_name }}</strong></span>
+                <div class="text-dark text-md mt-1">
+                    <span>ข้อสอบมีจำนวน <strong>{{ $exam->questions->count() }} ข้อ</strong></span> |
+                    <span>เวลาทำข้อสอบ <strong>{{ $exam->duration_minutes }} นาที</strong></span> |
+                    <span>คะแนนเต็ม <strong>{{ number_format($exam->total_score) }} คะแนน</strong></span><br>
+                    <span>อาจารย์ผู้สอน <strong>{{ $exam->creator_name }}</strong></span>
                 </div>
                 @if($exam->description)
                     <div class="text-left bg-light p-3 rounded mt-3 border text-dark" style="font-size: 0.95rem;">
@@ -266,7 +253,7 @@
                 @endphp
 
                 @forelse($exam->questions as $question)
-                    {{-- Section Header (Plain Paper Style) --}}
+                    {{-- Section Header --}}
                     @if($question->exam_section_id !== $currentSection)
                         @php $currentSection = $question->exam_section_id; @endphp
                         @if($question->examSection)
@@ -281,7 +268,7 @@
                         @endif
                     @endif
 
-                    <!-- Single Question Item (Paper Style) -->
+                    <!-- Single Question Item -->
                     <div class="question-paper-item pb-3 mb-4 border-bottom">
                         <div class="d-flex justify-content-between align-items-baseline mb-2">
                             <div class="font-weight-bold text-dark flex-grow-1"
@@ -290,8 +277,8 @@
                                 <span class="question-text-content d-inline">{!! $question->question_text !!}</span>
                             </div>
                             <div class="ml-3 text-nowrap align-self-start">
-                                <span class="text-muted font-weight-normal" style="font-size: 0.95rem;">
-                                    ({{ number_format($question->score, 2) }} คะแนน)
+                                <span class="badge badge-light border font-weight-bold" style="font-size: 0.9rem;">
+                                    {{ number_format($question->score, 2) }} คะแนน
                                 </span>
                             </div>
                         </div>
@@ -307,14 +294,14 @@
                         @if($question->type === 'essay')
                             <div class="mt-2 ml-4 p-3 bg-light rounded border">
                                 <div class="font-weight-bold text-success mb-1" style="font-size: 0.95rem;">
-                                    <i class="fas fa-check-circle mr-1"></i><u>เฉลยคำตอบ (อัตนัย)</u>:
+                                    <i class="fas fa-check-circle mr-1"></i><u>แนวทางคำตอบ / เฉลย (ข้อเขียน)</u>:
                                 </div>
                                 <div class="text-dark">
                                     {{ $question->essay_answer ?: '(ไม่ได้ระบุเฉลยข้อความ)' }}
                                 </div>
                             </div>
                         @else
-                            <!-- Multiple Choices (Paper Style) -->
+                            <!-- Multiple Choices -->
                             <div class="choices-paper-list ml-4 mt-2">
                                 <div class="row">
                                     @foreach($question->choices as $cIdx => $choice)
@@ -327,9 +314,9 @@
                                                 <div class="flex-grow-1 choice-text-content">
                                                     <span>{!! $choice->choice_text !!}</span>
                                                     @if($choice->is_correct)
-                                                        <span class="text-success font-weight-bold ml-2 px-2 py-1"
+                                                        <span class="badge badge-success ml-2 px-2 py-1 font-weight-bold"
                                                             style="font-size: 0.75rem;">
-                                                            <i class="fas fa-check mr-1"></i>
+                                                            <i class="fas fa-check mr-1"></i>คำตอบที่ถูกต้อง
                                                         </span>
                                                     @endif
                                                     @if($choice->choice_image)
@@ -356,105 +343,4 @@
         </div>
     </div>
 </div>
-
-@if($canApprove)
-    <!-- Approve Modal -->
-    <div class="modal fade" id="approveModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content">
-                <div class="modal-header bg-success">
-                    <h5 class="modal-title text-white font-weight-bold">
-                        <i class="fas fa-check-circle mr-2"></i>ยืนยันการอนุมัติข้อสอบ
-                    </h5>
-                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <form action="{{ route('admin.approvals.approve', $exam->id) }}" method="post">
-                    @csrf
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="approve_notes" class="font-weight-bold">หมายเหตุ / ความเห็นเพิ่มเติม
-                                (ถ้ามี):</label>
-                            <textarea name="notes" id="approve_notes" class="form-control" rows="3"
-                                placeholder="ระบุความเห็นหรือคำแนะนำเพิ่มเติม..."></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary font-weight-bold"
-                            data-dismiss="modal">ยกเลิก</button>
-                        <button type="submit" class="btn btn-success font-weight-bold">
-                            <i class="fas fa-check mr-1"></i>ยืนยันอนุมัติ
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reject Modal -->
-    <div class="modal fade" id="rejectModal" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content">
-                <div class="modal-header bg-danger">
-                    <h5 class="modal-title text-white font-weight-bold">
-                        <i class="fas fa-undo-alt mr-2"></i>ส่งกลับให้ผู้สร้างแก้ไขข้อสอบ
-                    </h5>
-                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <form action="{{ route('admin.approvals.reject', $exam->id) }}" method="post">
-                    @csrf
-                    <div class="modal-body">
-                        <div class="alert alert-warning small">
-                            <i class="fas fa-exclamation-triangle mr-1"></i> เมื่อส่งกลับแก้ไข ข้อสอบจะกลับสู่สถานะร่าง
-                            และผู้สร้างข้อสอบจะสามารถแก้ไขโจทย์และตัวเลือกได้
-                        </div>
-                        <div class="form-group">
-                            <label for="reject_reason" class="font-weight-bold text-danger">เหตุผล / จุดที่ต้องแก้ไข <span
-                                    class="text-danger">*</span>:</label>
-                            <textarea name="reason" id="reject_reason" class="form-control" rows="4"
-                                placeholder="ระบุสิ่งที่ต้องแก้ไขอย่างละเอียด เพื่อให้ผู้สร้างข้อสอบปรับปรุง..."
-                                required></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary font-weight-bold"
-                            data-dismiss="modal">ยกเลิก</button>
-                        <button type="submit" class="btn btn-danger font-weight-bold">
-                            <i class="fas fa-paper-plane mr-1"></i>ยืนยันการส่งกลับแก้ไข
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-@endif
-@stop
-
-@section('js')
-<script>
-    $(document).ready(function () {
-        @if(session('success'))
-            Swal.fire({
-                icon: 'success',
-                title: 'สำเร็จ!',
-                text: {!! json_encode(session('success')) !!},
-                confirmButtonText: 'ตกลง',
-                timer: 3000,
-                timerProgressBar: true
-            });
-        @endif
-
-        @if($errors->any())
-            Swal.fire({
-                icon: 'error',
-                title: 'เกิดข้อผิดพลาด!',
-                html: {!! json_encode(implode("<br>", $errors->all())) !!},
-                confirmButtonText: 'ตกลง'
-            });
-        @endif
-        });
-</script>
 @stop
