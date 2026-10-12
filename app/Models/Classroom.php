@@ -41,7 +41,7 @@ class Classroom extends Model
             return 'ภาคบ่าย';
         }
         if (str_contains($this->name, 'ทวิภาคี')) {
-            return 'ทวิภาคี';
+            return 'ภาคทวิภาคี';
         }
         return 'ภาคเช้า';
     }
@@ -55,7 +55,7 @@ class Classroom extends Model
             return '<span class="badge badge-warning text-dark"><i class="fas fa-sun mr-1"></i>ภาคบ่าย</span>';
         }
         if (str_contains($this->name, 'ทวิภาคี')) {
-            return '<span class="badge badge-info"><i class="fas fa-handshake mr-1"></i>ทวิภาคี</span>';
+            return '<span class="badge badge-info"><i class="fas fa-handshake mr-1"></i>ภาคทวิภาคี</span>';
         }
         return '<span class="badge badge-success"><i class="fas fa-cloud-sun mr-1"></i>ภาคเช้า</span>';
     }

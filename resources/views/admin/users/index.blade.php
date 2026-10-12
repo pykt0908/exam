@@ -155,10 +155,11 @@
                             @endif
                             <th style="width: 5%">#</th>
                             @if($role === 'student')
-                                <th style="width: 8%">รหัสนักศึกษา</th>
+                                <th style="width: 10%">รหัสนักศึกษา</th>
                                 <th style="width: 14%">เลขประจำตัวประชาชน</th>
                                 <th>ชื่อ-นามสกุล</th>
-                                <th style="width: 30%">ระดับชั้น</th>
+                                <th style="width: 18%">ระดับชั้น</th>
+                                <th style="width: 12%" class="text-center">รอบเวลา</th>
                             @elseif($role === 'staff')
                                 <th style="width: 15%">รหัสประจำตัวครู</th>
                                 <th>ชื่อ-นามสกุล</th>
@@ -189,16 +190,12 @@
                                     <td>{{ $u->student_code }}</td>
                                     <td>{{ $u->citizen_id }}</td>
                                     <td>{{ $u->name }}</td>
-                                    <td>
-                                        {{ $u->classroom ? $u->classroom->name : 'ไม่ได้ระบุ' }}
+                                    <td>{{ $u->classroom ? $u->classroom->name : 'ไม่ได้ระบุ' }}</td>
+                                    <td class="text-center">
                                         @if($u->classroom)
-                                            @if(str_contains($u->classroom->name, 'เช้า'))
-                                                <span class="badge badge-success ml-1 text-xs"><i class="fas fa-cloud-sun mr-1"></i>ภาคเช้า</span>
-                                            @elseif(str_contains($u->classroom->name, 'บ่าย'))
-                                                <span class="badge badge-warning text-dark ml-1 text-xs"><i class="fas fa-sun mr-1"></i>ภาคบ่าย</span>
-                                            @elseif(str_contains($u->classroom->name, 'ทวิภาคี'))
-                                                <span class="badge badge-info ml-1 text-xs"><i class="fas fa-handshake mr-1"></i>ทวิภาคี</span>
-                                            @endif
+                                            {!! $u->classroom->shift_badge !!}
+                                        @else
+                                            <span class="text-muted">-</span>
                                         @endif
                                     </td>
                                 @elseif($role === 'staff')

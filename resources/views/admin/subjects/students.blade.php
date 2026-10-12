@@ -214,7 +214,8 @@
                         <tr>
                             <th style="width: 6%" class="text-center">#</th>
                             <th>ชื่อห้องเรียน / ระดับชั้น</th>
-                            <th style="width: 25%" class="text-center">จำนวนนักศึกษาในวิชา</th>
+                            <th style="width: 15%" class="text-center">รอบเวลา</th>
+                            <th style="width: 20%" class="text-center">จำนวนนักศึกษาในวิชา</th>
                             <th class="text-center" style="width: 1%; white-space: nowrap;">การจัดการ</th>
                         </tr>
                     </thead>
@@ -228,6 +229,7 @@
                                         <i class="fas fa-user-tag mr-2 text-warning"></i>นักศึกษาที่ไม่มีกลุ่มเรียน
                                     </a>
                                 </td>
+                                <td class="text-center align-middle text-muted">-</td>
                                 <td class="text-center align-middle">
                                     <span class="px-3 py-1 font-weight-bold text-md badge badge-warning">
                                         {{ $unassignedStudentsCount }} คน
@@ -250,6 +252,9 @@
                                         class="font-weight-bold text-dark text-md">
                                         {{ $room->name }}
                                     </a>
+                                </td>
+                                <td class="text-center align-middle">
+                                    {!! $room->shift_badge !!}
                                 </td>
                                 <td class="text-center align-middle">
                                     <span class=" px-3 py-1 font-weight-bold text-md">
@@ -276,7 +281,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-5">
+                                <td colspan="5" class="text-center text-muted py-5">
                                     <span
                                         class="d-block font-weight-bold text-md text-secondary">ยังไม่มีกลุ่มเรียนในรายวิชานี้</span>
                                     <span class="text-sm text-muted d-block mt-1">กดปุ่ม
@@ -474,8 +479,9 @@
                                             title="เลือก/ยกเลิกทั้งหมดที่แสดง">
                                     </th>
                                     <th style="width: 140px;" class="align-middle">รหัสนักศึกษา</th>
-                                    <th class="align-middle text-center">ชื่อ-นามสกุล</th>
-                                    <th style="width: 250px;" class="text-center align-middle">กลุ่มเรียน</th>
+                                    <th class="align-middle">ชื่อ-นามสกุล</th>
+                                    <th style="width: 200px;" class="align-middle">กลุ่มเรียน</th>
+                                    <th style="width: 130px;" class="text-center align-middle">รอบเวลา</th>
                                 </tr>
                             </thead>
                             <tbody id="modal_students_tbody">
@@ -498,20 +504,18 @@
                                             <span class="badge badge-light text-secondary font-weight-bold px-2 py-1">
                                                 {{ $student->classroom ? $student->classroom->name : 'ไม่มีกลุ่มเรียน' }}
                                             </span>
+                                        </td>
+                                        <td class="text-center align-middle">
                                             @if($student->classroom)
-                                                @if(str_contains($student->classroom->name, 'เช้า'))
-                                                    <span class="badge badge-success text-xs ml-1"><i class="fas fa-cloud-sun mr-1"></i>เช้า</span>
-                                                @elseif(str_contains($student->classroom->name, 'บ่าย'))
-                                                    <span class="badge badge-warning text-dark text-xs ml-1"><i class="fas fa-sun mr-1"></i>บ่าย</span>
-                                                @elseif(str_contains($student->classroom->name, 'ทวิภาคี'))
-                                                    <span class="badge badge-info text-xs ml-1"><i class="fas fa-handshake mr-1"></i>ทวิภาคี</span>
-                                                @endif
+                                                {!! $student->classroom->shift_badge !!}
+                                            @else
+                                                <span class="text-muted">-</span>
                                             @endif
                                         </td>
                                     </tr>
                                 @empty
                                     <tr id="modal_empty_row">
-                                        <td colspan="4" class="text-center text-muted py-5">
+                                        <td colspan="5" class="text-center text-muted py-5">
                                             <i class="fas fa-check-circle text-success mb-2"
                                                 style="font-size: 2.2rem;"></i><br>
                                             <strong class="text-dark">นักศึกษาทุกคนเข้าร่วมรายวิชานี้แล้ว</strong><br>
@@ -520,7 +524,7 @@
                                     </tr>
                                 @endforelse
                                 <tr id="modal_no_results_row" class="d-none">
-                                    <td colspan="4" class="text-center text-muted py-4">
+                                    <td colspan="5" class="text-center text-muted py-4">
                                         <i class="fas fa-search text-secondary mb-2" style="font-size: 1.8rem;"></i><br>
                                         <span>ไม่พบรายชื่อนักศึกษาตามเงื่อนไขที่เลือกหรือค้นหา</span>
                                     </td>
@@ -594,22 +598,26 @@
             updateModalSelectionState();
         }
 
+        // Strictly filter modal classroom filter by removing non-matching options
+        var allIndividualModalClassrooms = $('#modal_classroom_filter option').clone();
+
         $('#modal_student_shift_filter').on('change', function () {
             var shift = $(this).val();
-            $('#modal_classroom_filter option').each(function () {
+            var currentVal = $('#modal_classroom_filter').val();
+            $('#modal_classroom_filter').empty();
+            allIndividualModalClassrooms.each(function () {
                 var roomShift = $(this).data('shift');
-                if (!shift || !roomShift || roomShift === shift || $(this).val() === "" || $(this).val() === "unassigned") {
-                    $(this).prop('disabled', false);
-                } else {
-                    $(this).prop('disabled', true);
+                var optVal = $(this).val();
+                if (!shift || !roomShift || roomShift === shift || optVal === "" || optVal === "unassigned") {
+                    $('#modal_classroom_filter').append($(this).clone());
                 }
             });
-            var currentRoomShift = $('#modal_classroom_filter option:selected').data('shift');
-            if (shift && currentRoomShift && currentRoomShift !== shift) {
-                $('#modal_classroom_filter').val('').trigger('change.select2');
+            if (currentVal && $('#modal_classroom_filter option[value="' + currentVal + '"]').length > 0) {
+                $('#modal_classroom_filter').val(currentVal);
             } else {
-                $('#modal_classroom_filter').trigger('change.select2');
+                $('#modal_classroom_filter').val('');
             }
+            $('#modal_classroom_filter').trigger('change.select2');
             filterModalStudents();
         });
 
@@ -733,59 +741,59 @@
             width: '100%'
         });
 
-        // Filter classroom select options by shift
+        // Strictly filter classroom select options by shift: remove non-matching options entirely
+        var allModalClassrooms = $('#classroom_select option').clone();
+
         $('#modal_classroom_shift_filter').on('change', function () {
             var shift = $(this).val();
-            $('#classroom_select option').each(function () {
+            var currentSelected = $('#classroom_select').val() || [];
+            $('#classroom_select').empty();
+            allModalClassrooms.each(function () {
                 var roomShift = $(this).data('shift');
                 if (!shift || roomShift === shift) {
-                    $(this).prop('disabled', false);
-                } else {
-                    $(this).prop('disabled', true);
+                    $('#classroom_select').append($(this).clone());
                 }
             });
-            $('#classroom_select').select2('destroy').select2({
-                dropdownParent: $('#addClassroomModal'),
-                placeholder: "คลิกเพื่อเลือกห้องเรียน (เลือกได้หลายห้อง)...",
-                allowClear: true,
-                width: '100%'
+            // Keep previously selected values that still exist in the filtered options
+            var validSelections = [];
+            $('#classroom_select option').each(function () {
+                if (currentSelected.indexOf($(this).val()) !== -1) {
+                    validSelections.push($(this).val());
+                }
             });
+            $('#classroom_select').val(validSelections).trigger('change.select2');
         });
 
         // Quick select classrooms by selected shift
         $('#btn-select-shift-rooms').on('click', function () {
-            var shift = $('#modal_classroom_shift_filter').val();
-            if (!shift) {
+            var allVals = [];
+            $('#classroom_select option').each(function () {
+                allVals.push($(this).val());
+            });
+            if (allVals.length === 0) {
                 Swal.fire({
                     icon: 'info',
-                    title: 'กรุณาเลือกรอบเวลาก่อน',
-                    text: 'กรุณาเลือก ภาคเช้า, ภาคบ่าย หรือ ทวิภาคี จากเมนูรอบเวลาเพื่อเลือกห้องเรียนตามรอบ',
+                    title: 'ไม่พบห้องเรียนตามรอบที่เลือก',
+                    text: 'ไม่มีห้องเรียนในรอบเวลานี้ที่สามารถเลือกได้',
                     confirmButtonText: 'ตกลง'
                 });
                 return;
             }
-            var currentVals = $('#classroom_select').val() || [];
-            $('#classroom_select option').each(function () {
-                var roomShift = $(this).data('shift');
-                if (roomShift === shift && currentVals.indexOf($(this).val()) === -1) {
-                    currentVals.push($(this).val());
-                }
-            });
-            $('#classroom_select').val(currentVals).trigger('change');
+            $('#classroom_select').val(allVals).trigger('change.select2');
         });
 
         // Quick select all rooms
         $('#btn-select-all-rooms').on('click', function () {
             var allVals = [];
-            $('#classroom_select option:not(:disabled)').each(function () {
+            $('#classroom_select option').each(function () {
                 allVals.push($(this).val());
             });
-            $('#classroom_select').val(allVals).trigger('change');
+            $('#classroom_select').val(allVals).trigger('change.select2');
         });
 
         // Quick deselect all
         $('#btn-deselect-all-rooms').on('click', function () {
-            $('#classroom_select').val([]).trigger('change');
+            $('#classroom_select').val([]).trigger('change.select2');
         });
 
         // Form submit loading

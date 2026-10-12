@@ -58,10 +58,11 @@
                 <table id="classrooms-table" class="table table-bordered table-striped table-hover mb-0">
                     <thead>
                         <tr>
-                            <th style="width: 8%">#</th>
+                            <th style="width: 6%">#</th>
                             <th>ชื่อห้องเรียน / ระดับชั้น</th>
-                            <th style="width: 15%" class="text-center">จำนวนนักเรียน</th>
-                            <th style="width: 25%" class="text-center">สถานะสิทธิ์การสอบ</th>
+                            <th style="width: 14%" class="text-center">รอบเวลา</th>
+                            <th style="width: 14%" class="text-center">จำนวนนักเรียน</th>
+                            <th style="width: 24%" class="text-center">สถานะสิทธิ์การสอบ</th>
                             <th class="text-center" style="width: 1%; white-space: nowrap;">การจัดการ</th>
                         </tr>
                     </thead>
@@ -69,9 +70,9 @@
                         @forelse($classrooms as $index => $room)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td class="font-weight-bold text-dark">
-                                    {{ $room->name }}
-                                    <span class="ml-1">{!! $room->shift_badge !!}</span>
+                                <td class="font-weight-bold text-dark">{{ $room->name }}</td>
+                                <td class="text-center align-middle">
+                                    {!! $room->shift_badge !!}
                                 </td>
                                 <td class="text-center">
                                     <span class="badge badge-light border px-2 py-1 font-weight-bold">{{ $room->students_count }} คน</span>
@@ -134,7 +135,7 @@
                             </div>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">ไม่มีข้อมูลห้องเรียนในระบบ</td>
+                                <td colspan="6" class="text-center text-muted py-4">ไม่มีข้อมูลห้องเรียนในระบบ</td>
                             </tr>
                         @endforelse
                     </tbody>

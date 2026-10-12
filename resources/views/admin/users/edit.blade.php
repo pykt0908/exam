@@ -256,18 +256,23 @@
             reader.readAsDataURL(file);
         });
     }
-    // Filter classroom options by shift
+    // Filter classroom options by shift: strictly keep only matching options
+    var allEditClassroomOptions = $('#classroom_id_select option').clone();
+
     function applyShiftFilter() {
         var shift = $('#filter_shift_select').val();
-        $('#classroom_id_select option').each(function() {
+        var currentVal = $('#classroom_id_select').val();
+        $('#classroom_id_select').empty();
+        allEditClassroomOptions.each(function() {
             var roomShift = $(this).data('shift');
-            if (!shift || !roomShift || roomShift === shift || $(this).val() === "") {
-                $(this).show();
-            } else {
-                $(this).hide();
+            var optVal = $(this).val();
+            if (!shift || !roomShift || roomShift === shift || optVal === "") {
+                $('#classroom_id_select').append($(this).clone());
             }
         });
-        if ($('#classroom_id_select option:selected').css('display') === 'none') {
+        if (currentVal && $('#classroom_id_select option[value="' + currentVal + '"]').length > 0) {
+            $('#classroom_id_select').val(currentVal);
+        } else {
             $('#classroom_id_select').val('');
         }
     }
