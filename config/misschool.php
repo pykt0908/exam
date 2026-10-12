@@ -28,7 +28,7 @@ return [
     | ข้อมูลการเชื่อมต่อไปยัง Bridge Server ตัวกลาง
     */
     'bridge' => [
-        'url' => env('MIS_BRIDGE_URL', 'https://bridge-technosri-api.offriend.net'),
+        'url' => env('MIS_BRIDGE_URL', 'https://bridge-technosrc-api.offriend.net'),
         'key' => env('MIS_BRIDGE_KEY', 'technosri_secret_key_2026'),
         'timeout' => env('MIS_BRIDGE_TIMEOUT', 10),
     ],

@@ -1,7 +1,7 @@
 # คู่มือระบบ Bridge API สำหรับเชื่อมต่อ MisSchool
 
 คู่มือนี้อธิบายสถาปัตยกรรมการทำงาน วิธีติดตั้ง และวิธีเรียกใช้งาน **Bridge API** ผ่านโดเมน:
-🌐 **`https://bridge-technosri-api.offriend.net`**
+🌐 **`https://bridge-technosrc-api.offriend.net`**
 
 เพื่อแก้ปัญหา Shared Hosting เดิมที่ถูกบล็อกพอร์ต โดยใช้โฮสต์ตัวที่สองเป็นตัวกลางรับคำขอจากระบบสอบแล้วดึงข้อมูลจาก SQL Server ของโรงเรียน
 
@@ -9,7 +9,7 @@
 
 ## สารบัญ
 1. [ภาพรวมสถาปัตยกรรม (Architecture)](#1-ภาพรวมสถาปัตยกรรม)
-2. [ส่วนที่ 1: โค้ดฝั่ง Bridge API (วางบน bridge-technosri-api.offriend.net)](#2-ส่วนที่-1-โค้ดฝั่ง-bridge-api)
+2. [ส่วนที่ 1: โค้ดฝั่ง Bridge API (วางบน bridge-technosrc-api.offriend.net)](#2-ส่วนที่-1-โค้ดฝั่ง-bridge-api)
 3. [ส่วนที่ 2: โค้ดฝั่ง Laravel ระบบสอบ (Client)](#3-ส่วนที่-2-โค้ดฝั่ง-laravel-ระบบสอบ)
 4. [Endpoints และ Format ข้อมูล](#4-endpoints-และ-format-ข้อมูล)
 5. [การทดสอบระบบ (Testing)](#5-การทดสอบระบบ)
@@ -30,7 +30,7 @@
                        ▼
 ┌──────────────────────────────────────────────┐
 │  Bridge API Server                           │
-│  https://bridge-technosri-api.offriend.net   │
+│  https://bridge-technosrc-api.offriend.net   │
 │  (อยู่บน Shared Hosting ตัวที่ไม่บล็อก)       │
 └──────────────────────┬───────────────────────┘
                        │ TCP Port 24252 (SQL Server)
@@ -45,7 +45,7 @@
 ---
 
 ## 2. ส่วนที่ 1: โค้ดฝั่ง Bridge API
-*(นำไปวางที่ `public_html` ของโดเมน `bridge-technosri-api.offriend.net`)*
+*(นำไปวางที่ `public_html` ของโดเมน `bridge-technosrc-api.offriend.net`)*
 
 คุณสามารถสร้างไฟล์ **`index.php`** (ไฟล์เดียวจบ ไม่ต้องลงเฟรมเวิร์กเพิ่ม) เพื่อทำหน้าที่เป็น REST API ได้ทันที:
 
@@ -209,7 +209,7 @@ echo json_encode(['success' => false, 'message' => 'Invalid action endpoint']);
 ### 3.1 ตั้งค่าใน `.env` ของ Laravel
 ```env
 # ตั้งค่า Bridge API
-MIS_BRIDGE_URL=https://bridge-technosri-api.offriend.net
+MIS_BRIDGE_URL=https://bridge-technosrc-api.offriend.net
 MIS_BRIDGE_KEY=technosri_secret_key_2026
 ```
 
@@ -328,7 +328,7 @@ class StudentLoginController extends Controller
 
 ### 1) ตรวจสอบสถานะระบบ (Health Check)
 * **Method:** `GET`
-* **URL:** `https://bridge-technosri-api.offriend.net/index.php?action=health`
+* **URL:** `https://bridge-technosrc-api.offriend.net/index.php?action=health`
 * **Header:** `X-Bridge-Key: technosri_secret_key_2026`
 * **Response:**
   ```json
@@ -341,7 +341,7 @@ class StudentLoginController extends Controller
 
 ### 2) ตรวจสอบนักเรียน (Verify Student)
 * **Method:** `POST`
-* **URL:** `https://bridge-technosri-api.offriend.net/index.php?action=verify-student`
+* **URL:** `https://bridge-technosrc-api.offriend.net/index.php?action=verify-student`
 * **Header:** `X-Bridge-Key: technosri_secret_key_2026`
 * **Request Body:**
   ```json
@@ -370,10 +370,10 @@ class StudentLoginController extends Controller
 
 ## 5. การทดสอบระบบ
 
-หลังจากอัปโหลดไฟล์ `index.php` ขึ้นโดเมน `bridge-technosri-api.offriend.net` แล้ว สามารถทดสอบด้วยคำสั่ง cURL ได้ทันที:
+หลังจากอัปโหลดไฟล์ `index.php` ขึ้นโดเมน `bridge-technosrc-api.offriend.net` แล้ว สามารถทดสอบด้วยคำสั่ง cURL ได้ทันที:
 
 ```bash
-curl -X GET "https://bridge-technosri-api.offriend.net/index.php?action=health" \
+curl -X GET "https://bridge-technosrc-api.offriend.net/index.php?action=health" \
      -H "X-Bridge-Key: technosri_secret_key_2026"
 ```
 

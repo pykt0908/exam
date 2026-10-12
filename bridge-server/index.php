@@ -1,7 +1,7 @@
 <?php
 /**
  * MisSchool Bridge API Server
- * สำหรับนำไปวางที่ public_html ของโดเมน bridge-technosri-api.offriend.net
+ * สำหรับนำไปวางที่ public_html ของโดเมน bridge-technosrc-api.offriend.net
  */
 
 header('Content-Type: application/json; charset=UTF-8');
