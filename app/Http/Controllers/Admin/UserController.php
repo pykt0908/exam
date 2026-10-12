@@ -50,6 +50,7 @@ class UserController extends Controller
         }
         $role = $request->query('role');
         $classroom_id = $request->query('classroom_id');
+        $shift = $request->query('shift');
 
         $classrooms = \App\Models\Classroom::withCount(['users as students_count' => function($q) {
             $q->where('role', 'student');
@@ -59,6 +60,9 @@ class UserController extends Controller
 
         $totalStudentsCount = User::where('role', 'student')->count();
         $unassignedStudentsCount = User::where('role', 'student')->whereNull('classroom_id')->count();
+        $morningCount = User::where('role', 'student')->shift('morning')->count();
+        $afternoonCount = User::where('role', 'student')->shift('afternoon')->count();
+        $dualCount = User::where('role', 'student')->shift('dual')->count();
 
         $selectedClassroom = null;
         if ($classroom_id && $classroom_id !== 'unassigned') {
@@ -69,6 +73,10 @@ class UserController extends Controller
             ->withCount(['examAttempts' => function($query) {
                 $query->where('status', 'completed');
             }]);
+
+        if ($shift) {
+            $query->shift($shift);
+        }
 
         if ($role === 'student') {
             $query->where('role', 'student');
@@ -119,7 +127,11 @@ class UserController extends Controller
             'classroom_id', 
             'selectedClassroom', 
             'totalStudentsCount', 
-            'unassignedStudentsCount'
+            'unassignedStudentsCount',
+            'shift',
+            'morningCount',
+            'afternoonCount',
+            'dualCount'
         ));
     }
 

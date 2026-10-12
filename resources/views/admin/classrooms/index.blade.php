@@ -51,7 +51,10 @@
                         @forelse($classrooms as $index => $room)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td class="font-weight-bold text-dark">{{ $room->name }}</td>
+                                <td class="font-weight-bold text-dark">
+                                    {{ $room->name }}
+                                    <span class="ml-1">{!! $room->shift_badge !!}</span>
+                                </td>
                                 <td class="text-center">
                                     <span class="badge badge-light border px-2 py-1 font-weight-bold">{{ $room->students_count }} คน</span>
                                 </td>

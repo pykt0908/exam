@@ -65,6 +65,28 @@ class User extends Authenticatable
         return in_array($this->role, ['admin', 'teacher']);
     }
 
+    public function getShiftAttribute(): ?string
+    {
+        return $this->classroom?->shift;
+    }
+
+    public function getShiftLabelAttribute(): ?string
+    {
+        return $this->classroom?->shift_label;
+    }
+
+    public function getShiftBadgeAttribute(): ?string
+    {
+        return $this->classroom?->shift_badge;
+    }
+
+    public function scopeShift($query, string $shift)
+    {
+        return $query->whereHas('classroom', function ($q) use ($shift) {
+            $q->shift($shift);
+        });
+    }
+
     public function getPhotoUrlAttribute(): string
     {
         if ($this->photo) {

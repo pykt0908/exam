@@ -99,6 +99,9 @@
                 @if($role === 'student')
                     <form action="{{ route('admin.users.index') }}" method="GET" class="form-inline mr-2 my-1">
                         <input type="hidden" name="role" value="student">
+                        @if(request('shift'))
+                            <input type="hidden" name="shift" value="{{ request('shift') }}">
+                        @endif
                         <label class="font-weight-bold text-dark text-md mr-2 mb-0">
                             กรองตามห้องเรียน:
                         </label>
@@ -115,9 +118,9 @@
                                 </option>
                             @endif
                         </select>
-                        @if(request('classroom_id'))
+                        @if(request('classroom_id') || request('shift'))
                             <a href="{{ route('admin.users.index', ['role' => 'student']) }}" class="btn btn-outline-secondary btn-sm ml-2" title="แสดงทั้งหมด / ล้างตัวกรอง">
-                                <i class="fas fa-times mr-1"></i>แสดงทั้งหมด
+                                <i class="fas fa-times mr-1"></i>ล้างตัวกรอง
                             </a>
                         @endif
                     </form>
@@ -131,6 +134,27 @@
             </div>
         </div>
         <div class="card-body p-3">
+            @if($role === 'student' || empty($role))
+                <div class="mb-3 d-flex align-items-center flex-wrap" style="gap: 6px;">
+                    <span class="text-xs font-weight-bold text-muted mr-1"><i class="fas fa-clock mr-1"></i>รอบเวลาเรียน:</span>
+                    <a href="{{ route('admin.users.index', array_filter(array_merge(request()->query(), ['shift' => null]))) }}" 
+                       class="btn btn-xs {{ empty($shift) ? 'btn-primary' : 'btn-outline-secondary' }} font-weight-bold shadow-xs">
+                        ทั้งหมด ({{ $totalStudentsCount ?? $users->count() }})
+                    </a>
+                    <a href="{{ route('admin.users.index', array_merge(request()->query(), ['shift' => 'morning'])) }}" 
+                       class="btn btn-xs {{ $shift === 'morning' ? 'btn-success text-white' : 'btn-outline-success' }} font-weight-bold shadow-xs">
+                        <i class="fas fa-cloud-sun mr-1"></i>ภาคเช้า ({{ $morningCount ?? 0 }})
+                    </a>
+                    <a href="{{ route('admin.users.index', array_merge(request()->query(), ['shift' => 'afternoon'])) }}" 
+                       class="btn btn-xs {{ $shift === 'afternoon' ? 'btn-warning text-dark' : 'btn-outline-warning text-dark' }} font-weight-bold shadow-xs">
+                        <i class="fas fa-sun mr-1"></i>ภาคบ่าย ({{ $afternoonCount ?? 0 }})
+                    </a>
+                    <a href="{{ route('admin.users.index', array_merge(request()->query(), ['shift' => 'dual'])) }}" 
+                       class="btn btn-xs {{ $shift === 'dual' ? 'btn-info text-white' : 'btn-outline-info' }} font-weight-bold shadow-xs">
+                        <i class="fas fa-handshake mr-1"></i>ทวิภาคี ({{ $dualCount ?? 0 }})
+                    </a>
+                </div>
+            @endif
             <div class="table-responsive">
                 <table id="users-table" class="table table-bordered table-striped table-hover table-sm mb-0">
                     <thead>
@@ -176,7 +200,12 @@
                                     <td>{{ $u->student_code }}</td>
                                     <td>{{ $u->citizen_id }}</td>
                                     <td>{{ $u->name }}</td>
-                                    <td>{{ $u->classroom ? $u->classroom->name : 'ไม่ได้ระบุ' }}</td>
+                                    <td>
+                                        {{ $u->classroom ? $u->classroom->name : 'ไม่ได้ระบุ' }}
+                                        @if($u->shift_badge)
+                                            <span class="ml-1">{!! $u->shift_badge !!}</span>
+                                        @endif
+                                    </td>
                                 @elseif($role === 'staff')
                                     <td>{{ $u->teacher_code ?? '-' }}</td>
                                     <td>{{ $u->name }}</td>
