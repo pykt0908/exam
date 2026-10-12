@@ -105,9 +105,9 @@
                         </label>
                         <select name="shift" id="filter-shift-select" class="form-control form-control-sm bg-white mr-3" onchange="this.form.classroom_id.value=''; this.form.submit();">
                             <option value="">-- ทุกรอบเวลา --</option>
-                            <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>🌅 ภาคเช้า</option>
-                            <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>🌇 ภาคบ่าย</option>
-                            <option value="ทวิภาคี" {{ request('shift') === 'ทวิภาคี' ? 'selected' : '' }}>🤝 ภาคทวิภาคี</option>
+                            <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
+                            <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
+                            <option value="ทวิภาคี" {{ request('shift') === 'ทวิภาคี' ? 'selected' : '' }}>ภาคทวิภาคี</option>
                         </select>
 
                         <label class="font-weight-bold text-dark text-md mr-2 mb-0">
@@ -188,13 +188,14 @@
                                 @if($role === 'student')
                                     <td>{{ $u->student_code }}</td>
                                     <td>{{ $u->citizen_id }}</td>
+                                    <td>{{ $u->name }}</td>
                                     <td>
                                         {{ $u->classroom ? $u->classroom->name : 'ไม่ได้ระบุ' }}
                                         @if($u->classroom)
                                             @if(str_contains($u->classroom->name, 'เช้า'))
-                                                <span class="badge badge-success ml-1 text-xs"><i class="fas fa-cloud-sun mr-1"></i>เช้า</span>
+                                                <span class="badge badge-success ml-1 text-xs"><i class="fas fa-cloud-sun mr-1"></i>ภาคเช้า</span>
                                             @elseif(str_contains($u->classroom->name, 'บ่าย'))
-                                                <span class="badge badge-warning text-dark ml-1 text-xs"><i class="fas fa-sun mr-1"></i>บ่าย</span>
+                                                <span class="badge badge-warning text-dark ml-1 text-xs"><i class="fas fa-sun mr-1"></i>ภาคบ่าย</span>
                                             @elseif(str_contains($u->classroom->name, 'ทวิภาคี'))
                                                 <span class="badge badge-info ml-1 text-xs"><i class="fas fa-handshake mr-1"></i>ทวิภาคี</span>
                                             @endif
@@ -262,7 +263,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ $role === 'student' ? '7' : ($role === 'staff' ? '6' : '7') }}" class="text-center text-muted py-4">ไม่มีข้อมูลผู้ใช้งานตามกลุ่มที่เลือกในระบบ</td>
+                                <td colspan="{{ $role === 'student' ? '7' : ($role === 'staff' ? '6' : '8') }}" class="text-center text-muted py-4">ไม่มีข้อมูลผู้ใช้งานตามกลุ่มที่เลือกในระบบ</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -542,15 +543,20 @@
                 "responsive": true,
                 "autoWidth": false,
                 "order": [],
-                @if($role === 'student')
                 "columnDefs": [
+                    @if($role === 'student')
                     {
                         "targets": 0,
                         "orderable": false,
                         "searchable": false
+                    },
+                    @endif
+                    {
+                        "targets": -1,
+                        "orderable": false,
+                        "searchable": false
                     }
                 ]
-                @endif
             });
 
             // Function to toggle add fields

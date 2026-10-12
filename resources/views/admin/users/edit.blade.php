@@ -115,9 +115,9 @@
                                             @endphp
                                             <select id="filter_shift_select" class="form-control">
                                                 <option value="">-- แสดงทุกรอบเวลา --</option>
-                                                <option value="เช้า" {{ $currentShift === 'เช้า' ? 'selected' : '' }}>🌅 ภาคเช้า</option>
-                                                <option value="บ่าย" {{ $currentShift === 'บ่าย' ? 'selected' : '' }}>🌇 ภาคบ่าย</option>
-                                                <option value="ทวิภาคี" {{ $currentShift === 'ทวิภาคี' ? 'selected' : '' }}>🤝 ภาคทวิภาคี</option>
+                                                <option value="เช้า" {{ $currentShift === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
+                                                <option value="บ่าย" {{ $currentShift === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
+                                                <option value="ทวิภาคี" {{ $currentShift === 'ทวิภาคี' ? 'selected' : '' }}>ภาคทวิภาคี</option>
                                             </select>
                                         </div>
                                     </div>

@@ -81,9 +81,9 @@
                                         </label>
                                         <select id="filter_shift_select" class="form-control">
                                             <option value="">-- แสดงทุกรอบเวลา --</option>
-                                            <option value="เช้า">🌅 ภาคเช้า</option>
-                                            <option value="บ่าย">🌇 ภาคบ่าย</option>
-                                            <option value="ทวิภาคี">🤝 ภาคทวิภาคี</option>
+                                            <option value="เช้า">ภาคเช้า</option>
+                                            <option value="บ่าย">ภาคบ่าย</option>
+                                            <option value="ทวิภาคี">ภาคทวิภาคี</option>
                                         </select>
                                     </div>
                                 </div>

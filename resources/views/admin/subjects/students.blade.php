@@ -317,9 +317,9 @@
                                         </div>
                                         <select id="modal_classroom_shift_filter" class="form-control form-control-sm">
                                             <option value="">-- กรองรอบเวลา (ทั้งหมด) --</option>
-                                            <option value="เช้า">🌅 ภาคเช้า</option>
-                                            <option value="บ่าย">🌇 ภาคบ่าย</option>
-                                            <option value="ทวิภาคี">🤝 ภาคทวิภาคี</option>
+                                            <option value="เช้า">ภาคเช้า</option>
+                                            <option value="บ่าย">ภาคบ่าย</option>
+                                            <option value="ทวิภาคี">ภาคทวิภาคี</option>
                                         </select>
                                     </div>
                                 </div>
@@ -398,9 +398,9 @@
                             </label>
                             <select id="modal_student_shift_filter" class="form-control">
                                 <option value="">-- ทุกรอบเวลา --</option>
-                                <option value="เช้า">🌅 ภาคเช้า</option>
-                                <option value="บ่าย">🌇 ภาคบ่าย</option>
-                                <option value="ทวิภาคี">🤝 ภาคทวิภาคี</option>
+                                <option value="เช้า">ภาคเช้า</option>
+                                <option value="บ่าย">ภาคบ่าย</option>
+                                <option value="ทวิภาคี">ภาคทวิภาคี</option>
                             </select>
                         </div>
                         <div class="col-md-4 mb-2 mb-md-0">

@@ -26,9 +26,9 @@
                         </div>
                         <select name="shift" class="form-control" onchange="this.form.submit()">
                             <option value="">-- ทุกรอบเวลา --</option>
-                            <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>🌅 ภาคเช้า</option>
-                            <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>🌇 ภาคบ่าย</option>
-                            <option value="ทวิภาคี" {{ request('shift') === 'ทวิภาคี' ? 'selected' : '' }}>🤝 ภาคทวิภาคี</option>
+                            <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
+                            <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
+                            <option value="ทวิภาคี" {{ request('shift') === 'ทวิภาคี' ? 'selected' : '' }}>ภาคทวิภาคี</option>
                         </select>
                     </div>
                 </div>
