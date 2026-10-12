@@ -32,6 +32,15 @@
 @stop
 
 @section('content')
+@if($exam->isExpired())
+    <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center">
+        <i class="fas fa-info-circle fa-lg mr-2"></i>
+        <div>
+            ข้อสอบชุดนี้หมดเวลาสอบตามกำหนดการหลักแล้ว แต่นักศึกษาที่<strong>ยังสอบไม่ผ่านและมีรอบสอบเหลือ</strong> หรือ<strong>ได้รับสิทธิ์สอบเพิ่มรายบุคคลจากหน้านี้</strong> จะสามารถเข้าทำข้อสอบซ่อมได้ตามปกติโดยไม่ต้องแก้ไขเวลาของชุดข้อสอบหลัก
+        </div>
+    </div>
+@endif
+
 <!-- Filter & Status Tabs -->
 <div class="card shadow-sm mb-3">
     <div class="card-body p-3">

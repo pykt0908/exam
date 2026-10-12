@@ -188,6 +188,12 @@ class ExamController extends Controller
 
         $user = auth()->user();
         if (!$user->isAdmin() && !$exam->canBeEdited()) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ข้อสอบนี้อยู่ระหว่างรออนุมัติหรือได้รับการอนุมัติแล้ว ไม่สามารถแก้ไขได้ กรุณาดึงกลับมาเป็นฉบับร่างก่อน'
+                ], 403);
+            }
             return back()->with('error', 'ข้อสอบนี้อยู่ระหว่างรออนุมัติหรือได้รับการอนุมัติแล้ว ไม่สามารถแก้ไขได้ กรุณาดึงกลับมาเป็นฉบับร่างก่อน');
         }
 
@@ -227,6 +233,14 @@ class ExamController extends Controller
         }
 
         $exam->update($data);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'อัปเดตข้อมูลข้อสอบเรียบร้อยแล้ว',
+                'exam' => $exam
+            ]);
+        }
 
         if ($request->input('redirect_to') === 'questions') {
             return redirect()->route('admin.exams.questions.index', $exam->id)->with('success', 'อัปเดตข้อมูลข้อสอบเรียบร้อยแล้ว');
@@ -384,6 +398,117 @@ class ExamController extends Controller
         ]);
 
         return view('admin.exams.preview_approval', compact('exam'));
+    }
+
+    public function coverSheet(Request $request, Exam $exam)
+    {
+        $user = auth()->user();
+        $isStaffWithAcademicRole = $user->isStaff() && !empty($user->academic_roles);
+        if (!$user->isAdmin() && !$isStaffWithAcademicRole) {
+            $this->authorizeExamSubject($exam);
+        }
+
+        $exam->load(['subject.department', 'subject.teachers']);
+
+        // Fetch students enrolled in this subject
+        $allStudents = User::where('role', 'student')
+            ->whereHas('enrolledSubjects', function ($q) use ($exam) {
+                $q->where('subjects.id', $exam->subject_id);
+            })
+            ->with(['classroom', 'enrolledSubjects' => function ($q) use ($exam) {
+                $q->where('subjects.id', $exam->subject_id);
+            }])
+            ->orderBy('student_code', 'asc')
+            ->get();
+
+        // Group students by classroom
+        $classroomMap = [];
+        $unassignedStudents = [];
+
+        foreach ($allStudents as $student) {
+            $eligibility = $student->getExamEligibility($exam);
+            $student->is_eligible_for_exam = $eligibility['eligible'];
+            $student->ineligible_reason_for_exam = $eligibility['reason'] ?? '';
+
+            if ($student->classroom) {
+                $cId = $student->classroom->id;
+                if (!isset($classroomMap[$cId])) {
+                    $classroomMap[$cId] = [
+                        'classroom' => $student->classroom,
+                        'students' => collect(),
+                        'eligible_students' => collect(),
+                        'ineligible_students' => collect(),
+                    ];
+                }
+                $classroomMap[$cId]['students']->push($student);
+                if ($student->is_eligible_for_exam) {
+                    $classroomMap[$cId]['eligible_students']->push($student);
+                } else {
+                    $classroomMap[$cId]['ineligible_students']->push($student);
+                }
+            } else {
+                $unassignedStudents[] = $student;
+            }
+        }
+
+        // Sort classrooms by name
+        uasort($classroomMap, function ($a, $b) {
+            return strcmp($a['classroom']->name, $b['classroom']->name);
+        });
+
+        if (!empty($unassignedStudents)) {
+            $unassignedObj = (object) [
+                'id' => 'unassigned',
+                'name' => 'ไม่มีกลุ่มเรียน (ไม่ระบุห้อง)'
+            ];
+            $unassignedEligible = collect();
+            $unassignedIneligible = collect();
+            foreach ($unassignedStudents as $uStudent) {
+                if ($uStudent->is_eligible_for_exam) {
+                    $unassignedEligible->push($uStudent);
+                } else {
+                    $unassignedIneligible->push($uStudent);
+                }
+            }
+            $classroomMap['unassigned'] = [
+                'classroom' => $unassignedObj,
+                'students' => collect($unassignedStudents),
+                'eligible_students' => $unassignedEligible,
+                'ineligible_students' => $unassignedIneligible,
+            ];
+        }
+
+        // Available classrooms summary for dropdown
+        $availableClassrooms = collect($classroomMap)->map(function ($item) {
+            return (object) [
+                'id' => $item['classroom']->id,
+                'name' => $item['classroom']->name,
+                'total_students' => $item['students']->count(),
+                'eligible_count' => $item['eligible_students']->count(),
+            ];
+        })->values();
+
+        $selectedClassroomId = $request->get('classroom_id');
+
+        // Filter classrooms if a specific classroom was requested
+        if ($selectedClassroomId && isset($classroomMap[$selectedClassroomId])) {
+            $displayClassrooms = [$selectedClassroomId => $classroomMap[$selectedClassroomId]];
+        } else {
+            $displayClassrooms = $classroomMap;
+        }
+
+        // Formatted teacher name
+        $teacherName = $exam->subject && $exam->subject->teachers->isNotEmpty()
+            ? $exam->subject->teachers->pluck('name')->implode(', ')
+            : ($exam->subject_teacher_name ?? '-');
+
+        return view('admin.exams.cover_sheet', compact(
+            'exam',
+            'displayClassrooms',
+            'availableClassrooms',
+            'selectedClassroomId',
+            'teacherName'
+        ));
     }
 
     private function authorizeExamSubject(?Exam $exam = null, $subjectId = null)

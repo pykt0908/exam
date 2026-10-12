@@ -138,6 +138,7 @@
                                         $latestCompleted = $completedAttempts->first();
                                         $isPendingGrading = $latestCompleted && $latestCompleted->isPendingGrading();
                                         $dayName = $exam->starts_at ? ($thaiDays[$exam->starts_at->format('l')] ?? '-') : '-';
+                                        $canRetake = ($completedAttemptsCount < $allowedAttempts) && (($completedAttemptsCount > 0 && !$hasPassed) || ($extraAttempts > 0));
                                     @endphp
                                     <tr>
                                         <td class="text-center align-middle">{{ $index + 1 }}</td>
@@ -181,10 +182,12 @@
                                             @elseif($isPendingGrading)
                                                 <span class="text-warning font-weight-bold"><i
                                                         class="fas fa-clock mr-1"></i>รอตรวจข้อเขียน</span>
-                                            @elseif($hasPassed)
+                                            @elseif($hasPassed && $extraAttempts === 0)
                                                 <span class="text-success font-weight-bold">สอบผ่านแล้ว</span>
                                             @elseif($exam->isUpcoming())
                                                 <span class="text-warning font-weight-bold">ยังไม่ถึงเวลาสอบ</span>
+                                            @elseif($canRetake)
+                                                <span class="text-info font-weight-bold">สอบซ่อมได้</span>
                                             @elseif($exam->isExpired())
                                                 <span class="text-danger font-weight-bold">หมดเวลาสอบแล้ว</span>
                                             @elseif($completedAttemptsCount >= $allowedAttempts)
@@ -215,6 +218,11 @@
                                                 @else
                                                     <span class="text-muted text-sm"><i class="fas fa-clock mr-1"></i>รอผลตรวจ</span>
                                                 @endif
+                                            @elseif($canRetake)
+                                                <a href="{{ route('student.exam.lobby', $exam->id) }}"
+                                                    class="btn btn-sm btn-warning text-white font-weight-bold">
+                                                    สอบซ่อม
+                                                </a>
                                             @elseif($hasPassed)
                                                 @if($latestCompleted && $exam->allow_review)
                                                     <a href="{{ route('student.exam.result', $latestCompleted->id) }}"
@@ -286,6 +294,7 @@
                                 $latestCompleted = $completedAttempts->first();
                                 $isPendingGrading = $latestCompleted && $latestCompleted->isPendingGrading();
                                 $dayNameMobile = $exam->starts_at ? ($thaiDaysMobile[$exam->starts_at->format('l')] ?? '-') : '-';
+                                $canRetake = ($completedAttemptsCount < $allowedAttempts) && (($completedAttemptsCount > 0 && !$hasPassed) || ($extraAttempts > 0));
                             @endphp
                             <div class="p-3 border-bottom {{ $loop->even ? 'bg-light' : 'bg-white' }}">
                                 <div class="text-xs text-muted mb-1">
@@ -322,10 +331,12 @@
                                         @elseif($isPendingGrading)
                                             <span class="text-warning font-weight-bold text-sm"><i
                                                     class="fas fa-clock mr-1"></i>รอตรวจข้อเขียน</span>
-                                        @elseif($hasPassed)
+                                        @elseif($hasPassed && $extraAttempts === 0)
                                             <span class="text-success font-weight-bold text-sm">สอบผ่านแล้ว</span>
                                         @elseif($exam->isUpcoming())
                                             <span class="text-warning font-weight-bold text-sm">ยังไม่ถึงเวลาสอบ</span>
+                                        @elseif($canRetake)
+                                            <span class="text-info font-weight-bold text-sm">สอบซ่อมได้</span>
                                         @elseif($exam->isExpired())
                                             <span class="text-danger font-weight-bold text-sm">หมดเวลาสอบแล้ว</span>
                                         @elseif($completedAttemptsCount >= $allowedAttempts)
@@ -356,6 +367,11 @@
                                             @else
                                                 <span class="text-muted text-sm"><i class="fas fa-clock mr-1"></i>รอผลตรวจ</span>
                                             @endif
+                                        @elseif($canRetake)
+                                            <a href="{{ route('student.exam.lobby', $exam->id) }}"
+                                                class="btn btn-sm btn-warning text-white font-weight-bold px-3">
+                                                สอบซ่อม
+                                            </a>
                                         @elseif($hasPassed)
                                             @if($latestCompleted && $exam->allow_review)
                                                 <a href="{{ route('student.exam.result', $latestCompleted->id) }}"

@@ -12,8 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('exam_attempts', function (Blueprint $table) {
-            $table->decimal('raw_score', 8, 2)->nullable()->after('score');
-            $table->decimal('total_raw_score', 8, 2)->nullable()->after('raw_score');
+            if (!Schema::hasColumn('exam_attempts', 'raw_score')) {
+                $table->decimal('raw_score', 8, 2)->nullable()->after('score');
+            }
+            if (!Schema::hasColumn('exam_attempts', 'total_raw_score')) {
+                $table->decimal('total_raw_score', 8, 2)->nullable()->after('raw_score');
+            }
         });
     }
 

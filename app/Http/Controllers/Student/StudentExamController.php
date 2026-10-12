@@ -56,10 +56,6 @@ class StudentExamController extends Controller
             return redirect()->route('student.dashboard')->with('error', 'ยังไม่ถึงกำหนดเวลาสอบ ข้อสอบจะเปิดให้เข้าทำในวันที่ ' . $exam->starts_at->format('d/m/Y H:i น.'));
         }
 
-        if ($exam->isExpired()) {
-            return redirect()->route('student.dashboard')->with('error', 'หมดเวลาการทำข้อสอบชุดนี้แล้ว (ปิดระบบเมื่อ ' . $exam->ends_at->format('d/m/Y H:i น.') . ')');
-        }
-
         $completedAttemptsCount = ExamAttempt::where('user_id', Auth::id())
             ->where('exam_id', $exam->id)
             ->where('status', 'completed')
@@ -74,6 +70,13 @@ class StudentExamController extends Controller
             ->where('is_passed', true)
             ->exists();
 
+        // สามารถสอบซ่อม/สอบแก้ตัวได้ หากยังใช้สิทธิ์ไม่ครบ และ (ยังสอบไม่ผ่าน หรือ ครูได้ให้สิทธิ์สอบเพิ่มพิเศษ)
+        $canRetake = ($completedAttemptsCount < $allowedAttempts) && (($completedAttemptsCount > 0 && !$hasPassed) || ($extraAttempts > 0));
+
+        if ($exam->isExpired() && !$canRetake) {
+            return redirect()->route('student.dashboard')->with('error', 'หมดเวลาการทำข้อสอบชุดนี้แล้ว (ปิดระบบเมื่อ ' . $exam->ends_at->format('d/m/Y H:i น.') . ')');
+        }
+
         if ($completedAttemptsCount >= $allowedAttempts) {
             if ($hasPassed) {
                 return redirect()->route('student.dashboard')->with('error', 'คุณผ่านเกณฑ์การสอบวิชานี้เรียบร้อยแล้ว');
@@ -86,7 +89,7 @@ class StudentExamController extends Controller
         }
 
         $exam->load('subject')->loadCount('questions');
-        return view('student.exam.lobby', compact('exam', 'completedAttemptsCount', 'allowedAttempts'));
+        return view('student.exam.lobby', compact('exam', 'completedAttemptsCount', 'allowedAttempts', 'canRetake'));
     }
 
     public function start(Request $request, Exam $exam)
@@ -106,10 +109,6 @@ class StudentExamController extends Controller
             return redirect()->route('student.dashboard')->with('error', 'ยังไม่ถึงกำหนดเวลาสอบ ข้อสอบจะเปิดให้เข้าทำในวันที่ ' . $exam->starts_at->format('d/m/Y H:i น.'));
         }
 
-        if ($exam->isExpired()) {
-            return redirect()->route('student.dashboard')->with('error', 'หมดเวลาการทำข้อสอบชุดนี้แล้ว (ปิดระบบเมื่อ ' . $exam->ends_at->format('d/m/Y H:i น.') . ')');
-        }
-
         $completedAttemptsCount = ExamAttempt::where('user_id', $student->id)
             ->where('exam_id', $exam->id)
             ->where('status', 'completed')
@@ -123,6 +122,13 @@ class StudentExamController extends Controller
             ->where('status', 'completed')
             ->where('is_passed', true)
             ->exists();
+
+        // สามารถสอบซ่อม/สอบแก้ตัวได้ หากยังใช้สิทธิ์ไม่ครบ และ (ยังสอบไม่ผ่าน หรือ ครูได้ให้สิทธิ์สอบเพิ่มพิเศษ)
+        $canRetake = ($completedAttemptsCount < $allowedAttempts) && (($completedAttemptsCount > 0 && !$hasPassed) || ($extraAttempts > 0));
+
+        if ($exam->isExpired() && !$canRetake) {
+            return redirect()->route('student.dashboard')->with('error', 'หมดเวลาการทำข้อสอบชุดนี้แล้ว (ปิดระบบเมื่อ ' . $exam->ends_at->format('d/m/Y H:i น.') . ')');
+        }
 
         if ($completedAttemptsCount >= $allowedAttempts) {
             if ($hasPassed) {
@@ -202,7 +208,8 @@ class StudentExamController extends Controller
         $started = $attempt->started_at;
         $duration = $exam->duration_minutes;
         $expiresAt = $started->copy()->addMinutes($duration);
-        if ($exam->ends_at && $exam->ends_at->lt($expiresAt)) {
+        // Only cap by exam ends_at if ends_at was set and in the future relative to when the attempt was started
+        if ($exam->ends_at && $exam->ends_at->gt($started) && $exam->ends_at->lt($expiresAt)) {
             $expiresAt = $exam->ends_at;
         }
         $timeRemainingSeconds = $expiresAt->timestamp - now()->timestamp;

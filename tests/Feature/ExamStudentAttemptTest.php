@@ -416,6 +416,97 @@ class ExamStudentAttemptTest extends TestCase
         // It should still be 1 (NOT 2!)
         $this->assertEquals(1, $attempt->fresh()->focus_escape_count);
     }
+
+    public function test_student_can_retake_expired_exam_when_eligible()
+    {
+        // Set exam as expired
+        $this->exam->update([
+            'starts_at' => now()->subDays(2),
+            'ends_at' => now()->subDay(),
+            'max_attempts' => 2,
+        ]);
+
+        // Student took exam 1 time and failed
+        ExamAttempt::create([
+            'exam_id' => $this->exam->id,
+            'user_id' => $this->student->id,
+            'status' => 'completed',
+            'score' => 20,
+            'is_passed' => false,
+            'started_at' => now()->subDays(2),
+            'completed_at' => now()->subDays(2)->addMinutes(30),
+        ]);
+
+        // Student has attempt 2 remaining -> can access lobby and start exam despite exam being expired
+        $responseLobby = $this->actingAs($this->student)
+            ->get(route('student.exam.lobby', $this->exam->id));
+        $responseLobby->assertStatus(200);
+        $responseLobby->assertSee('รอบสอบแก้ตัว / สอบซ่อม');
+
+        $responseStart = $this->actingAs($this->student)
+            ->post(route('student.exam.start', $this->exam->id));
+        $responseStart->assertRedirect();
+        $this->assertDatabaseHas('exam_attempts', [
+            'exam_id' => $this->exam->id,
+            'user_id' => $this->student->id,
+            'attempt_number' => 2,
+            'status' => 'in_progress',
+        ]);
+    }
+
+    public function test_student_without_retake_eligibility_is_blocked_when_exam_is_expired()
+    {
+        // Set exam as expired
+        $this->exam->update([
+            'starts_at' => now()->subDays(2),
+            'ends_at' => now()->subDay(),
+            'max_attempts' => 1,
+        ]);
+
+        // Student never took the exam (missed it) and has no teacher override
+        $responseLobby = $this->actingAs($this->student)
+            ->get(route('student.exam.lobby', $this->exam->id));
+        $responseLobby->assertRedirect(route('student.dashboard'));
+        $responseLobby->assertSessionHas('error');
+
+        $responseStart = $this->actingAs($this->student)
+            ->post(route('student.exam.start', $this->exam->id));
+        $responseStart->assertRedirect(route('student.dashboard'));
+        $responseStart->assertSessionHas('error');
+    }
+
+    public function test_retake_attempt_started_after_exam_ends_at_gets_full_duration()
+    {
+        $this->exam->update([
+            'starts_at' => now()->subDays(2),
+            'ends_at' => now()->subDay(),
+            'duration_minutes' => 60,
+            'max_attempts' => 1,
+        ]);
+
+        // Teacher grants +1 extra attempt
+        $this->actingAs($this->teacher)
+            ->post(route('admin.exams.student-attempts.quick-add', [$this->exam->id, $this->student->id]));
+
+        // Student starts exam
+        $this->actingAs($this->student)
+            ->post(route('student.exam.start', $this->exam->id));
+
+        $attempt = ExamAttempt::where('user_id', $this->student->id)
+            ->where('exam_id', $this->exam->id)
+            ->where('status', 'in_progress')
+            ->first();
+
+        $this->assertNotNull($attempt);
+
+        // Access take page -> should NOT auto submit because ends_at was before started_at
+        $responseTake = $this->actingAs($this->student)
+            ->get(route('student.exam.take', [$this->exam->id, $attempt->id]));
+
+        $responseTake->assertStatus(200);
+        $this->assertEquals('in_progress', $attempt->fresh()->status);
+    }
 }
+
 
 

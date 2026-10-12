@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('exam_sections', function (Blueprint $table) {
-            $table->decimal('total_score', 8, 2)->nullable()->after('instruction');
-        });
+        if (!Schema::hasColumn('exam_sections', 'total_score')) {
+            Schema::table('exam_sections', function (Blueprint $table) {
+                $table->decimal('total_score', 8, 2)->nullable()->after('instruction');
+            });
+        }
     }
 
     /**

@@ -143,11 +143,9 @@ class SubjectController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'code' => ['required', 'string', 'max:50', 'unique:subjects,code'],
+            'code' => ['required', 'string', 'max:50'],
             'name' => ['required', 'string', 'max:255'],
             'department_id' => ['nullable', 'exists:departments,id'],
-        ], [
-            'code.unique' => 'รหัสวิชานี้มีอยู่ในระบบแล้ว',
         ]);
 
         $data = $request->only('code', 'name', 'department_id');
@@ -177,11 +175,9 @@ class SubjectController extends Controller
         }
 
         $request->validate([
-            'code' => ['required', 'string', 'max:50', 'unique:subjects,code,' . $subject->id],
+            'code' => ['required', 'string', 'max:50'],
             'name' => ['required', 'string', 'max:255'],
             'department_id' => ['nullable', 'exists:departments,id'],
-        ], [
-            'code.unique' => 'รหัสวิชานี้มีอยู่ในระบบแล้ว',
         ]);
 
         $subject->update($request->only('code', 'name', 'department_id'));

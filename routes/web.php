@@ -67,6 +67,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/exams/{exam}/recall-approval', [\App\Http\Controllers\Admin\ExamApprovalController::class, 'recall'])->name('exams.recall-approval');
         Route::post('/exams/{exam}/duplicate', [ExamController::class, 'duplicate'])->name('exams.duplicate');
         Route::get('/exams/{exam}/preview', [ExamController::class, 'preview'])->name('exams.preview');
+        Route::get('/exams/{exam}/cover-sheet', [ExamController::class, 'coverSheet'])->name('exams.cover-sheet');
 
         // Exam Student Attempts (จัดการสิทธิ์เปิดให้สอบเพิ่มรายคน)
         Route::get('/exams/{exam}/student-attempts', [\App\Http\Controllers\Admin\ExamStudentAttemptController::class, 'index'])->name('exams.student-attempts.index');

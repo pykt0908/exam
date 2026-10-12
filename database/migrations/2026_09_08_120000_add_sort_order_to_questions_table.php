@@ -12,9 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('questions', function (Blueprint $table) {
-            $table->integer('sort_order')->default(0)->after('score');
-        });
+        if (!Schema::hasColumn('questions', 'sort_order')) {
+            Schema::table('questions', function (Blueprint $table) {
+                $table->integer('sort_order')->default(0)->after('score');
+            });
+        }
 
         // Initialize sort_order for existing questions to match their id
         DB::statement('UPDATE questions SET sort_order = id WHERE sort_order = 0 OR sort_order IS NULL');

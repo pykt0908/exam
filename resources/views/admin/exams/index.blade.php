@@ -283,6 +283,11 @@
                                         </a>
                                     </div>
                                 </div>
+                                <a href="{{ route('admin.exams.cover-sheet', $exam->id) }}" target="_blank"
+                                    class="btn btn-xs btn-outline-dark font-weight-bold shadow-xs mr-1"
+                                    title="พิมพ์ใบปะหน้าข้อสอบ (A4 2 หน้าต่อกลุ่มเรียน)">
+                                    <i class="fas fa-print mr-1"></i>ใบปะหน้า
+                                </a>
                                 <form action="{{ route('admin.exams.duplicate', $exam->id) }}" method="post"
                                     class="d-inline mr-1 confirm-duplicate"
                                     data-text="ต้องการคัดลอกข้อสอบ '{{ $exam->title }}' ใช่หรือไม่? ข้อสอบชุดใหม่จะถูกสร้างเป็น 'ฉบับร่าง' และต้องยื่นขออนุมัติใหม่ก่อนเปิดใช้งาน">

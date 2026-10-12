@@ -12,9 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('exam_attempts', function (Blueprint $table) {
-            $table->unsignedInteger('attempt_number')->default(1)->after('exam_id');
-        });
+        if (!Schema::hasColumn('exam_attempts', 'attempt_number')) {
+            Schema::table('exam_attempts', function (Blueprint $table) {
+                $table->unsignedInteger('attempt_number')->default(1)->after('exam_id');
+            });
+        }
 
         // Backfill attempt_number for existing attempts ordered by (user_id, exam_id, started_at, id)
         $attempts = DB::table('exam_attempts')

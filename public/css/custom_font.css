@@ -1,3 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.cdnfonts.com/css/google-sans');
+
+/* TH Sarabun New Local Fonts for Print */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('../fonts/TH-Sarabun-New/THSarabunNew.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('../fonts/TH-Sarabun-New/THSarabunNew%20Bold.ttf') format('truetype'),
+         url('../fonts/TH-Sarabun-New/THSarabunNew Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'THSarabunNew';
+    src: url('../fonts/TH-Sarabun-New/THSarabunNew.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'THSarabunNew';
+    src: url('../fonts/TH-Sarabun-New/THSarabunNew%20Bold.ttf') format('truetype'),
+         url('../fonts/TH-Sarabun-New/THSarabunNew Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+}
+
 @font-face {
     font-family: 'LINESeedSansTH';
     src: url('../font/LINESeedSansTH_W_Th.woff2') format('woff2');
@@ -33,6 +64,7 @@
     font-style: normal;
 }
 
+/* Screen Typography: Google Sans with Thai support (Noto Sans Thai) */
 body, 
 h1, h2, h3, h4, h5, h6, 
 .main-header, 
@@ -43,8 +75,27 @@ h1, h2, h3, h4, h5, h6,
 .form-control, 
 .btn, 
 .badge,
-.table {
-    font-family: 'LINESeedSansTH', sans-serif !important;
+.table,
+.card,
+.modal-content,
+.select2-container,
+.dropdown-menu,
+input, button, select, textarea {
+    font-family: 'Google Sans', 'Noto Sans Thai', sans-serif !important;
+}
+
+/* Print Typography: TH Sarabun New / Sarabun */
+@media print {
+    body, 
+    h1, h2, h3, h4, h5, h6, 
+    .content-wrapper, 
+    .card,
+    .table,
+    table, th, td, tr,
+    p, span, div, a, b, strong, i, em,
+    * {
+        font-family: 'TH Sarabun New', 'THSarabunNew', 'Sarabun', sans-serif !important;
+    }
 }
 
 /* Submenu indentation inside sidebar (Only when sidebar is expanded) */

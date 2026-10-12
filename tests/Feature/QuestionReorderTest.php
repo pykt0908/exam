@@ -224,4 +224,30 @@ class QuestionReorderTest extends TestCase
         $this->assertEquals($q2->id, $questionsInView->first()->id);
         $this->assertEquals($q1->id, $questionsInView->last()->id);
     }
+
+    public function test_exam_details_can_be_updated_via_ajax_returning_json()
+    {
+        $response = $this->actingAs($this->teacher)->putJson(route('admin.exams.update', $this->exam->id), [
+            'subject_id' => $this->subject->id,
+            'title' => 'Updated Title via Unified Save',
+            'duration_minutes' => 90,
+            'passing_percentage' => 60,
+            'total_score' => 50,
+            'max_attempts' => 2,
+            'max_focus_escapes' => 1,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => 'อัปเดตข้อมูลข้อสอบเรียบร้อยแล้ว',
+        ]);
+
+        $this->assertDatabaseHas('exams', [
+            'id' => $this->exam->id,
+            'title' => 'Updated Title via Unified Save',
+            'duration_minutes' => 90,
+        ]);
+    }
 }
+

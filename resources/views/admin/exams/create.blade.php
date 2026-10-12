@@ -63,11 +63,56 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="font-weight-bold text-dark">
-                                ชื่อข้อสอบ <span class="text-danger">*</span>
+                            <label class="font-weight-bold text-dark d-flex justify-content-between align-items-center">
+                                <span>ชื่อข้อสอบ <span class="text-danger">*</span></span>
                             </label>
-                            <input type="text" name="title" class="form-control form-control-lg @error('title') is-invalid @enderror"
-                                   value="{{ old('title') }}" placeholder="เช่น สอบกลางภาค ภาคเรียนที่ 1/2567" required>
+
+                            <!-- Exam Title Quick Dropdown Helper -->
+                            <div class="card bg-light border p-3 mb-2 rounded shadow-none">
+                                <div class="row">
+                                    <div class="col-md-5 mb-2 mb-md-0">
+                                        <label class="text-xs font-weight-bold text-secondary mb-1">
+                                            <i class="fas fa-file-alt mr-1"></i>ประเภทข้อสอบ
+                                        </label>
+                                        <select id="exam_type_preset" class="form-control form-control-sm">
+                                            <option value="">-- เลือกประเภทข้อสอบ --</option>
+                                            <option value="ทดสอบย่อย 1">ทดสอบย่อย 1</option>
+                                            <option value="สอบกลางภาค">สอบกลางภาค</option>
+                                            <option value="ทดสอบย่อย 2">ทดสอบย่อย 2</option>
+                                            <option value="สอบปลายภาค">สอบปลายภาค</option>
+                                            <option value="custom">กำหนดประเภทเอง...</option>
+                                        </select>
+                                        <input type="text" id="custom_exam_type" class="form-control form-control-sm mt-1 d-none" placeholder="ระบุประเภท เช่น สอบแก้ตัว">
+                                    </div>
+                                    <div class="col-md-3 mb-2 mb-md-0">
+                                        <label class="text-xs font-weight-bold text-secondary mb-1">
+                                            <i class="fas fa-calendar-alt mr-1"></i>ภาคเรียนที่
+                                        </label>
+                                        <select id="semester_preset" class="form-control form-control-sm">
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3 (ฤดูร้อน)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="text-xs font-weight-bold text-secondary mb-1">
+                                            <i class="fas fa-graduation-cap mr-1"></i>ปีการศึกษา (พ.ศ.)
+                                        </label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" id="academic_year_preset" class="form-control form-control-sm"
+                                                   value="{{ date('Y') + 543 }}" min="2550" max="2650">
+                                            <div class="input-group-append">
+                                                <button type="button" id="apply_title_preset_btn" class="btn btn-primary btn-sm" title="สร้างชื่อข้อสอบ">
+                                                    <i class="fas fa-check mr-1"></i>นำไปใส่
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <input type="text" name="title" id="exam_title_input" class="form-control form-control-lg @error('title') is-invalid @enderror"
+                                   value="{{ old('title') }}" placeholder="เช่น สอบปลายภาค ภาคเรียนที่ 1/2569" required>
                             @error('title')
                                 <span class="invalid-feedback">{{ $message }}</span>
                             @enderror
@@ -340,6 +385,44 @@
                     ['view', ['fullscreen', 'codeview']]
                 ]
             });
+
+            // Exam Title Builder Helper
+            function updateExamTitle() {
+                var examType = $('#exam_type_preset').val();
+                if (examType === 'custom') {
+                    $('#custom_exam_type').removeClass('d-none');
+                    examType = $('#custom_exam_type').val().trim();
+                } else {
+                    $('#custom_exam_type').addClass('d-none');
+                }
+
+                if (!examType) return;
+
+                var semester = $('#semester_preset').val();
+                var academicYear = $('#academic_year_preset').val();
+
+                var generatedTitle = examType;
+                if (semester && academicYear) {
+                    generatedTitle += ' ภาคเรียนที่ ' + semester + '/' + academicYear;
+                } else if (academicYear) {
+                    generatedTitle += ' ปีการศึกษา ' + academicYear;
+                }
+
+                $('#exam_title_input').val(generatedTitle);
+            }
+
+            $('#exam_type_preset').on('change', function() {
+                if ($(this).val() === 'custom') {
+                    $('#custom_exam_type').removeClass('d-none').focus();
+                } else {
+                    $('#custom_exam_type').addClass('d-none');
+                    updateExamTitle();
+                }
+            });
+
+            $('#custom_exam_type').on('input', updateExamTitle);
+            $('#semester_preset, #academic_year_preset').on('change input', updateExamTitle);
+            $('#apply_title_preset_btn').on('click', updateExamTitle);
         });
     </script>
 @stop

@@ -411,7 +411,7 @@ return [
                 [
                     'type' => 'css',
                     'asset' => true,
-                    'location' => 'css/custom_font.css?v=1.1',
+                    'location' => 'css/custom_font.css?v=1.2',
                 ],
                 [
                     'type' => 'js',

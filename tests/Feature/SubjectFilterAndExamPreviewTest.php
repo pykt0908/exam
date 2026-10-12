@@ -348,4 +348,42 @@ class SubjectFilterAndExamPreviewTest extends TestCase
             'id' => $subjectToDelete->id,
         ]);
     }
+
+    public function test_can_create_and_update_subjects_with_duplicate_code()
+    {
+        $response1 = $this->actingAs($this->admin)->post(route('admin.subjects.store'), [
+            'code' => 'DUP-101',
+            'name' => 'วิชาที่หนึ่ง',
+            'department_id' => $this->deptA->id,
+        ]);
+        $response1->assertRedirect(route('admin.subjects.index'));
+        $this->assertDatabaseHas('subjects', [
+            'code' => 'DUP-101',
+            'name' => 'วิชาที่หนึ่ง',
+        ]);
+
+        $response2 = $this->actingAs($this->admin)->post(route('admin.subjects.store'), [
+            'code' => 'DUP-101',
+            'name' => 'วิชาที่สอง',
+            'department_id' => $this->deptB->id,
+        ]);
+        $response2->assertRedirect(route('admin.subjects.index'));
+        $this->assertDatabaseHas('subjects', [
+            'code' => 'DUP-101',
+            'name' => 'วิชาที่สอง',
+        ]);
+
+        $subject2 = Subject::where('name', 'วิชาที่สอง')->first();
+        $responseUpdate = $this->actingAs($this->admin)->put(route('admin.subjects.update', $subject2->id), [
+            'code' => 'DUP-101',
+            'name' => 'วิชาที่สอง แก้ไขแล้ว',
+            'department_id' => $this->deptB->id,
+        ]);
+        $responseUpdate->assertRedirect(route('admin.subjects.index'));
+        $this->assertDatabaseHas('subjects', [
+            'id' => $subject2->id,
+            'code' => 'DUP-101',
+            'name' => 'วิชาที่สอง แก้ไขแล้ว',
+        ]);
+    }
 }

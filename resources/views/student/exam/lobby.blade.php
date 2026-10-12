@@ -51,6 +51,12 @@
 
                 <hr class="my-3">
 
+                @if($exam->isExpired())
+                    <div class="alert alert-info py-2 px-3 mb-3 font-weight-bold">
+                        <i class="fas fa-info-circle mr-1"></i> รอบสอบแก้ตัว / สอบซ่อม (ได้รับอนุญาตให้เข้าสอบหลังหมดเวลาสอบปกติ)
+                    </div>
+                @endif
+
                 <h5 class="font-weight-bold text-dark mb-3">ข้อมูลการสอบ</h5>
                 <div class="row mb-3" style="font-size: 1.05rem; line-height: 2;">
                     <div class="col-sm-6">
@@ -141,6 +147,11 @@
                 <div class="text-muted small">
                     รายวิชา: {{ $exam->subject->code }} {{ $exam->subject->name }}
                 </div>
+                @if($exam->isExpired())
+                    <div class="alert alert-info py-1 px-2 mt-2 mb-0 font-weight-bold small">
+                        <i class="fas fa-info-circle mr-1"></i> รอบสอบแก้ตัว / สอบซ่อม (ได้รับอนุญาตให้เข้าสอบ)
+                    </div>
+                @endif
             </div>
 
             <!-- Exam Quick Meta (Inline / Compact Grid) -->

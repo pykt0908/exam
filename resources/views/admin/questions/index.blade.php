@@ -28,6 +28,9 @@
             <a href="{{ route('admin.exams.student-attempts.index', $exam->id) }}" class="btn btn-outline-primary font-weight-bold shadow-sm mr-2" title="จัดการเปิดให้สอบเพิ่ม/สอบซ่อมเป็นรายคน">
                 เปิดสอบเพิ่มรายคน
             </a>
+            <a href="{{ route('admin.exams.cover-sheet', $exam->id) }}" target="_blank" class="btn btn-outline-dark font-weight-bold shadow-sm mr-2" title="พิมพ์ใบปะหน้าข้อสอบ">
+                <i class="fas fa-print mr-1"></i>ใบปะหน้า
+            </a>
             <form action="{{ route('admin.exams.duplicate', $exam->id) }}" method="POST" class="d-inline mr-2 confirm-duplicate"
                   data-text="ต้องการคัดลอกข้อสอบ '{{ $exam->title }}' ใช่หรือไม่? ข้อสอบชุดใหม่จะถูกสร้างเป็น 'ฉบับร่าง' และต้องยื่นขออนุมัติใหม่ก่อนเปิดใช้งาน">
                 @csrf
@@ -35,8 +38,8 @@
                     คัดลอกข้อสอบ
                 </button>
             </form>
-            <button id="save-all-btn" class="btn btn-primary font-weight-bold shadow-sm mr-2" disabled>
-                บันทึกทั้งหมด <span id="unsaved-count" class="badge badge-warning ml-1 d-none">0</span>
+            <button id="save-all-btn" class="btn btn-primary font-weight-bold shadow-sm mr-2" title="บันทึกรายละเอียดข้อสอบและคำถามทั้งหมด">
+                <i class="fas fa-save mr-1"></i>บันทึกทั้งหมด <span id="unsaved-count" class="badge badge-warning ml-1 d-none">0</span>
             </button>
             <button id="add-question-btn" class="btn btn-success font-weight-bold shadow-sm">
                เพิ่มคำถามใหม่
@@ -177,8 +180,49 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="font-weight-bold">ชื่อข้อสอบ</label>
-                            <input type="text" name="title" class="form-control" value="{{ old('title', $exam->title) }}" required>
+                            <label class="font-weight-bold d-flex justify-content-between align-items-center">
+                                <span>ชื่อข้อสอบ</span>
+                            </label>
+
+                            <!-- Exam Title Quick Dropdown Helper -->
+                            <div class="card bg-light border p-2 mb-2 rounded shadow-none">
+                                <div class="row">
+                                    <div class="col-12 mb-2">
+                                        <label class="text-xs font-weight-bold text-secondary mb-1">ประเภทข้อสอบ</label>
+                                        <select id="edit_exam_type_preset" class="form-control form-control-sm">
+                                            <option value="">-- เลือกประเภทข้อสอบ --</option>
+                                            <option value="ทดสอบย่อย 1">ทดสอบย่อย 1</option>
+                                            <option value="สอบกลางภาค">สอบกลางภาค</option>
+                                            <option value="ทดสอบย่อย 2">ทดสอบย่อย 2</option>
+                                            <option value="สอบปลายภาค">สอบปลายภาค</option>
+                                            <option value="custom">กำหนดเอง...</option>
+                                        </select>
+                                        <input type="text" id="edit_custom_exam_type" class="form-control form-control-sm mt-1 d-none" placeholder="ระบุประเภทข้อสอบ">
+                                    </div>
+                                    <div class="col-6 pr-1">
+                                        <label class="text-xs font-weight-bold text-secondary mb-1">ภาคเรียน</label>
+                                        <select id="edit_semester_preset" class="form-control form-control-sm">
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 pl-1">
+                                        <label class="text-xs font-weight-bold text-secondary mb-1">ปีการศึกษา</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" id="edit_academic_year_preset" class="form-control form-control-sm"
+                                                   value="{{ date('Y') + 543 }}" min="2550" max="2650">
+                                            <div class="input-group-append">
+                                                <button type="button" id="edit_apply_title_btn" class="btn btn-primary btn-sm" title="นำไปใส่">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <input type="text" name="title" id="edit_exam_title_input" class="form-control" value="{{ old('title', $exam->title) }}" required>
                         </div>
                         <div class="form-group">
                             <label class="font-weight-bold">คำชี้แจง/รายละเอียด</label>
@@ -239,8 +283,8 @@
 
 
                     <div class="card-footer bg-light text-right">
-                        <button type="submit" class="btn btn-warning text-white font-weight-bold btn-block">
-                            <i class="fas fa-save mr-2"></i>บันทึกการแก้ไขข้อสอบ
+                        <button type="button" id="sidebar-save-all-btn" class="btn btn-primary text-white font-weight-bold btn-block shadow-sm">
+                            <i class="fas fa-save mr-2"></i>บันทึกทั้งหมด <span class="sidebar-unsaved-badge badge badge-warning ml-1 d-none">0</span>
                         </button>
                     </div>
                 </form>
@@ -547,7 +591,7 @@
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary font-weight-bold" data-dismiss="modal">ตกลง (ชั่วคราว)</button>
-                    <button type="submit" form="exam-details-form" class="btn btn-warning text-white font-weight-bold"><i class="fas fa-save mr-1"></i>บันทึกข้อมูลข้อสอบทั้งหมด</button>
+                    <button type="button" id="modal-save-all-btn" class="btn btn-primary text-white font-weight-bold"><i class="fas fa-save mr-1"></i>บันทึกทั้งหมด</button>
                 </div>
             </div>
         </div>
@@ -605,6 +649,38 @@
             position: sticky;
             top: 130px;
             z-index: 1000;
+            max-height: calc(100vh - 145px);
+            display: flex;
+            flex-direction: column;
+        }
+        .sticky-card > form {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .sticky-card .card-body {
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            padding-right: 12px;
+        }
+        .sticky-card .card-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sticky-card .card-body::-webkit-scrollbar-thumb {
+            background-color: #ced4da;
+            border-radius: 4px;
+        }
+        .sticky-card .card-body::-webkit-scrollbar-thumb:hover {
+            background-color: #adb5bd;
+        }
+        .sticky-card .card-footer {
+            flex-shrink: 0;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            z-index: 2;
         }
         /* Elevate parent containers stacking contexts when a child note-editor goes fullscreen */
         .sticky-card:has(.note-editor.fullscreen),
@@ -742,11 +818,9 @@
             function checkUnsavedChanges() {
                 var unsavedCount = $('.card-question[data-saved="false"]').length;
                 if (unsavedCount > 0) {
-                    $('#save-all-btn').prop('disabled', false);
-                    $('#unsaved-count').text(unsavedCount).removeClass('d-none');
+                    $('#unsaved-count, .sidebar-unsaved-badge').text(unsavedCount).removeClass('d-none');
                 } else {
-                    $('#save-all-btn').prop('disabled', true);
-                    $('#unsaved-count').addClass('d-none');
+                    $('#unsaved-count, .sidebar-unsaved-badge').addClass('d-none');
                 }
             }
 
@@ -1173,18 +1247,76 @@
                 });
             });
 
-            // Save All Unsaved Questions (Sequential with Async/Await)
-            $('#save-all-btn').click(async function() {
-                var unsavedCards = $('.card-question[data-saved="false"]');
-                if (unsavedCards.length === 0) return;
+            // Unified Save All Function (Exam Details + Sections + Questions)
+            async function saveAllData() {
+                var examForm = document.getElementById('exam-details-form');
+                if (examForm && !examForm.checkValidity()) {
+                    examForm.reportValidity();
+                    showToast('กรุณากรอกข้อมูลรายละเอียดข้อสอบให้ครบถ้วนถูกต้อง', 'warning');
+                    return;
+                }
 
+                var saveBtns = $('#save-all-btn, #sidebar-save-all-btn, #modal-save-all-btn');
+                saveBtns.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังบันทึกทั้งหมด...');
+                showToast('กำลังบันทึกข้อมูลข้อสอบและคำถามทั้งหมด...', 'info');
+
+                var hasError = false;
+
+                // 1. Save Exam Details Form via AJAX
+                if (examForm) {
+                    try {
+                        var examResponse = await $.ajax({
+                            url: $(examForm).attr('action'),
+                            method: 'POST',
+                            data: $(examForm).serialize(),
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json'
+                            }
+                        });
+                    } catch (err) {
+                        hasError = true;
+                        var errorMsg = 'เกิดข้อผิดพลาดในการบันทึกรายละเอียดข้อสอบ';
+                        if (err.responseJSON && err.responseJSON.message) {
+                            errorMsg = err.responseJSON.message;
+                        } else if (err.responseJSON && err.responseJSON.errors) {
+                            var firstErr = Object.values(err.responseJSON.errors)[0];
+                            if (firstErr) errorMsg = Array.isArray(firstErr) ? firstErr[0] : firstErr;
+                        }
+                        showToast(errorMsg, 'danger');
+                    }
+                }
+
+                // 2. Save Any Modified Sections
+                var sectionCards = $('.card-section');
+                for (var s = 0; s < sectionCards.length; s++) {
+                    var sCard = $(sectionCards[s]);
+                    var sId = sCard.attr('data-section-id');
+                    var sTitle = sCard.find('.section-title-input').val();
+                    var sInstruction = sCard.find('.section-instruction-input').val();
+                    var sTotalScoreVal = sCard.find('.section-total-score-input').val();
+                    var sTotalScore = (sTotalScoreVal !== undefined && sTotalScoreVal.trim() !== '') ? parseFloat(sTotalScoreVal) : null;
+                    if (sTitle && sTitle.trim() !== '') {
+                        try {
+                            await $.ajax({
+                                url: `{{ url('admin/exams') }}/${examId}/sections/${sId}`,
+                                method: 'PUT',
+                                data: {
+                                    _token: "{{ csrf_token() }}",
+                                    title: sTitle,
+                                    instruction: sInstruction,
+                                    total_score: sTotalScore
+                                }
+                            });
+                            sCard.find('.section-title-label').text(sTitle);
+                        } catch (sErr) {}
+                    }
+                }
+
+                // 3. Save All Unsaved Questions (Sequential with Async/Await)
+                var unsavedCards = $('.card-question[data-saved="false"]');
                 var total = unsavedCards.length;
                 var savedCount = 0;
-                var hasError = false;
-                var btn = $(this);
-
-                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังบันทึก...');
-                showToast(`เริ่มบันทึกคำถาม ${total} ข้อตามลำดับ...`, 'info');
 
                 for (var i = 0; i < unsavedCards.length; i++) {
                     var card = $(unsavedCards[i]);
@@ -1304,15 +1436,51 @@
                     }
                 }
 
-                btn.prop('disabled', false).html('บันทึกทั้งหมด <span id="unsaved-count" class="badge badge-warning ml-1 d-none">0</span>');
+                saveBtns.prop('disabled', false);
+                $('#save-all-btn').html('<i class="fas fa-save mr-1"></i>บันทึกทั้งหมด <span id="unsaved-count" class="badge badge-warning ml-1 d-none">0</span>');
+                $('#sidebar-save-all-btn').html('<i class="fas fa-save mr-2"></i>บันทึกทั้งหมด <span class="sidebar-unsaved-badge badge badge-warning ml-1 d-none">0</span>');
+                $('#modal-save-all-btn').html('<i class="fas fa-save mr-1"></i>บันทึกทั้งหมด');
+
                 updateCardIndices();
                 checkUnsavedChanges();
 
                 if (hasError) {
-                    showToast(`บันทึกแล้ว ${savedCount}/${total} ข้อ (มีบางข้อไม่สมบูรณ์)`, 'warning');
+                    if (total > 0) {
+                        showToast(`บันทึกแล้วบางส่วน (คำถามสำเร็จ ${savedCount}/${total} ข้อ)`, 'warning');
+                    } else {
+                        showToast('บันทึกไม่สำเร็จ กรุณาตรวจสอบข้อมูล', 'danger');
+                    }
                 } else {
-                    showToast(`บันทึกคำถามครบทั้ง ${savedCount} ข้อเรียบร้อยแล้ว`, 'success');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'บันทึกทั้งหมดเรียบร้อยแล้ว!',
+                            text: total > 0 ? `บันทึกรายละเอียดข้อสอบและคำถามทั้ง ${savedCount} ข้อเรียบร้อยแล้ว` : 'บันทึกรายละเอียดข้อสอบเรียบร้อยแล้ว',
+                            timer: 1200,
+                            showConfirmButton: false
+                        }).then(function() {
+                            window.location.reload();
+                        });
+                    } else {
+                        showToast('บันทึกข้อมูลข้อสอบและคำถามทั้งหมดเรียบร้อยแล้ว', 'success');
+                        setTimeout(function() { window.location.reload(); }, 1000);
+                    }
                 }
+            }
+
+            // Click bindings for unified Save All
+            $('#save-all-btn, #sidebar-save-all-btn, #modal-save-all-btn').click(function(e) {
+                e.preventDefault();
+                if ($(this).attr('id') === 'modal-save-all-btn') {
+                    $('#examSettingsModal').modal('hide');
+                }
+                saveAllData();
+            });
+
+            // Form submit binding
+            $('#exam-details-form').on('submit', function(e) {
+                e.preventDefault();
+                saveAllData();
             });
 
             // Initialize SortableJS on question containers
@@ -1762,6 +1930,43 @@
                     confirmButtonText: 'ตกลง'
                 });
             @endif
+            // Exam Title Builder Helper in Edit Form
+            function updateEditExamTitle() {
+                var examType = $('#edit_exam_type_preset').val();
+                if (examType === 'custom') {
+                    $('#edit_custom_exam_type').removeClass('d-none');
+                    examType = $('#edit_custom_exam_type').val().trim();
+                } else {
+                    $('#edit_custom_exam_type').addClass('d-none');
+                }
+
+                if (!examType) return;
+
+                var semester = $('#edit_semester_preset').val();
+                var academicYear = $('#edit_academic_year_preset').val();
+
+                var generatedTitle = examType;
+                if (semester && academicYear) {
+                    generatedTitle += ' ภาคเรียนที่ ' + semester + '/' + academicYear;
+                } else if (academicYear) {
+                    generatedTitle += ' ปีการศึกษา ' + academicYear;
+                }
+
+                $('#edit_exam_title_input').val(generatedTitle);
+            }
+
+            $('#edit_exam_type_preset').on('change', function() {
+                if ($(this).val() === 'custom') {
+                    $('#edit_custom_exam_type').removeClass('d-none').focus();
+                } else {
+                    $('#edit_custom_exam_type').addClass('d-none');
+                    updateEditExamTitle();
+                }
+            });
+
+            $('#edit_custom_exam_type').on('input', updateEditExamTitle);
+            $('#edit_semester_preset, #edit_academic_year_preset').on('change input', updateEditExamTitle);
+            $('#edit_apply_title_btn').on('click', updateEditExamTitle);
         });
     </script>
 @stop
