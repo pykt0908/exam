@@ -64,7 +64,7 @@
     font-style: normal;
 }
 
-/* Screen Typography: IBM Plex Sans Thai Looped */
+/* Screen Typography: Sarabun */
 body, 
 h1, h2, h3, h4, h5, h6, 
 .main-header, 
@@ -81,7 +81,7 @@ h1, h2, h3, h4, h5, h6,
 .select2-container,
 .dropdown-menu,
 input, button, select, textarea {
-    font-family: 'IBM Plex Sans Thai Looped', 'Google Sans', 'Noto Sans Thai', sans-serif !important;
+    font-family: 'Sarabun', 'TH Sarabun New', sans-serif !important;
 }
 
 /* Print Typography: TH Sarabun New / Sarabun */
