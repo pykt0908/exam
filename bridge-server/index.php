@@ -84,38 +84,46 @@ if ($action === 'verify-student') {
         exit;
     }
 
-    $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
-    $sql = "SELECT TOP 1 
-                s.StdNo, s.IdNo, s.PrefixNo, s.FName, s.LName, s.Email,
-                r.LavelNo, r.DepartNo, r.Year, r.Room, r.StatusNo
-            FROM Tabain.dbo.tblStudent s
-            LEFT JOIN Tabain.dbo.tblStudentRoom r ON s.StdNo = r.StdNo
-            WHERE s.StdNo = :username 
-              AND s.IdNo = :password
-              AND r.StatusNo = '1'";
+    try {
+        $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
+        $sql = "SELECT TOP 1 
+                    s.StdNo, s.IdNo, s.PrefixNo, s.FName, s.LName, s.Email,
+                    r.LavelNo, r.DepartNo, r.Year, r.Room, r.StatusNo
+                FROM Tabain.dbo.tblStudent s
+                LEFT JOIN Tabain.dbo.tblStudentRoom r ON s.StdNo = r.StdNo
+                WHERE s.StdNo = :username 
+                  AND s.IdNo = :password
+                  AND r.StatusNo = '1'";
 
-    $stmt = $conn->prepare($sql);
-    $stmt->execute([':username' => $username, ':password' => $password]);
-    $student = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([':username' => $username, ':password' => $password]);
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($student) {
-        unset($student['IdNo']);
-        echo json_encode([
-            'success' => true,
-            'data' => [
-                'std_no' => $student['StdNo'],
-                'full_name' => trim(($student['FName'] ?? '') . ' ' . ($student['LName'] ?? '')),
-                'level_no' => $student['LavelNo'],
-                'depart_no' => $student['DepartNo'],
-                'year' => $student['Year'],
-                'room' => $student['Room'],
-                'email' => $student['Email']
-            ]
-        ], JSON_UNESCAPED_UNICODE);
-    } else {
+        if ($student) {
+            unset($student['IdNo']);
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'std_no' => $student['StdNo'],
+                    'full_name' => trim(($student['FName'] ?? '') . ' ' . ($student['LName'] ?? '')),
+                    'level_no' => $student['LavelNo'] ?? null,
+                    'depart_no' => $student['DepartNo'] ?? null,
+                    'year' => $student['Year'] ?? null,
+                    'room' => $student['Room'] ?? null,
+                    'email' => $student['Email'] ?? null,
+                ]
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'รหัสนักศึกษาหรือเลขประจำตัวประชาชนไม่ถูกต้อง หรือพ้นสภาพการศึกษา'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    } catch (Throwable $e) {
+        http_response_code(500);
         echo json_encode([
             'success' => false,
-            'message' => 'รหัสนักศึกษาหรือเลขประจำตัวประชาชนไม่ถูกต้อง หรือพ้นสภาพการศึกษา'
+            'message' => 'Database query error: ' . $e->getMessage()
         ], JSON_UNESCAPED_UNICODE);
     }
     exit;
@@ -135,38 +143,82 @@ if ($action === 'verify-teacher') {
         exit;
     }
 
-    $conn = getDbConnection('Personal', $dbHost, $dbUser, $dbPass);
-    $sql = "SELECT TOP 1
-                u.UserName, u.IsAdmin,
-                t.TeacherNo, t.FName, t.LName,
-                i.DepartNo
-            FROM Personal.dbo.tblUserName u
-            INNER JOIN Personal.dbo.tblTeacherHis t ON u.TeacherNo = t.TeacherNo
-            LEFT JOIN Personal.dbo.tblTeacherInfo i ON t.TeacherNo = i.TeacherNo
-            WHERE (u.UserName = :username OR t.TeacherNo = :username)
-              AND u.Password = :password
-              AND t.IsUse = '1'
-              AND ISNULL(i.IsStatusOut, '0') = '0'";
+    try {
+        $conn = getDbConnection('Personal', $dbHost, $dbUser, $dbPass);
+        $sql = "SELECT TOP 1
+                    u.UserName, u.IsAdmin,
+                    t.TeacherNo, t.FName, t.LName,
+                    i.DepartNo
+                FROM Personal.dbo.tblUserName u
+                INNER JOIN Personal.dbo.tblTeacherHis t ON u.TeacherNo = t.TeacherNo
+                LEFT JOIN Personal.dbo.tblTeacherInfo i ON t.TeacherNo = i.TeacherNo
+                WHERE (u.UserName = :username OR t.TeacherNo = :username)
+                  AND u.Password = :password
+                  AND t.IsUse = '1'
+                  AND ISNULL(i.IsStatusOut, '0') = '0'";
 
-    $stmt = $conn->prepare($sql);
-    $stmt->execute([':username' => $username, ':password' => $password]);
-    $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([':username' => $username, ':password' => $password]);
+        $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($teacher) {
-        echo json_encode([
-            'success' => true,
-            'data' => [
-                'teacher_no' => $teacher['TeacherNo'],
-                'username' => $teacher['UserName'],
-                'full_name' => trim(($teacher['FName'] ?? '') . ' ' . ($teacher['LName'] ?? '')),
-                'depart_no' => $teacher['DepartNo'],
-                'is_admin' => ($teacher['IsAdmin'] == '1')
-            ]
-        ], JSON_UNESCAPED_UNICODE);
-    } else {
+        if ($teacher) {
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'teacher_no' => $teacher['TeacherNo'],
+                    'username' => $teacher['UserName'],
+                    'full_name' => trim(($teacher['FName'] ?? '') . ' ' . ($teacher['LName'] ?? '')),
+                    'depart_no' => $teacher['DepartNo'] ?? null,
+                    'is_admin' => ($teacher['IsAdmin'] == '1')
+                ]
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'ชื่อผู้ใช้หรือรหัสผ่านอาจารย์ไม่ถูกต้อง หรือพ้นสภาพการปฏิบัติหน้าที่'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    } catch (Throwable $e) {
+        http_response_code(500);
         echo json_encode([
             'success' => false,
-            'message' => 'ชื่อผู้ใช้หรือรหัสผ่านอาจารย์ไม่ถูกต้อง หรือพ้นสภาพการปฏิบัติหน้าที่'
+            'message' => 'Database query error: ' . $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
+// Action 4: ตัวอย่างข้อมูลนักเรียนและโครงสร้างชั้นปี (Sample Students & Columns)
+if ($action === 'sample-students') {
+    try {
+        $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
+
+        // ดึงตัวอย่างนักศึกษาที่กำลังศึกษา
+        $sql = "SELECT TOP 20 
+                    s.StdNo, s.PrefixNo, s.FName, s.LName,
+                    r.LavelNo, r.DepartNo, r.Year, r.Room, r.StatusNo
+                FROM Tabain.dbo.tblStudent s
+                LEFT JOIN Tabain.dbo.tblStudentRoom r ON s.StdNo = r.StdNo
+                WHERE r.StatusNo = '1'
+                ORDER BY s.StdNo DESC";
+        $stmt = $conn->query($sql);
+        $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // ดึงโครงสร้างคอลัมน์ของ tblStudentRoom
+        $colStmt = $conn->query("SELECT COLUMN_NAME, DATA_TYPE FROM Tabain.INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'tblStudentRoom'");
+        $roomColumns = $colStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'count' => count($students),
+            'students' => $students,
+            'room_columns' => $roomColumns,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Query error: ' . $e->getMessage()
         ], JSON_UNESCAPED_UNICODE);
     }
     exit;
