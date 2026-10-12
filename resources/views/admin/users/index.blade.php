@@ -32,6 +32,9 @@
             @endif
         </h1>
         <div class="d-flex align-items-center">
+            <button type="button" id="check-misschool-btn" class="btn btn-outline-info font-weight-bold shadow-sm mr-2" title="ทดสอบการเชื่อมต่อระบบ MisSchool">
+                <i class="fas fa-network-wired mr-1"></i>เช็คสถานะ MisSchool
+            </button>
             @if($role === 'student')
                 <div class="dropdown mr-2">
                     <button class="btn btn-primary font-weight-bold shadow-sm dropdown-toggle" type="button" id="addStudentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -716,6 +719,56 @@
             $('#importTeachersModal form').on('submit', function() {
                 var btn = $('#btnSubmitImportTeacher');
                 btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังนำเข้าข้อมูล...');
+            });
+
+            // Check MisSchool Connection Status
+            $('#check-misschool-btn').on('click', function() {
+                var $btn = $(this);
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังตรวจสอบ...');
+
+                $.ajax({
+                    url: '{{ route('admin.misschool.health') }}',
+                    method: 'GET',
+                    success: function(res) {
+                        $btn.prop('disabled', false).html('<i class="fas fa-network-wired mr-1"></i>เช็คสถานะ MisSchool');
+                        if (res.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'เชื่อมต่อ MisSchool สำเร็จ',
+                                html: `
+                                    <div class="text-left small mt-2">
+                                        <p class="mb-1"><strong>โหมดการเชื่อมต่อ:</strong> <span class="badge badge-info">${res.mode}</span></p>
+                                        <p class="mb-1"><strong>ปลายทาง:</strong> <code>${res.endpoint || '-'}</code></p>
+                                        <p class="mb-1"><strong>ข้อความ:</strong> ${res.message || 'OK'}</p>
+                                    </div>
+                                `,
+                                confirmButtonText: 'ตกลง'
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'เชื่อมต่อ MisSchool ไม่สำเร็จ',
+                                html: `
+                                    <div class="text-left small mt-2">
+                                        <p class="mb-1"><strong>โหมดการเชื่อมต่อ:</strong> <span class="badge badge-secondary">${res.mode}</span></p>
+                                        <p class="mb-1"><strong>ปลายทาง:</strong> <code>${res.endpoint || '-'}</code></p>
+                                        <p class="mb-1 text-danger"><strong>ข้อผิดพลาด:</strong> ${res.message || 'Error'}</p>
+                                    </div>
+                                `,
+                                confirmButtonText: 'ตกลง'
+                            });
+                        }
+                    },
+                    error: function(err) {
+                        $btn.prop('disabled', false).html('<i class="fas fa-network-wired mr-1"></i>เช็คสถานะ MisSchool');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'เกิดข้อผิดพลาดในการตรวจสอบ',
+                            text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ระบบสอบได้',
+                            confirmButtonText: 'ตกลง'
+                        });
+                    }
+                });
             });
         });
     </script>

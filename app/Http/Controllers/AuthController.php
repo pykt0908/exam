@@ -18,25 +18,43 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request)
+    public function login(Request $request, \App\Services\MisSchoolService $misSchool)
     {
         $request->validate([
             'login_identifier' => ['required', 'string'],
             'password' => ['required'],
         ]);
 
-        $loginIdentifier = $request->login_identifier;
+        $loginIdentifier = trim($request->login_identifier);
+        $password = $request->password;
+
+        // 1. ตรวจสอบผ่านระบบ MisSchool ก่อนเสมอ (หากเปิดใช้งาน)
+        if (config('misschool.enabled', true)) {
+            $misUser = $misSchool->authenticateAndSync($loginIdentifier, $password);
+            if ($misUser) {
+                Auth::login($misUser, $request->boolean('remember'));
+                $request->session()->regenerate();
+                return $this->redirectUser();
+            }
+        }
+
+        // 2. สำรอง: ตรวจสอบกับฐานข้อมูลในระบบสอบเดิม (สำหรับแอดมินหรือบัญชีท้องถิ่น)
         if (filter_var($loginIdentifier, FILTER_VALIDATE_EMAIL)) {
             $loginField = 'email';
         } else {
-            // Check if user exists with this teacher_code (for admin/teacher)
-            $userExistsWithTeacherCode = User::where('teacher_code', $loginIdentifier)->exists();
-            $loginField = $userExistsWithTeacherCode ? 'teacher_code' : 'student_code';
+            // Check if user exists with teacher_code, username, or student_code
+            if (User::where('teacher_code', $loginIdentifier)->exists()) {
+                $loginField = 'teacher_code';
+            } elseif (User::where('username', $loginIdentifier)->exists()) {
+                $loginField = 'username';
+            } else {
+                $loginField = 'student_code';
+            }
         }
 
         $credentials = [
             $loginField => $loginIdentifier,
-            'password' => $request->password,
+            'password' => $password,
         ];
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
@@ -45,7 +63,7 @@ class AuthController extends Controller
         }
 
         return back()->withErrors([
-            'login_identifier' => 'ข้อมูลผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง',
+            'login_identifier' => 'ข้อมูลผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าใช้งาน',
         ])->onlyInput('login_identifier');
     }
 

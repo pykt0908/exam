@@ -1319,4 +1319,22 @@ class UserController extends Controller
         $statusText = $isEligible ? 'เปิดสิทธิ์การสอบ' : 'ระงับสิทธิ์การสอบ';
         return redirect()->back()->with('success', "{$statusText}สำหรับนักศึกษาจำนวน {$count} คนเรียบร้อยแล้ว");
     }
+
+    /**
+     * ตรวจสอบสถานะการเชื่อมต่อกับระบบ MisSchool
+     */
+    public function checkMisSchoolHealth(\App\Services\MisSchoolService $misSchool)
+    {
+        $health = $misSchool->checkHealth();
+        $health['mode'] = $misSchool->getMode();
+        $health['enabled'] = config('misschool.enabled');
+
+        if ($health['mode'] === 'bridge') {
+            $health['endpoint'] = config('misschool.bridge.url');
+        } else {
+            $health['endpoint'] = config('misschool.sqlsrv.host') . ':' . config('misschool.sqlsrv.port');
+        }
+
+        return response()->json($health);
+    }
 }
