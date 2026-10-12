@@ -38,26 +38,17 @@ class AuthController extends Controller
             }
         }
 
-        // 2. สำรอง: ตรวจสอบกับฐานข้อมูลในระบบสอบเดิม (สำหรับแอดมินหรือบัญชีท้องถิ่น)
-        if (filter_var($loginIdentifier, FILTER_VALIDATE_EMAIL)) {
-            $loginField = 'email';
-        } else {
-            // Check if user exists with teacher_code, username, or student_code
-            if (User::where('teacher_code', $loginIdentifier)->exists()) {
-                $loginField = 'teacher_code';
-            } elseif (User::where('username', $loginIdentifier)->exists()) {
-                $loginField = 'username';
-            } else {
-                $loginField = 'student_code';
-            }
-        }
+        // 2. สำรอง: ตรวจสอบกับฐานข้อมูลในระบบสอบเดิม (สำหรับแอดมินหรือบัญชีท้องถิ่น หรือกรณี MisSchool ออฟไลน์)
+        $user = User::where('email', $loginIdentifier)
+            ->orWhere('username', $loginIdentifier)
+            ->orWhere('student_code', $loginIdentifier)
+            ->orWhere('teacher_code', $loginIdentifier)
+            ->orWhereRaw('LOWER(teacher_code) = ?', [strtolower($loginIdentifier)])
+            ->orWhereRaw('LOWER(username) = ?', [strtolower($loginIdentifier)])
+            ->first();
 
-        $credentials = [
-            $loginField => $loginIdentifier,
-            'password' => $password,
-        ];
-
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        if ($user && Hash::check($password, $user->password)) {
+            Auth::login($user, $request->boolean('remember'));
             $request->session()->regenerate();
             return $this->redirectUser();
         }

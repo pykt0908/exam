@@ -54,13 +54,25 @@ $action = $_GET['action'] ?? $input['action'] ?? '';
 // Action 1: ตรวจสอบสถานะ Server (Health Check)
 if ($action === 'health' || empty($action)) {
     try {
-        $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
+        $connTabain = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
+        $connPersonal = getDbConnection('Personal', $dbHost, $dbUser, $dbPass);
+
+        $stmtTeachers = $connPersonal->query("SELECT COUNT(*) AS total FROM Personal.dbo.tblUserName u INNER JOIN Personal.dbo.tblTeacherHis t ON u.TeacherNo = t.TeacherNo WHERE t.IsUse = '1'");
+        $totalTeachers = (int)($stmtTeachers->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+
+        $stmtStudents = $connTabain->query("SELECT COUNT(*) AS total FROM Tabain.dbo.tblStudentNumber sn INNER JOIN Tabain.dbo.tblStudent s ON sn.StdNoRef = s.StdNoRef WHERE s.IsUse = '1'");
+        $totalStudents = (int)($stmtStudents->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
+
         echo json_encode([
             'success' => true,
             'message' => 'Bridge API is operational and connected to MisSchool SQL Server!',
+            'stats' => [
+                'active_teachers' => $totalTeachers,
+                'active_students' => $totalStudents,
+            ],
             'timestamp' => date('Y-m-d H:i:s')
         ], JSON_UNESCAPED_UNICODE);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode([
             'success' => false,
@@ -72,8 +84,8 @@ if ($action === 'health' || empty($action)) {
 
 // Action 2: ตรวจสอบการ Login ของนักเรียน (Verify Student)
 if ($action === 'verify-student') {
-    $username = trim($input['username'] ?? ''); // รหัสนักศึกษา (StdNo)
-    $password = trim($input['password'] ?? ''); // เลขบัตรประชาชน (IdNo)
+    $username = trim($input['username'] ?? $_GET['username'] ?? ''); // รหัสนักศึกษา (StdNo)
+    $password = trim($input['password'] ?? $_GET['password'] ?? ''); // เลขบัตรประชาชน (IdNo)
 
     if (empty($username) || empty($password)) {
         http_response_code(400);
@@ -87,13 +99,13 @@ if ($action === 'verify-student') {
     try {
         $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
         $sql = "SELECT TOP 1 
-                    s.StdNo, s.IdNo, s.PrefixNo, s.FName, s.LName, s.Email,
+                    sn.StdNo, s.IdNo, s.PreFixNo, s.Fname, s.Lname, s.Email,
                     r.LavelNo, r.DepartNo, r.Year, r.Room, r.StatusNo
-                FROM Tabain.dbo.tblStudent s
-                LEFT JOIN Tabain.dbo.tblStudentRoom r ON s.StdNo = r.StdNo
-                WHERE s.StdNo = :username 
-                  AND s.IdNo = :password
-                  AND r.StatusNo = '1'";
+                FROM Tabain.dbo.tblStudentNumber sn
+                INNER JOIN Tabain.dbo.tblStudent s ON sn.StdNoRef = s.StdNoRef
+                LEFT JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
+                WHERE sn.StdNo = :username 
+                  AND s.IdNo = :password";
 
         $stmt = $conn->prepare($sql);
         $stmt->execute([':username' => $username, ':password' => $password]);
@@ -104,8 +116,8 @@ if ($action === 'verify-student') {
             echo json_encode([
                 'success' => true,
                 'data' => [
-                    'std_no' => $student['StdNo'],
-                    'full_name' => trim(($student['FName'] ?? '') . ' ' . ($student['LName'] ?? '')),
+                    'std_no' => trim($student['StdNo']),
+                    'full_name' => trim(($student['Fname'] ?? '') . ' ' . ($student['Lname'] ?? '')),
                     'level_no' => $student['LavelNo'] ?? null,
                     'depart_no' => $student['DepartNo'] ?? null,
                     'year' => $student['Year'] ?? null,
@@ -131,8 +143,8 @@ if ($action === 'verify-student') {
 
 // Action 3: ตรวจสอบการ Login ของครู/อาจารย์ (Verify Teacher)
 if ($action === 'verify-teacher') {
-    $username = trim($input['username'] ?? '');
-    $password = trim($input['password'] ?? '');
+    $username = trim($input['username'] ?? $_GET['username'] ?? '');
+    $password = trim($input['password'] ?? $_GET['password'] ?? '');
 
     if (empty($username) || empty($password)) {
         http_response_code(400);
@@ -147,27 +159,36 @@ if ($action === 'verify-teacher') {
         $conn = getDbConnection('Personal', $dbHost, $dbUser, $dbPass);
         $sql = "SELECT TOP 1
                     u.UserName, u.IsAdmin,
-                    t.TeacherNo, t.FName, t.LName,
+                    t.TeacherNo, t.FName, t.LName, t.Email,
                     i.DepartNo
                 FROM Personal.dbo.tblUserName u
                 INNER JOIN Personal.dbo.tblTeacherHis t ON u.TeacherNo = t.TeacherNo
                 LEFT JOIN Personal.dbo.tblTeacherInfo i ON t.TeacherNo = i.TeacherNo
-                WHERE (u.UserName = :username OR t.TeacherNo = :username)
-                  AND u.Password = :password
+                WHERE (LOWER(u.UserName) = :u1 OR LOWER(t.TeacherNo) = :u2)
+                  AND (u.Password = :p1 OR LOWER(u.Password) = :p2)
                   AND t.IsUse = '1'
                   AND ISNULL(i.IsStatusOut, '0') = '0'";
 
+        $lowerUser = strtolower($username);
+        $lowerPass = strtolower($password);
+
         $stmt = $conn->prepare($sql);
-        $stmt->execute([':username' => $username, ':password' => $password]);
+        $stmt->execute([
+            ':u1' => $lowerUser,
+            ':u2' => $lowerUser,
+            ':p1' => $password,
+            ':p2' => $lowerPass,
+        ]);
         $teacher = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($teacher) {
             echo json_encode([
                 'success' => true,
                 'data' => [
-                    'teacher_no' => $teacher['TeacherNo'],
-                    'username' => $teacher['UserName'],
+                    'teacher_no' => trim($teacher['TeacherNo']),
+                    'username' => trim($teacher['UserName']),
                     'full_name' => trim(($teacher['FName'] ?? '') . ' ' . ($teacher['LName'] ?? '')),
+                    'email' => trim($teacher['Email'] ?? ''),
                     'depart_no' => $teacher['DepartNo'] ?? null,
                     'is_admin' => ($teacher['IsAdmin'] == '1')
                 ]
@@ -188,37 +209,129 @@ if ($action === 'verify-teacher') {
     exit;
 }
 
-// Action 4: ตัวอย่างข้อมูลนักเรียนและโครงสร้างชั้นปี (Sample Students & Columns)
-if ($action === 'sample-students') {
+// Action 4: ดึงรายชื่ออาจารย์ทั้งหมดจาก MisSchool (Sync All Teachers)
+if ($action === 'sync-teachers') {
     try {
-        $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
+        $conn = getDbConnection('Personal', $dbHost, $dbUser, $dbPass);
+        $sql = "SELECT 
+                    u.UserName, u.Password, u.IsAdmin,
+                    t.TeacherNo, t.FName, t.LName, t.Email,
+                    i.DepartNo
+                FROM Personal.dbo.tblUserName u
+                INNER JOIN Personal.dbo.tblTeacherHis t ON u.TeacherNo = t.TeacherNo
+                LEFT JOIN Personal.dbo.tblTeacherInfo i ON t.TeacherNo = i.TeacherNo
+                WHERE t.IsUse = '1'
+                ORDER BY t.TeacherNo ASC";
 
-        // ดึงตัวอย่างนักศึกษาที่กำลังศึกษา
-        $sql = "SELECT TOP 20 
-                    s.StdNo, s.PrefixNo, s.FName, s.LName,
-                    r.LavelNo, r.DepartNo, r.Year, r.Room, r.StatusNo
-                FROM Tabain.dbo.tblStudent s
-                LEFT JOIN Tabain.dbo.tblStudentRoom r ON s.StdNo = r.StdNo
-                WHERE r.StatusNo = '1'
-                ORDER BY s.StdNo DESC";
         $stmt = $conn->query($sql);
-        $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $teachers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // ดึงโครงสร้างคอลัมน์ของ tblStudentRoom
-        $colStmt = $conn->query("SELECT COLUMN_NAME, DATA_TYPE FROM Tabain.INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'tblStudentRoom'");
-        $roomColumns = $colStmt->fetchAll(PDO::FETCH_ASSOC);
+        $data = array_map(function($t) {
+            return [
+                'teacher_no' => trim($t['TeacherNo']),
+                'username' => trim($t['UserName']),
+                'password' => trim($t['Password']),
+                'full_name' => trim(($t['FName'] ?? '') . ' ' . ($t['LName'] ?? '')),
+                'email' => trim($t['Email'] ?? ''),
+                'depart_no' => $t['DepartNo'] ?? null,
+                'is_admin' => ($t['IsAdmin'] == '1'),
+            ];
+        }, $teachers);
 
         echo json_encode([
             'success' => true,
-            'count' => count($students),
-            'students' => $students,
-            'room_columns' => $roomColumns,
+            'count' => count($data),
+            'teachers' => $data,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode([
             'success' => false,
-            'message' => 'Query error: ' . $e->getMessage()
+            'message' => 'Sync teachers failed: ' . $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
+// Action 5: ดึงรายชื่อห้องเรียนจาก MisSchool (Sync Classrooms)
+if ($action === 'sync-classrooms') {
+    try {
+        $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
+        $sql = "SELECT DISTINCT 
+                    LavelName, Year, Room, รอบ AS Shift, DepartName
+                FROM Tabain.dbo.v_StudentAll
+                WHERE Year <> '-' AND Room <> '-' AND Year IS NOT NULL AND Room IS NOT NULL
+                ORDER BY LavelName, Year, Room";
+
+        $stmt = $conn->query($sql);
+        $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'count' => count($rooms),
+            'classrooms' => $rooms,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Sync classrooms failed: ' . $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
+// Action 6: ดึงรายชื่อนักศึกษาจาก MisSchool (Sync Students)
+if ($action === 'sync-students') {
+    $year = $input['year'] ?? $_GET['year'] ?? null;
+    $room = $input['room'] ?? $_GET['room'] ?? null;
+    $limit = (int)($input['limit'] ?? $_GET['limit'] ?? 500);
+
+    try {
+        $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
+        $sql = "SELECT TOP {$limit}
+                    sn.StdNo, s.IdNo, s.PreFixNo, s.Fname, s.Lname, s.Email,
+                    r.LavelNo, r.DepartNo, r.Year, r.Room
+                FROM Tabain.dbo.tblStudentNumber sn
+                INNER JOIN Tabain.dbo.tblStudent s ON sn.StdNoRef = s.StdNoRef
+                LEFT JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
+                WHERE s.IsUse = '1'";
+
+        if ($year !== null && $year !== '') {
+            $sql .= " AND r.Year = " . $conn->quote($year);
+        }
+        if ($room !== null && $room !== '') {
+            $sql .= " AND r.Room = " . $conn->quote($room);
+        }
+
+        $sql .= " ORDER BY sn.StdNo ASC";
+
+        $stmt = $conn->query($sql);
+        $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $data = array_map(function($st) {
+            return [
+                'std_no' => trim($st['StdNo']),
+                'citizen_id' => trim($st['IdNo']),
+                'full_name' => trim(($st['Fname'] ?? '') . ' ' . ($st['Lname'] ?? '')),
+                'level_no' => $st['LavelNo'],
+                'depart_no' => $st['DepartNo'],
+                'year' => $st['Year'],
+                'room' => $st['Room'],
+                'email' => $st['Email'] ?? null,
+            ];
+        }, $students);
+
+        echo json_encode([
+            'success' => true,
+            'count' => count($data),
+            'students' => $data,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Sync students failed: ' . $e->getMessage()
         ], JSON_UNESCAPED_UNICODE);
     }
     exit;

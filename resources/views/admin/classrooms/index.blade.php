@@ -5,9 +5,14 @@
 @section('content_header')
     <div class="d-flex justify-content-between align-items-center">
         <h1 class="text-dark font-weight-bold">ห้องเรียน / ระดับชั้น</h1>
-        <button type="button" class="btn btn-primary font-weight-bold shadow-sm" data-toggle="modal" data-target="#addClassroomModal">
-            <i class="fas fa-plus mr-2"></i>เพิ่มห้องเรียนใหม่
-        </button>
+        <div class="d-flex align-items-center">
+            <button type="button" class="btn btn-outline-primary font-weight-bold shadow-sm mr-2" onclick="triggerSyncClassrooms()">
+                <i class="fas fa-sync-alt mr-1"></i>ซิงค์ห้องเรียนจาก MisSchool
+            </button>
+            <button type="button" class="btn btn-primary font-weight-bold shadow-sm" data-toggle="modal" data-target="#addClassroomModal">
+                <i class="fas fa-plus mr-2"></i>เพิ่มห้องเรียนใหม่
+            </button>
+        </div>
     </div>
 @stop
 
@@ -242,6 +247,56 @@
                     }
                 });
             });
+
+            function triggerSyncClassrooms() {
+                Swal.fire({
+                    title: 'ยืนยันการซิงค์ห้องเรียน?',
+                    text: 'ระบบจะดึงข้อมูลห้องเรียนจาก MisSchool มาอัปเดตในระบบสอบ',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#007bff',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-sync-alt mr-1"></i> เริ่มซิงค์',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'กำลังซิงค์ห้องเรียน...',
+                            text: 'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลจาก MisSchool',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        $.ajax({
+                            url: '{{ route("admin.misschool.sync-classrooms") }}',
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            success: function(res) {
+                                if (res.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'สำเร็จ!',
+                                        text: res.message,
+                                        confirmButtonText: 'ตกลง'
+                                    }).then(() => {
+                                        location.reload();
+                                    });
+                                } else {
+                                    Swal.fire('เกิดข้อผิดพลาด', res.message || 'ไม่สามารถซิงค์ได้', 'error');
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire('เกิดข้อผิดพลาด', xhr.responseJSON?.message || 'การเชื่อมต่อขัดข้อง', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+            window.triggerSyncClassrooms = triggerSyncClassrooms;
         });
     </script>
 @stop

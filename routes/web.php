@@ -109,7 +109,10 @@ Route::middleware('auth')->group(function () {
         // Admin-only management (Users & Classrooms)
         Route::middleware('role:admin')->group(function () {
             // MisSchool Integration
-            Route::get('/misschool/health', [UserController::class, 'checkMisSchoolHealth'])->name('misschool.health');
+            Route::get('/misschool/health', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'health'])->name('misschool.health');
+            Route::post('/misschool/sync-teachers', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'syncTeachers'])->name('misschool.sync-teachers');
+            Route::post('/misschool/sync-classrooms', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'syncClassrooms'])->name('misschool.sync-classrooms');
+            Route::post('/misschool/sync-students', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'syncStudents'])->name('misschool.sync-students');
 
             // Users
             Route::get('/users', [UserController::class, 'index'])->name('users.index');

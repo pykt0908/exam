@@ -32,9 +32,24 @@
             @endif
         </h1>
         <div class="d-flex align-items-center">
-            <button type="button" id="check-misschool-btn" class="btn btn-outline-info font-weight-bold shadow-sm mr-2" title="ทดสอบการเชื่อมต่อระบบ MisSchool">
-                <i class="fas fa-network-wired mr-1"></i>เช็คสถานะ MisSchool
-            </button>
+            <div class="dropdown mr-2">
+                <button class="btn btn-outline-primary font-weight-bold shadow-sm dropdown-toggle" type="button" id="syncMisSchoolDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-sync-alt mr-1"></i>ซิงค์ข้อมูล MisSchool
+                </button>
+                <div class="dropdown-menu dropdown-menu-right shadow-sm" aria-labelledby="syncMisSchoolDropdown">
+                    <h6 class="dropdown-header text-primary font-weight-bold"><i class="fas fa-database mr-1"></i>เชื่อมโยงระบบ MisSchool</h6>
+                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerSyncTeachers()">
+                        <i class="fas fa-chalkboard-teacher mr-2 text-info"></i>ซิงค์อาจารย์จาก MisSchool
+                    </a>
+                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerSyncStudents()">
+                        <i class="fas fa-user-graduate mr-2 text-success"></i>ซิงค์นักศึกษาจาก MisSchool
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerCheckHealth()">
+                        <i class="fas fa-network-wired mr-2 text-secondary"></i>เช็คสถานะการเชื่อมต่อ
+                    </a>
+                </div>
+            </div>
             @if($role === 'student')
                 <div class="dropdown mr-2">
                     <button class="btn btn-primary font-weight-bold shadow-sm dropdown-toggle" type="button" id="addStudentDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -770,25 +785,136 @@
                 btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังนำเข้าข้อมูล...');
             });
 
-            // Check MisSchool Connection Status
-            $('#check-misschool-btn').on('click', function() {
-                var $btn = $(this);
-                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังตรวจสอบ...');
+            // MisSchool Sync Handlers
+            function triggerSyncTeachers() {
+                Swal.fire({
+                    title: 'ยืนยันการซิงค์อาจารย์?',
+                    text: 'ระบบจะดึงข้อมูลอาจารย์ทั้งหมดจาก MisSchool เข้าสู่ระบบสอบ',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#007bff',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-sync-alt mr-1"></i> เริ่มซิงค์',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'กำลังซิงค์ข้อมูลอาจารย์...',
+                            text: 'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลจาก MisSchool',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        $.ajax({
+                            url: '{{ route("admin.misschool.sync-teachers") }}',
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            success: function(res) {
+                                if (res.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'สำเร็จ!',
+                                        text: res.message,
+                                        confirmButtonText: 'ตกลง'
+                                    }).then(() => {
+                                        location.reload();
+                                    });
+                                } else {
+                                    Swal.fire('เกิดข้อผิดพลาด', res.message || 'ไม่สามารถซิงค์ได้', 'error');
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire('เกิดข้อผิดพลาด', xhr.responseJSON?.message || 'การเชื่อมต่อขัดข้อง', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+
+            function triggerSyncStudents() {
+                Swal.fire({
+                    title: 'ยืนยันการซิงค์นักศึกษา?',
+                    text: 'ระบบจะดึงข้อมูลนักศึกษาจาก MisSchool เข้าสู่ระบบสอบ',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-sync-alt mr-1"></i> เริ่มซิงค์',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'กำลังซิงค์ข้อมูลนักศึกษา...',
+                            text: 'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลจาก MisSchool',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        $.ajax({
+                            url: '{{ route("admin.misschool.sync-students") }}',
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            success: function(res) {
+                                if (res.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'สำเร็จ!',
+                                        text: res.message,
+                                        confirmButtonText: 'ตกลง'
+                                    }).then(() => {
+                                        location.reload();
+                                    });
+                                } else {
+                                    Swal.fire('เกิดข้อผิดพลาด', res.message || 'ไม่สามารถซิงค์ได้', 'error');
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire('เกิดข้อผิดพลาด', xhr.responseJSON?.message || 'การเชื่อมต่อขัดข้อง', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+
+            function triggerCheckHealth() {
+                Swal.fire({
+                    title: 'กำลังตรวจสอบสถานะการเชื่อมต่อ...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
 
                 $.ajax({
-                    url: '{{ route('admin.misschool.health') }}',
+                    url: '{{ route("admin.misschool.health") }}',
                     method: 'GET',
                     success: function(res) {
-                        $btn.prop('disabled', false).html('<i class="fas fa-network-wired mr-1"></i>เช็คสถานะ MisSchool');
                         if (res.success) {
+                            var statsHtml = '';
+                            if (res.stats) {
+                                statsHtml = `
+                                    <div class="alert alert-light border mt-2 text-left small">
+                                        <div><i class="fas fa-chalkboard-teacher mr-1 text-primary"></i>อาจารย์ในระบบ MisSchool: <strong>${res.stats.active_teachers || 0}</strong> ท่าน</div>
+                                        <div><i class="fas fa-user-graduate mr-1 text-success"></i>นักศึกษาในระบบ MisSchool: <strong>${res.stats.active_students || 0}</strong> คน</div>
+                                    </div>
+                                `;
+                            }
                             Swal.fire({
                                 icon: 'success',
                                 title: 'เชื่อมต่อ MisSchool สำเร็จ',
                                 html: `
                                     <div class="text-left small mt-2">
-                                        <p class="mb-1"><strong>โหมดการเชื่อมต่อ:</strong> <span class="badge badge-info">${res.mode}</span></p>
-                                        <p class="mb-1"><strong>ปลายทาง:</strong> <code>${res.endpoint || '-'}</code></p>
-                                        <p class="mb-1"><strong>ข้อความ:</strong> ${res.message || 'OK'}</p>
+                                        <p class="mb-1"><strong>ข้อความ:</strong> ${res.message || 'เชื่อมต่อพร้อมใช้งาน'}</p>
+                                        <p class="mb-1 text-muted">เวลา: ${res.timestamp || '-'}</p>
+                                        ${statsHtml}
                                     </div>
                                 `,
                                 confirmButtonText: 'ตกลง'
@@ -797,28 +923,20 @@
                             Swal.fire({
                                 icon: 'warning',
                                 title: 'เชื่อมต่อ MisSchool ไม่สำเร็จ',
-                                html: `
-                                    <div class="text-left small mt-2">
-                                        <p class="mb-1"><strong>โหมดการเชื่อมต่อ:</strong> <span class="badge badge-secondary">${res.mode}</span></p>
-                                        <p class="mb-1"><strong>ปลายทาง:</strong> <code>${res.endpoint || '-'}</code></p>
-                                        <p class="mb-1 text-danger"><strong>ข้อผิดพลาด:</strong> ${res.message || 'Error'}</p>
-                                    </div>
-                                `,
+                                html: `<p class="text-danger small">${res.message || 'Error'}</p>`,
                                 confirmButtonText: 'ตกลง'
                             });
                         }
                     },
-                    error: function(err) {
-                        $btn.prop('disabled', false).html('<i class="fas fa-network-wired mr-1"></i>เช็คสถานะ MisSchool');
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'เกิดข้อผิดพลาดในการตรวจสอบ',
-                            text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ระบบสอบได้',
-                            confirmButtonText: 'ตกลง'
-                        });
+                    error: function() {
+                        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อไปยังเซิร์ฟเวอร์ได้', 'error');
                     }
                 });
-            });
+            }
+
+            window.triggerSyncTeachers = triggerSyncTeachers;
+            window.triggerSyncStudents = triggerSyncStudents;
+            window.triggerCheckHealth = triggerCheckHealth;
         });
     </script>
 @stop
