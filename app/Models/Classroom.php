@@ -57,6 +57,39 @@ class Classroom extends Model
     }
 
     /**
+     * ดึงระดับการศึกษา ('ปวช.', 'ปวส.')
+     */
+    public function getLevelAttribute(): string
+    {
+        if (str_contains($this->name, 'ปวส')) {
+            return 'ปวส.';
+        }
+        if (str_contains($this->name, 'ปวช')) {
+            return 'ปวช.';
+        }
+        return '';
+    }
+
+    /**
+     * ดึงชั้นปี ('1', '2', '3')
+     */
+    public function getYearAttribute(): string
+    {
+        if (preg_match('/(?:ปวช\.|ปวส\.(?:\s*พิเศษ)?)\s*(\d+)/u', $this->name, $matches)) {
+            return $matches[1];
+        }
+        return '';
+    }
+
+    /**
+     * ดึงข้อความชั้นปี ('ปี 1', 'ปี 2', 'ปี 3')
+     */
+    public function getYearLabelAttribute(): string
+    {
+        return $this->year ? 'ปี ' . $this->year : '';
+    }
+
+    /**
      * Scope กรองตามภาค
      */
     public function scopeShift($query, string $shift)
@@ -69,6 +102,36 @@ class Classroom extends Model
         }
         if ($shift === 'dual' || $shift === 'ทวิภาคี') {
             return $query->where('name', 'LIKE', '%ทวิภาคี%');
+        }
+        return $query;
+    }
+
+    /**
+     * Scope กรองตามระดับชั้น (ปวช./ปวส.)
+     */
+    public function scopeLevel($query, string $level)
+    {
+        if ($level === 'ปวช.' || $level === 'ปวช') {
+            return $query->where('name', 'LIKE', '%ปวช%');
+        }
+        if ($level === 'ปวส.' || $level === 'ปวส') {
+            return $query->where('name', 'LIKE', '%ปวส%');
+        }
+        return $query;
+    }
+
+    /**
+     * Scope กรองตามชั้นปี (1, 2, 3)
+     */
+    public function scopeYear($query, string $year)
+    {
+        if (!empty($year)) {
+            return $query->where(function($q) use ($year) {
+                $q->where('name', 'LIKE', "%ปวช.{$year}%")
+                  ->orWhere('name', 'LIKE', "%ปวส.{$year}%")
+                  ->orWhere('name', 'LIKE', "%ปวส. พิเศษ{$year}%")
+                  ->orWhere('name', 'LIKE', "%ปวส.พิเศษ{$year}%");
+            });
         }
         return $query;
     }

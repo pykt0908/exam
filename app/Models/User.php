@@ -87,6 +87,20 @@ class User extends Authenticatable
         });
     }
 
+    public function scopeLevel($query, string $level)
+    {
+        return $query->whereHas('classroom', function ($q) use ($level) {
+            $q->level($level);
+        });
+    }
+
+    public function scopeYear($query, string $year)
+    {
+        return $query->whereHas('classroom', function ($q) use ($year) {
+            $q->year($year);
+        });
+    }
+
     public function getPhotoUrlAttribute(): string
     {
         if ($this->photo) {

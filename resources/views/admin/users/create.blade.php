@@ -74,19 +74,40 @@
                             </div>
 
                             <div class="row">
-                                <div class="col-md-5">
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">ระดับ</label>
+                                        <select id="filter_level_select" class="form-control">
+                                            <option value="">-- ทั้งหมด --</option>
+                                            <option value="ปวช.">ปวช.</option>
+                                            <option value="ปวส.">ปวส.</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-group">
+                                        <label class="font-weight-bold">ชั้นปี</label>
+                                        <select id="filter_year_select" class="form-control">
+                                            <option value="">-- ทั้งหมด --</option>
+                                            <option value="1">ปี 1</option>
+                                            <option value="2">ปี 2</option>
+                                            <option value="3">ปี 3</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
                                     <div class="form-group">
                                         <label class="font-weight-bold">
-                                            <i class="far fa-clock text-info mr-1"></i>ภาค (กรองห้อง)
+                                            <i class="far fa-clock text-info mr-1"></i>ภาค
                                         </label>
                                         <select id="filter_shift_select" class="form-control">
-                                            <option value="">-- แสดงทุกภาค --</option>
+                                            <option value="">-- ทั้งหมด --</option>
                                             <option value="เช้า">ภาคเช้า</option>
                                             <option value="บ่าย">ภาคบ่าย</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-7">
+                                <div class="col-md-6">
                                     <div class="form-group">
                                         <label class="font-weight-bold">ระดับชั้น / ห้องเรียน <span class="text-danger">*</span></label>
                                         <select name="classroom_id" id="classroom_id_select" class="form-control @error('classroom_id') is-invalid @enderror" required>
@@ -95,7 +116,7 @@
                                                 @php
                                                     $shiftType = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
                                                 @endphp
-                                                <option value="{{ $room->id }}" data-shift="{{ $shiftType }}" {{ old('classroom_id') == $room->id ? 'selected' : '' }}>
+                                                <option value="{{ $room->id }}" data-shift="{{ $shiftType }}" data-level="{{ $room->level }}" data-year="{{ $room->year }}" {{ old('classroom_id') == $room->id ? 'selected' : '' }}>
                                                     {{ $room->name }}
                                                 </option>
                                             @endforeach
@@ -132,17 +153,32 @@
         reader.readAsDataURL(file);
     });
 
-    // Filter classroom options by shift: strictly keep only matching options
+    // Filter classroom options by level, year, shift: strictly keep only matching options
     var allCreateClassroomOptions = $('#classroom_id_select option').clone();
 
     function applyCreateShiftFilter() {
+        var level = $('#filter_level_select').val();
+        var year = $('#filter_year_select').val();
         var shift = $('#filter_shift_select').val();
         var currentVal = $('#classroom_id_select').val();
+
         $('#classroom_id_select').empty();
         allCreateClassroomOptions.each(function() {
             var roomShift = $(this).data('shift');
+            var roomLevel = $(this).data('level');
+            var roomYear = $(this).data('year');
             var optVal = $(this).val();
-            if (!shift || !roomShift || roomShift === shift || optVal === "") {
+
+            if (optVal === "") {
+                $('#classroom_id_select').append($(this).clone());
+                return;
+            }
+
+            var matchLevel = !level || roomLevel === level;
+            var matchYear = !year || String(roomYear) === String(year);
+            var matchShift = !shift || !roomShift || roomShift === shift;
+
+            if (matchLevel && matchYear && matchShift) {
                 $('#classroom_id_select').append($(this).clone());
             }
         });
@@ -153,7 +189,7 @@
         }
     }
 
-    $('#filter_shift_select').on('change', applyCreateShiftFilter);
+    $('#filter_level_select, #filter_year_select, #filter_shift_select').on('change', applyCreateShiftFilter);
 
     @if(session('success'))
     Swal.fire({

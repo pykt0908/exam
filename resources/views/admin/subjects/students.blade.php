@@ -335,34 +335,55 @@
                     @csrf
                     <div class="modal-body p-4">
                         <!-- Filters & Search Row -->
-                        <div class="row text-dark mb-3">
-                            <div class="col-md-3 mb-2 mb-md-0">
+                        <div class="row text-dark mb-2">
+                            <div class="col-md-3 col-sm-6 mb-2">
+                                <label class="font-weight-bold mb-1">
+                                    <i class="fas fa-graduation-cap text-primary mr-1"></i>ระดับการศึกษา
+                                </label>
+                                <select id="modal_cr_level_filter" class="form-control form-control-sm">
+                                    <option value="">-- ทุกระดับ --</option>
+                                    <option value="ปวช.">ปวช.</option>
+                                    <option value="ปวส.">ปวส.</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-2">
+                                <label class="font-weight-bold mb-1">
+                                    <i class="fas fa-layer-group text-info mr-1"></i>ชั้นปี
+                                </label>
+                                <select id="modal_cr_year_filter" class="form-control form-control-sm">
+                                    <option value="">-- ทุกชั้นปี --</option>
+                                    <option value="1">ปี 1</option>
+                                    <option value="2">ปี 2</option>
+                                    <option value="3">ปี 3</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-2">
                                 <label class="font-weight-bold mb-1">
                                     <i class="far fa-clock text-info mr-1"></i>ภาค
                                 </label>
-                                <select id="modal_cr_shift_filter" class="form-control">
+                                <select id="modal_cr_shift_filter" class="form-control form-control-sm">
                                     <option value="">-- ทุกภาค --</option>
                                     <option value="เช้า">ภาคเช้า</option>
                                     <option value="บ่าย">ภาคบ่าย</option>
                                 </select>
                             </div>
-                            <div class="col-md-3 mb-2 mb-md-0">
+                            <div class="col-md-3 col-sm-6 mb-2">
                                 <label class="font-weight-bold mb-1">
                                     สถานะในรายวิชา
                                 </label>
-                                <select id="modal_cr_status_filter" class="form-control">
+                                <select id="modal_cr_status_filter" class="form-control form-control-sm">
                                     <option value="">-- แสดงทั้งหมด --</option>
                                     <option value="not_enrolled">ยังไม่เข้าร่วม</option>
                                     <option value="enrolled">อยู่ในวิชาแล้ว</option>
                                 </select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="font-weight-bold mb-1">
-                                    ค้นหาชื่อกลุ่มเรียน หรือระดับชั้น
-                                </label>
-                                <div class="input-group">
+                            <div class="col-12 mb-2">
+                                <div class="input-group input-group-sm">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text bg-light font-weight-bold"><i class="fas fa-search mr-1"></i>ค้นหา</span>
+                                    </div>
                                     <input type="text" id="modal_cr_search" class="form-control"
-                                        placeholder="พิมพ์ชื่อกลุ่มเรียนเพื่อค้นหา...">
+                                        placeholder="พิมพ์ชื่อกลุ่มเรียน หรือสาขาวิชาเพื่อค้นหา...">
                                     <div class="input-group-append">
                                         <button type="button" class="btn btn-outline-secondary" id="btn_clear_cr_search"
                                             title="ล้างการค้นหา">
@@ -418,6 +439,8 @@
                                         @endphp
                                         <tr class="modal-cr-row"
                                             data-shift="{{ $roomShift }}"
+                                            data-level="{{ $room->level }}"
+                                            data-year="{{ $room->year }}"
                                             data-name="{{ mb_strtolower($room->name) }}"
                                             data-enrolled="{{ $isEnrolled ? '1' : '0' }}">
                                             <td class="text-center align-middle">
@@ -502,28 +525,49 @@
                 @csrf
                 <div class="modal-body p-4">
                     <!-- Classroom Filter & Search Row -->
-                    <div class="row text-dark mb-3">
-                        <div class="col-md-3 mb-2 mb-md-0">
+                    <div class="row text-dark mb-2">
+                        <div class="col-md-2 col-sm-6 mb-2">
+                            <label class="font-weight-bold mb-1">
+                                <i class="fas fa-graduation-cap text-primary mr-1"></i>ระดับ
+                            </label>
+                            <select id="modal_student_level_filter" class="form-control form-control-sm">
+                                <option value="">-- ทุกระดับ --</option>
+                                <option value="ปวช.">ปวช.</option>
+                                <option value="ปวส.">ปวส.</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 col-sm-6 mb-2">
+                            <label class="font-weight-bold mb-1">
+                                <i class="fas fa-layer-group text-info mr-1"></i>ชั้นปี
+                            </label>
+                            <select id="modal_student_year_filter" class="form-control form-control-sm">
+                                <option value="">-- ทุกปี --</option>
+                                <option value="1">ปี 1</option>
+                                <option value="2">ปี 2</option>
+                                <option value="3">ปี 3</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 col-sm-6 mb-2">
                             <label class="font-weight-bold mb-1">
                                 <i class="far fa-clock text-info mr-1"></i>ภาค
                             </label>
-                            <select id="modal_student_shift_filter" class="form-control">
+                            <select id="modal_student_shift_filter" class="form-control form-control-sm">
                                 <option value="">-- ทุกภาค --</option>
                                 <option value="เช้า">ภาคเช้า</option>
                                 <option value="บ่าย">ภาคบ่าย</option>
                             </select>
                         </div>
-                        <div class="col-md-4 mb-2 mb-md-0">
+                        <div class="col-md-3 col-sm-6 mb-2">
                             <label class="font-weight-bold mb-1">
-                                กรองตามกลุ่มเรียน / ห้องเรียน
+                                กลุ่มเรียน / ห้องเรียน
                             </label>
-                            <select id="modal_classroom_filter" class="form-control select2" style="width: 100%;">
-                                <option value="">-- แสดงนักศึกษาทุกกลุ่มเรียน --</option>
+                            <select id="modal_classroom_filter" class="form-control form-control-sm select2" style="width: 100%;">
+                                <option value="">-- ทุกกลุ่มเรียน --</option>
                                 @foreach($allClassrooms as $room)
                                     @php
                                         $roomShift = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
                                     @endphp
-                                    <option value="{{ $room->id }}" data-shift="{{ $roomShift }}" {{ (isset($selectedClassroom) && $selectedClassroom->id == $room->id) ? 'selected' : '' }}>
+                                    <option value="{{ $room->id }}" data-shift="{{ $roomShift }}" data-level="{{ $room->level }}" data-year="{{ $room->year }}" {{ (isset($selectedClassroom) && $selectedClassroom->id == $room->id) ? 'selected' : '' }}>
                                         {{ $room->name }}
                                     </option>
                                 @endforeach
@@ -531,19 +575,19 @@
                                     $noRoomCount = $availableStudents->whereNull('classroom_id')->count();
                                 @endphp
                                 @if($noRoomCount > 0)
-                                    <option value="unassigned" data-shift="">
+                                    <option value="unassigned" data-shift="" data-level="" data-year="">
                                         ไม่มีกลุ่มเรียน
                                     </option>
                                 @endif
                             </select>
                         </div>
-                        <div class="col-md-5">
+                        <div class="col-md-3 col-12 mb-2">
                             <label class="font-weight-bold mb-1">
-                                ค้นหาชื่อ หรือรหัสนักศึกษา
+                                ค้นหาชื่อ / รหัสนักศึกษา
                             </label>
-                            <div class="input-group">
+                            <div class="input-group input-group-sm">
                                 <input type="text" id="modal_student_search" class="form-control"
-                                    placeholder="พิมพ์รหัส หรือชื่อเพื่อค้นหา...">
+                                    placeholder="รหัส หรือชื่อ...">
                                 <div class="input-group-append">
                                     <button type="button" class="btn btn-outline-secondary" id="btn_clear_search"
                                         title="ล้างการค้นหา">
@@ -597,6 +641,8 @@
                                     <tr class="modal-student-row"
                                         data-classroom-id="{{ $student->classroom_id ?? 'unassigned' }}"
                                         data-shift="{{ $studShift }}"
+                                        data-level="{{ $student->classroom?->level ?? '' }}"
+                                        data-year="{{ $student->classroom?->year ?? '' }}"
                                         data-search="{{ mb_strtolower($student->student_code . ' ' . $student->name . ' ' . ($student->classroom ? $student->classroom->name : 'ไม่มีกลุ่มเรียน')) }}">
                                         <td class="text-center align-middle" style="width: 45px;">
                                             <input type="checkbox" name="student_ids[]" value="{{ $student->id }}"
@@ -667,8 +713,10 @@
             width: '100%'
         });
 
-        // Filter function (Classroom + Search Input + Shift)
+        // Filter function (Level + Year + Shift + Classroom + Search Input)
         function filterModalStudents() {
+            var selectedLevel = $('#modal_student_level_filter').val();
+            var selectedYear = $('#modal_student_year_filter').val();
             var selectedShift = $('#modal_student_shift_filter').val();
             var selectedRoom = $('#modal_classroom_filter').val();
             var searchTerm = ($('#modal_student_search').val() || '').trim().toLowerCase();
@@ -678,13 +726,17 @@
                 var row = $(this);
                 var room = row.attr('data-classroom-id');
                 var shift = row.attr('data-shift') || '';
+                var level = row.attr('data-level') || '';
+                var year = row.attr('data-year') || '';
                 var searchData = row.attr('data-search') || '';
 
+                var matchLevel = !selectedLevel || level === selectedLevel;
+                var matchYear = !selectedYear || year === selectedYear;
                 var matchShift = !selectedShift || shift === selectedShift;
                 var matchRoom = !selectedRoom || room === selectedRoom;
                 var matchSearch = !searchTerm || searchData.indexOf(searchTerm) !== -1;
 
-                if (matchShift && matchRoom && matchSearch) {
+                if (matchLevel && matchYear && matchShift && matchRoom && matchSearch) {
                     row.removeClass('d-none');
                     visibleCount++;
                 } else {
@@ -706,17 +758,28 @@
         // Strictly filter modal classroom filter by removing non-matching options
         var allIndividualModalClassrooms = $('#modal_classroom_filter option').clone();
 
-        $('#modal_student_shift_filter').on('change', function () {
-            var shift = $(this).val();
+        function syncIndividualModalClassrooms() {
+            var level = $('#modal_student_level_filter').val();
+            var year = $('#modal_student_year_filter').val();
+            var shift = $('#modal_student_shift_filter').val();
             var currentVal = $('#modal_classroom_filter').val();
+
             $('#modal_classroom_filter').empty();
             allIndividualModalClassrooms.each(function () {
                 var roomShift = $(this).data('shift');
+                var roomLevel = $(this).data('level');
+                var roomYear = $(this).data('year');
                 var optVal = $(this).val();
-                if (!shift || !roomShift || roomShift === shift || optVal === "" || optVal === "unassigned") {
+
+                var matchShift = !shift || !roomShift || roomShift === shift;
+                var matchLevel = !level || !roomLevel || roomLevel === level;
+                var matchYear = !year || !roomYear || String(roomYear) === String(year);
+
+                if (optVal === "" || optVal === "unassigned" || (matchShift && matchLevel && matchYear)) {
                     $('#modal_classroom_filter').append($(this).clone());
                 }
             });
+
             if (currentVal && $('#modal_classroom_filter option[value="' + currentVal + '"]').length > 0) {
                 $('#modal_classroom_filter').val(currentVal);
             } else {
@@ -724,6 +787,10 @@
             }
             $('#modal_classroom_filter').trigger('change.select2');
             filterModalStudents();
+        }
+
+        $('#modal_student_level_filter, #modal_student_year_filter, #modal_student_shift_filter').on('change', function () {
+            syncIndividualModalClassrooms();
         });
 
         $('#modal_classroom_filter').on('change', function () {
@@ -841,6 +908,8 @@
 
         // ================= MODAL: ADD CLASSROOMS AS TABLE =================
         function filterModalClassrooms() {
+            var selectedLevel = $('#modal_cr_level_filter').val();
+            var selectedYear = $('#modal_cr_year_filter').val();
             var selectedShift = $('#modal_cr_shift_filter').val();
             var selectedStatus = $('#modal_cr_status_filter').val();
             var searchTerm = $.trim($('#modal_cr_search').val()).toLowerCase();
@@ -848,17 +917,21 @@
 
             $('.modal-cr-row').each(function () {
                 var row = $(this);
+                var level = row.attr('data-level') || '';
+                var year = row.attr('data-year') || '';
                 var shift = row.attr('data-shift') || '';
                 var name = row.attr('data-name') || '';
                 var isEnrolled = row.attr('data-enrolled') || '0';
 
+                var matchLevel = !selectedLevel || level === selectedLevel;
+                var matchYear = !selectedYear || year === selectedYear;
                 var matchShift = !selectedShift || shift === selectedShift;
                 var matchStatus = !selectedStatus ||
                     (selectedStatus === 'enrolled' && isEnrolled === '1') ||
                     (selectedStatus === 'not_enrolled' && isEnrolled === '0');
                 var matchSearch = !searchTerm || name.indexOf(searchTerm) !== -1;
 
-                if (matchShift && matchStatus && matchSearch) {
+                if (matchLevel && matchYear && matchShift && matchStatus && matchSearch) {
                     row.removeClass('d-none');
                     visibleCount++;
                     row.find('.modal-cr-row-num').text(visibleCount);
@@ -949,7 +1022,7 @@
         });
 
         // Event listeners for filters
-        $('#modal_cr_shift_filter, #modal_cr_status_filter').on('change', function () {
+        $('#modal_cr_level_filter, #modal_cr_year_filter, #modal_cr_shift_filter, #modal_cr_status_filter').on('change', function () {
             filterModalClassrooms();
         });
 

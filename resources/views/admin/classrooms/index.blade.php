@@ -19,26 +19,36 @@
         <div class="card-body">
             <form action="{{ route('admin.classrooms.index') }}" method="GET" class="form-row align-items-center">
                 <input type="hidden" name="search" value="1">
-                <div class="form-group col-md-3 mb-2 mb-md-0">
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text bg-white"><i class="far fa-clock text-info"></i></span>
-                        </div>
-                        <select name="shift" class="form-control" onchange="this.form.submit()">
-                            <option value="">-- ทุกภาค --</option>
-                            <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
-                            <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
-                        </select>
-                    </div>
+                <div class="form-group col-md-2 mb-2 mb-md-0">
+                    <select name="level" class="form-control" onchange="this.form.submit()">
+                        <option value="">-- ทุกระดับชั้น --</option>
+                        <option value="ปวช." {{ request('level') === 'ปวช.' ? 'selected' : '' }}>ปวช.</option>
+                        <option value="ปวส." {{ request('level') === 'ปวส.' ? 'selected' : '' }}>ปวส.</option>
+                    </select>
                 </div>
-                <div class="form-group col-md-6 mb-2 mb-md-0">
+                <div class="form-group col-md-2 mb-2 mb-md-0">
+                    <select name="year" class="form-control" onchange="this.form.submit()">
+                        <option value="">-- ทุกชั้นปี --</option>
+                        <option value="1" {{ request('year') == '1' ? 'selected' : '' }}>ปี 1</option>
+                        <option value="2" {{ request('year') == '2' ? 'selected' : '' }}>ปี 2</option>
+                        <option value="3" {{ request('year') == '3' ? 'selected' : '' }}>ปี 3</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-2 mb-2 mb-md-0">
+                    <select name="shift" class="form-control" onchange="this.form.submit()">
+                        <option value="">-- ทุกภาค --</option>
+                        <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
+                        <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-4 mb-2 mb-md-0">
                     <input type="text" name="q" class="form-control w-100" value="{{ request('q') }}" placeholder="ค้นหาชื่อห้องเรียน หรือระดับชั้น...">
                 </div>
-                <div class="form-group col-md-3 mb-0 d-flex">
+                <div class="form-group col-md-2 mb-0 d-flex">
                     <button type="submit" class="btn btn-primary btn-block font-weight-bold shadow-sm">
-                        <i class="fas fa-search mr-2"></i>ค้นหาห้องเรียน
+                        <i class="fas fa-search mr-1"></i>ค้นหา
                     </button>
-                    @if(request('shift') || request('q'))
+                    @if(request('shift') || request('level') || request('year') || request('q'))
                         <a href="{{ route('admin.classrooms.index') }}" class="btn btn-outline-secondary ml-2 font-weight-bold" title="ล้างการค้นหา">
                             <i class="fas fa-times"></i>
                         </a>

@@ -100,34 +100,58 @@
                     <form action="{{ route('admin.users.index') }}" method="GET" class="form-inline mr-2 my-1">
                         <input type="hidden" name="role" value="student">
                         
-                        <label class="font-weight-bold text-dark text-md mr-2 mb-0">
+                        <label class="font-weight-bold text-dark text-sm mr-1 mb-0">
+                            ระดับ:
+                        </label>
+                        <select name="level" class="form-control form-control-sm bg-white mr-2" onchange="this.form.classroom_id.value=''; this.form.submit();">
+                            <option value="">-- ทุกระดับ --</option>
+                            <option value="ปวช." {{ request('level') === 'ปวช.' ? 'selected' : '' }}>ปวช.</option>
+                            <option value="ปวส." {{ request('level') === 'ปวส.' ? 'selected' : '' }}>ปวส.</option>
+                        </select>
+
+                        <label class="font-weight-bold text-dark text-sm mr-1 mb-0">
+                            ชั้นปี:
+                        </label>
+                        <select name="year" class="form-control form-control-sm bg-white mr-2" onchange="this.form.classroom_id.value=''; this.form.submit();">
+                            <option value="">-- ทุกชั้นปี --</option>
+                            <option value="1" {{ request('year') == '1' ? 'selected' : '' }}>ปี 1</option>
+                            <option value="2" {{ request('year') == '2' ? 'selected' : '' }}>ปี 2</option>
+                            <option value="3" {{ request('year') == '3' ? 'selected' : '' }}>ปี 3</option>
+                        </select>
+
+                        <label class="font-weight-bold text-dark text-sm mr-1 mb-0">
                             <i class="far fa-clock text-info mr-1"></i>ภาค:
                         </label>
-                        <select name="shift" id="filter-shift-select" class="form-control form-control-sm bg-white mr-3" onchange="this.form.classroom_id.value=''; this.form.submit();">
+                        <select name="shift" id="filter-shift-select" class="form-control form-control-sm bg-white mr-2" onchange="this.form.classroom_id.value=''; this.form.submit();">
                             <option value="">-- ทุกภาค --</option>
                             <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
                             <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
                         </select>
 
-                        <label class="font-weight-bold text-dark text-md mr-2 mb-0">
+                        <label class="font-weight-bold text-dark text-sm mr-1 mb-0">
                             ห้องเรียน:
                         </label>
-                        <select name="classroom_id" class="form-control form-control-sm bg-white" onchange="this.form.submit()" style="min-width: 200px;">
+                        <select name="classroom_id" class="form-control form-control-sm bg-white" onchange="this.form.submit()" style="min-width: 180px;">
                             <option value="">-- ทุกห้องเรียน --</option>
                             @foreach($classrooms as $c)
-                                @if(!request('shift') || (request('shift') === 'เช้า' ? !str_contains($c->name, 'บ่าย') : str_contains($c->name, 'บ่าย')))
+                                @php
+                                    $matchShift = !request('shift') || (request('shift') === 'เช้า' ? !str_contains($c->name, 'บ่าย') : str_contains($c->name, 'บ่าย'));
+                                    $matchLevel = !request('level') || $c->level === request('level');
+                                    $matchYear = !request('year') || (string)$c->year === (string)request('year');
+                                @endphp
+                                @if($matchShift && $matchLevel && $matchYear)
                                     <option value="{{ $c->id }}" {{ request('classroom_id') == $c->id ? 'selected' : '' }}>
                                         {{ $c->name }} ({{ $c->students_count }} คน)
                                     </option>
                                 @endif
                             @endforeach
-                            @if(isset($unassignedStudentsCount) && $unassignedStudentsCount > 0 && !request('shift'))
+                            @if(isset($unassignedStudentsCount) && $unassignedStudentsCount > 0 && !request('shift') && !request('level') && !request('year'))
                                 <option value="unassigned" {{ request('classroom_id') === 'unassigned' ? 'selected' : '' }}>
                                     -- ยังไม่มีห้องเรียน ({{ $unassignedStudentsCount }} คน) --
                                 </option>
                             @endif
                         </select>
-                        @if(request('classroom_id') || request('shift'))
+                        @if(request('classroom_id') || request('shift') || request('level') || request('year'))
                             <a href="{{ route('admin.users.index', ['role' => 'student']) }}" class="btn btn-outline-secondary btn-sm ml-2" title="แสดงทั้งหมด / ล้างตัวกรอง">
                                 <i class="fas fa-times mr-1"></i>ล้างตัวกรอง
                             </a>

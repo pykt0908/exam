@@ -51,6 +51,8 @@ class UserController extends Controller
         $role = $request->query('role');
         $classroom_id = $request->query('classroom_id');
         $shift = $request->query('shift');
+        $level = $request->query('level');
+        $year = $request->query('year');
 
         $classrooms = \App\Models\Classroom::withCount(['users as students_count' => function($q) {
             $q->where('role', 'student');
@@ -70,6 +72,14 @@ class UserController extends Controller
             ->withCount(['examAttempts' => function($query) {
                 $query->where('status', 'completed');
             }]);
+
+        if ($level) {
+            $query->level($level);
+        }
+
+        if ($year) {
+            $query->year($year);
+        }
 
         if ($shift) {
             $query->shift($shift);
@@ -125,7 +135,9 @@ class UserController extends Controller
             'selectedClassroom', 
             'totalStudentsCount', 
             'unassignedStudentsCount',
-            'shift'
+            'shift',
+            'level',
+            'year'
         ));
     }
 

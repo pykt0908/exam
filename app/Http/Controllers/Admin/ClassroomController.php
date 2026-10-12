@@ -28,6 +28,14 @@ class ClassroomController extends Controller
             }
         ]);
 
+        if ($request->filled('level')) {
+            $query->level($request->get('level'));
+        }
+
+        if ($request->filled('year')) {
+            $query->year($request->get('year'));
+        }
+
         if ($request->filled('shift')) {
             $shift = $request->get('shift');
             $query->shift($shift);
