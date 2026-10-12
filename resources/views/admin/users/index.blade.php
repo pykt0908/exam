@@ -157,7 +157,7 @@
                                 <option value="{{ $c->id }}" 
                                         data-level="{{ $c->level }}" 
                                         data-year="{{ $c->year }}" 
-                                        data-shift="{{ str_contains($c->name, 'บ่าย') ? 'บ่าย' : 'เช้า' }}"
+                                        data-shift="{{ $c->shift_text }}"
                                         {{ request('classroom_id') == $c->id ? 'selected' : '' }}>
                                     {{ $c->name }} ({{ $c->students_count }} คน)
                                 </option>

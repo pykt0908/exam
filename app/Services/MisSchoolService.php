@@ -489,10 +489,19 @@ class MisSchoolService
                 ->orWhere('name', 'LIKE', "%{$levelName}{$year}/{$room}%")
                 ->first();
 
+            $isAfternoon = str_contains($shift, 'บ่าย') || str_contains($dept, 'บ่าย');
+            $classroomShift = $isAfternoon ? 'afternoon' : 'morning';
+
             if (!$existing) {
-                Classroom::create(['name' => $roomName]);
+                Classroom::create([
+                    'name' => $roomName,
+                    'shift' => $classroomShift,
+                ]);
                 $createdCount++;
             } else {
+                if (empty($existing->shift)) {
+                    $existing->update(['shift' => $classroomShift]);
+                }
                 $existingCount++;
             }
         }

@@ -69,13 +69,22 @@ class ClassroomController extends Controller
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:classrooms,name'],
+            'shift' => ['nullable', 'string', 'in:morning,afternoon,เช้า,บ่าย'],
         ], [
             'name.required' => 'กรุณากรอกชื่อห้องเรียน/ระดับชั้น',
             'name.unique' => 'มีห้องเรียนชื่อนี้ในระบบแล้ว',
         ]);
 
+        $shift = $request->input('shift');
+        if (!$shift) {
+            $shift = str_contains($request->name, 'บ่าย') ? 'afternoon' : 'morning';
+        } else {
+            $shift = in_array($shift, ['afternoon', 'บ่าย']) ? 'afternoon' : 'morning';
+        }
+
         Classroom::create([
             'name' => $request->name,
+            'shift' => $shift,
         ]);
 
         return redirect()->route('admin.classrooms.index')->with('success', 'เพิ่มห้องเรียน/ระดับชั้นใหม่เรียบร้อยแล้ว');
@@ -85,13 +94,22 @@ class ClassroomController extends Controller
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:classrooms,name,' . $classroom->id],
+            'shift' => ['nullable', 'string', 'in:morning,afternoon,เช้า,บ่าย'],
         ], [
             'name.required' => 'กรุณากรอกชื่อห้องเรียน/ระดับชั้น',
             'name.unique' => 'มีห้องเรียนชื่อนี้ในระบบแล้ว',
         ]);
 
+        $shift = $request->input('shift');
+        if (!$shift) {
+            $shift = str_contains($request->name, 'บ่าย') ? 'afternoon' : ($classroom->shift ?? 'morning');
+        } else {
+            $shift = in_array($shift, ['afternoon', 'บ่าย']) ? 'afternoon' : 'morning';
+        }
+
         $classroom->update([
             'name' => $request->name,
+            'shift' => $shift,
         ]);
 
         return redirect()->route('admin.classrooms.index')->with('success', 'แก้ไขข้อมูลห้องเรียน/ระดับชั้นเรียบร้อยแล้ว');

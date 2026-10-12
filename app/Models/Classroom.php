@@ -11,7 +11,17 @@ class Classroom extends Model
 
     protected $fillable = [
         'name',
+        'shift',
     ];
+
+    protected static function booted()
+    {
+        static::saving(function ($classroom) {
+            if (empty($classroom->shift)) {
+                $classroom->shift = str_contains($classroom->name, 'บ่าย') ? 'afternoon' : 'morning';
+            }
+        });
+    }
 
     public function users()
     {
@@ -23,6 +33,10 @@ class Classroom extends Model
      */
     public function getShiftAttribute(): string
     {
+        $shift = $this->attributes['shift'] ?? null;
+        if (!empty($shift)) {
+            return $shift;
+        }
         if (str_contains($this->name, 'บ่าย')) {
             return 'afternoon';
         }
@@ -34,10 +48,7 @@ class Classroom extends Model
      */
     public function getShiftTextAttribute(): string
     {
-        if (str_contains($this->name, 'บ่าย')) {
-            return 'บ่าย';
-        }
-        return 'เช้า';
+        return $this->shift === 'afternoon' ? 'บ่าย' : 'เช้า';
     }
 
     /**
@@ -95,10 +106,20 @@ class Classroom extends Model
     public function scopeShift($query, string $shift)
     {
         if ($shift === 'afternoon' || $shift === 'บ่าย') {
-            return $query->where('name', 'LIKE', '%บ่าย%');
+            return $query->where(function($q) {
+                $q->where('shift', 'afternoon')
+                  ->orWhere(function($sub) {
+                      $sub->whereNull('shift')->where('name', 'LIKE', '%บ่าย%');
+                  });
+            });
         }
         if ($shift === 'morning' || $shift === 'เช้า') {
-            return $query->where('name', 'NOT LIKE', '%บ่าย%');
+            return $query->where(function($q) {
+                $q->where('shift', 'morning')
+                  ->orWhere(function($sub) {
+                      $sub->whereNull('shift')->where('name', 'NOT LIKE', '%บ่าย%');
+                  });
+            });
         }
         if ($shift === 'dual' || $shift === 'ทวิภาคี') {
             return $query->where('name', 'LIKE', '%ทวิภาคี%');

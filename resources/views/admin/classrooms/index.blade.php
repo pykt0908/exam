@@ -138,6 +138,17 @@
                                                     <label class="font-weight-bold">ชื่อห้องเรียน / ระดับชั้น</label>
                                                     <input type="text" name="name" class="form-control" value="{{ old('name', $room->name) }}" placeholder="เช่น ปวช. 1/1 หรือ ปวส. 2/3" required>
                                                 </div>
+                                                <div class="form-group mb-0">
+                                                    <label class="font-weight-bold d-block">ภาคเรียน (รอบเวลา)</label>
+                                                    <div class="custom-control custom-radio custom-control-inline">
+                                                        <input type="radio" id="shiftMorning{{ $room->id }}" name="shift" value="morning" class="custom-control-input" {{ old('shift', $room->shift) !== 'afternoon' ? 'checked' : '' }}>
+                                                        <label class="custom-control-label font-weight-normal text-dark" for="shiftMorning{{ $room->id }}">ภาคเช้า</label>
+                                                    </div>
+                                                    <div class="custom-control custom-radio custom-control-inline">
+                                                        <input type="radio" id="shiftAfternoon{{ $room->id }}" name="shift" value="afternoon" class="custom-control-input" {{ old('shift', $room->shift) === 'afternoon' ? 'checked' : '' }}>
+                                                        <label class="custom-control-label font-weight-normal text-dark" for="shiftAfternoon{{ $room->id }}">ภาคบ่าย</label>
+                                                    </div>
+                                                </div>
                                             </div>
                                             <div class="modal-footer">
                                                 <button type="button" class="btn btn-secondary font-weight-bold" data-dismiss="modal">ยกเลิก</button>
@@ -180,6 +191,17 @@
                                     <strong>{{ $message }}</strong>
                                 </span>
                             @enderror
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="font-weight-bold d-block">ภาคเรียน (รอบเวลา)</label>
+                            <div class="custom-control custom-radio custom-control-inline">
+                                <input type="radio" id="shiftMorningAdd" name="shift" value="morning" class="custom-control-input" {{ old('shift', 'morning') !== 'afternoon' ? 'checked' : '' }}>
+                                <label class="custom-control-label font-weight-normal text-dark" for="shiftMorningAdd">ภาคเช้า</label>
+                            </div>
+                            <div class="custom-control custom-radio custom-control-inline">
+                                <input type="radio" id="shiftAfternoonAdd" name="shift" value="afternoon" class="custom-control-input" {{ old('shift') === 'afternoon' ? 'checked' : '' }}>
+                                <label class="custom-control-label font-weight-normal text-dark" for="shiftAfternoonAdd">ภาคบ่าย</label>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
