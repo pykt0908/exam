@@ -235,9 +235,19 @@ class StudentImportTest extends TestCase
         $resUnassigned->assertDontSee('เด็กห้องหนึ่ง');
         $resUnassigned->assertDontSee('เด็กห้องสอง');
 
-        // All rooms
+        // Initial entry without filter should prompt to search and not load all students immediately
+        $resInitial = $this->actingAs($this->admin)->get(route('admin.users.index', [
+            'role' => 'student',
+        ]));
+        $resInitial->assertOk();
+        $resInitial->assertSee('ค้นหาข้อมูลนักศึกษา');
+        $resInitial->assertSee('เลือกตัวกรองแล้วกดปุ่ม');
+        $resInitial->assertDontSee('เด็กห้องหนึ่ง');
+
+        // Show all students explicitly
         $resAll = $this->actingAs($this->admin)->get(route('admin.users.index', [
             'role' => 'student',
+            'show_all' => 1,
         ]));
         $resAll->assertOk();
         $resAll->assertSee('เด็กห้องหนึ่ง');

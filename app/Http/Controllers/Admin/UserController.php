@@ -85,14 +85,41 @@ class UserController extends Controller
             $query->shift($shift);
         }
 
+        $search = trim($request->query('search', $request->query('q', '')));
+
+        $hasSearchedOrFiltered = true;
         if ($role === 'student') {
-            $query->where('role', 'student');
-            if ($classroom_id === 'unassigned') {
-                $query->whereNull('classroom_id');
-            } elseif ($classroom_id) {
-                $query->where('classroom_id', $classroom_id);
+            $hasSearchedOrFiltered = $request->filled('classroom_id')
+                || $request->filled('shift')
+                || $request->filled('level')
+                || $request->filled('year')
+                || $search !== ''
+                || $request->boolean('show_all')
+                || $request->has('searched');
+        }
+
+        if ($role === 'student') {
+            if (!$hasSearchedOrFiltered) {
+                $users = collect();
+            } else {
+                $query->where('role', 'student');
+                if ($classroom_id === 'unassigned') {
+                    $query->whereNull('classroom_id');
+                } elseif ($classroom_id && $classroom_id !== 'all') {
+                    $query->where('classroom_id', $classroom_id);
+                }
+
+                if ($search !== '') {
+                    $query->where(function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                          ->orWhere('student_code', 'like', "%{$search}%")
+                          ->orWhere('citizen_id', 'like', "%{$search}%");
+                    });
+                }
+
+                $query->orderBy('student_code', 'asc');
+                $users = $query->get();
             }
-            $query->orderBy('student_code', 'asc');
         } elseif ($role === 'staff') {
             $query->whereIn('role', ['admin', 'teacher'])
                 ->orderByRaw("
@@ -105,6 +132,7 @@ class UserController extends Controller
                     END ASC
                 ")
                 ->orderBy('name', 'asc');
+            $users = $query->get();
         } else {
             if ($classroom_id === 'unassigned') {
                 $query->whereNull('classroom_id');
@@ -122,9 +150,8 @@ class UserController extends Controller
                     END ASC
                 ")
                 ->orderBy('name', 'asc');
+            $users = $query->get();
         }
-
-        $users = $query->get();
 
         return view('admin.users.index', compact(
             'users', 
@@ -137,7 +164,9 @@ class UserController extends Controller
             'unassignedStudentsCount',
             'shift',
             'level',
-            'year'
+            'year',
+            'search',
+            'hasSearchedOrFiltered'
         ));
     }
 

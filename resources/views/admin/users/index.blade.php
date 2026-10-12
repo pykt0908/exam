@@ -97,12 +97,16 @@
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
             <h3 class="card-title font-weight-bold text-dark mb-1 mb-md-0 mr-3">
                 @if($role === 'student')
-                    @if($selectedClassroom)
+                    @if(!$hasSearchedOrFiltered)
+                        ค้นหาข้อมูลนักศึกษา
+                    @elseif($selectedClassroom)
                         รายชื่อนักศึกษา: {{ $selectedClassroom->name }} ({{ $users->count() }} คน)
                     @elseif(request('classroom_id') === 'unassigned')
                         รายชื่อนักศึกษา: ยังไม่มีห้องเรียน ({{ $users->count() }} คน)
+                    @elseif(request('search') || request('q'))
+                        ผลการค้นหา: "{{ request('search', request('q')) }}" ({{ $users->count() }} คน)
                     @else
-                        รายชื่อนักศึกษาในระบบ {{ $users->count() }} คน
+                        รายชื่อนักศึกษาในระบบ ({{ $users->count() }} คน)
                     @endif
                 @elseif($role === 'staff')
                     รายชื่ออาจารย์และผู้ดูแลในระบบ ({{ $users->count() }} คน)
@@ -112,13 +116,14 @@
             </h3>
             <div class="d-flex align-items-center flex-wrap">
                 @if($role === 'student')
-                    <form action="{{ route('admin.users.index') }}" method="GET" class="form-inline mr-2 my-1">
+                    <form action="{{ route('admin.users.index') }}" method="GET" class="form-inline mr-2 my-1" id="student-filter-form">
                         <input type="hidden" name="role" value="student">
+                        <input type="hidden" name="searched" value="1">
                         
                         <label class="font-weight-bold text-dark text-sm mr-1 mb-0">
                             ระดับ:
                         </label>
-                        <select name="level" class="form-control form-control-sm bg-white mr-2" onchange="this.form.classroom_id.value=''; this.form.submit();">
+                        <select name="level" id="filter-level-select" class="form-control form-control-sm bg-white mr-2">
                             <option value="">-- ทุกระดับ --</option>
                             <option value="ปวช." {{ request('level') === 'ปวช.' ? 'selected' : '' }}>ปวช.</option>
                             <option value="ปวส." {{ request('level') === 'ปวส.' ? 'selected' : '' }}>ปวส.</option>
@@ -127,7 +132,7 @@
                         <label class="font-weight-bold text-dark text-sm mr-1 mb-0">
                             ชั้นปี:
                         </label>
-                        <select name="year" class="form-control form-control-sm bg-white mr-2" onchange="this.form.classroom_id.value=''; this.form.submit();">
+                        <select name="year" id="filter-year-select" class="form-control form-control-sm bg-white mr-2">
                             <option value="">-- ทุกชั้นปี --</option>
                             <option value="1" {{ request('year') == '1' ? 'selected' : '' }}>ปี 1</option>
                             <option value="2" {{ request('year') == '2' ? 'selected' : '' }}>ปี 2</option>
@@ -137,7 +142,7 @@
                         <label class="font-weight-bold text-dark text-sm mr-1 mb-0">
                             <i class="far fa-clock text-info mr-1"></i>ภาค:
                         </label>
-                        <select name="shift" id="filter-shift-select" class="form-control form-control-sm bg-white mr-2" onchange="this.form.classroom_id.value=''; this.form.submit();">
+                        <select name="shift" id="filter-shift-select" class="form-control form-control-sm bg-white mr-2">
                             <option value="">-- ทุกภาค --</option>
                             <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
                             <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
@@ -146,28 +151,32 @@
                         <label class="font-weight-bold text-dark text-sm mr-1 mb-0">
                             ห้องเรียน:
                         </label>
-                        <select name="classroom_id" class="form-control form-control-sm bg-white" onchange="this.form.submit()" style="min-width: 180px;">
+                        <select name="classroom_id" id="filter-classroom-select" class="form-control form-control-sm bg-white mr-2" style="min-width: 175px;">
                             <option value="">-- ทุกห้องเรียน --</option>
                             @foreach($classrooms as $c)
-                                @php
-                                    $matchShift = !request('shift') || (request('shift') === 'เช้า' ? !str_contains($c->name, 'บ่าย') : str_contains($c->name, 'บ่าย'));
-                                    $matchLevel = !request('level') || $c->level === request('level');
-                                    $matchYear = !request('year') || (string)$c->year === (string)request('year');
-                                @endphp
-                                @if($matchShift && $matchLevel && $matchYear)
-                                    <option value="{{ $c->id }}" {{ request('classroom_id') == $c->id ? 'selected' : '' }}>
-                                        {{ $c->name }} ({{ $c->students_count }} คน)
-                                    </option>
-                                @endif
+                                <option value="{{ $c->id }}" 
+                                        data-level="{{ $c->level }}" 
+                                        data-year="{{ $c->year }}" 
+                                        data-shift="{{ str_contains($c->name, 'บ่าย') ? 'บ่าย' : 'เช้า' }}"
+                                        {{ request('classroom_id') == $c->id ? 'selected' : '' }}>
+                                    {{ $c->name }} ({{ $c->students_count }} คน)
+                                </option>
                             @endforeach
-                            @if(isset($unassignedStudentsCount) && $unassignedStudentsCount > 0 && !request('shift') && !request('level') && !request('year'))
-                                <option value="unassigned" {{ request('classroom_id') === 'unassigned' ? 'selected' : '' }}>
+                            @if(isset($unassignedStudentsCount) && $unassignedStudentsCount > 0)
+                                <option value="unassigned" data-unassigned="1" {{ request('classroom_id') === 'unassigned' ? 'selected' : '' }}>
                                     -- ยังไม่มีห้องเรียน ({{ $unassignedStudentsCount }} คน) --
                                 </option>
                             @endif
                         </select>
-                        @if(request('classroom_id') || request('shift') || request('level') || request('year'))
-                            <a href="{{ route('admin.users.index', ['role' => 'student']) }}" class="btn btn-outline-secondary btn-sm ml-2" title="แสดงทั้งหมด / ล้างตัวกรอง">
+
+                        <input type="text" name="search" value="{{ request('search', request('q')) }}" class="form-control form-control-sm bg-white mr-2" placeholder="ค้นหาชื่อ / รหัส นศ." style="width: 160px;">
+
+                        <button type="submit" class="btn btn-primary btn-sm font-weight-bold shadow-xs mr-2">
+                            <i class="fas fa-search mr-1"></i>ค้นหา
+                        </button>
+
+                        @if(request('classroom_id') || request('shift') || request('level') || request('year') || request('search') || request('q') || request('searched') || request('show_all'))
+                            <a href="{{ route('admin.users.index', ['role' => 'student']) }}" class="btn btn-outline-secondary btn-sm" title="ล้างตัวกรอง">
                                 <i class="fas fa-times mr-1"></i>ล้างตัวกรอง
                             </a>
                         @endif
@@ -181,6 +190,55 @@
                 @endif
             </div>
         </div>
+        @if($role === 'student' && !$hasSearchedOrFiltered)
+            <div class="card-body p-4 text-center">
+                <div class="py-4">
+                    <div class="mb-3">
+                        <span class="d-inline-flex align-items-center justify-content-center bg-light border rounded-circle shadow-xs" style="width: 80px; height: 80px;">
+                            <i class="fas fa-filter text-primary fa-2x"></i>
+                        </span>
+                    </div>
+                    <h4 class="text-dark font-weight-bold mb-2">เลือกตัวกรองแล้วกดปุ่ม "ค้นหา"</h4>
+                    <p class="text-muted mx-auto mb-4" style="max-width: 550px;">
+                        ระบบยังไม่แสดงรายชื่อนักศึกษาทั้งหมดในทันทีเพื่อความรวดเร็วในการเปิดหน้าเว็บ กรุณาเลือก ระดับชั้น, ชั้นปี, ภาคเรียน, ห้องเรียน หรือพิมพ์ชื่อ/รหัสนักศึกษา แล้วกดปุ่ม <strong>ค้นหา</strong> เพื่อแสดงข้อมูล
+                    </p>
+
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-sm-4 col-md-3 mb-2">
+                            <div class="border rounded p-3 bg-light">
+                                <div class="text-muted small">นักศึกษาทั้งหมดในระบบ</div>
+                                <div class="h4 font-weight-bold text-primary mb-0">{{ number_format($totalStudentsCount) }} คน</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-4 col-md-3 mb-2">
+                            <div class="border rounded p-3 bg-light">
+                                <div class="text-muted small">ห้องเรียนทั้งหมด</div>
+                                <div class="h4 font-weight-bold text-info mb-0">{{ number_format($classrooms->count()) }} ห้อง</div>
+                            </div>
+                        </div>
+                        @if($unassignedStudentsCount > 0)
+                            <div class="col-sm-4 col-md-3 mb-2">
+                                <div class="border rounded p-3 bg-light">
+                                    <div class="text-muted small">ยังไม่ได้ระบุห้องเรียน</div>
+                                    <div class="h4 font-weight-bold text-danger mb-0">{{ number_format($unassignedStudentsCount) }} คน</div>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="d-flex justify-content-center align-items-center flex-wrap">
+                        @if($unassignedStudentsCount > 0)
+                            <a href="{{ route('admin.users.index', ['role' => 'student', 'classroom_id' => 'unassigned', 'searched' => 1]) }}" class="btn btn-outline-danger btn-sm font-weight-bold mr-2 mb-2">
+                                <i class="fas fa-user-tag mr-1"></i>ดูนักศึกษาที่ยังไม่มีห้องเรียน ({{ $unassignedStudentsCount }} คน)
+                            </a>
+                        @endif
+                        <a href="{{ route('admin.users.index', ['role' => 'student', 'show_all' => 1, 'searched' => 1]) }}" class="btn btn-outline-secondary btn-sm font-weight-bold mb-2">
+                            <i class="fas fa-list-ul mr-1"></i>แสดงนักศึกษาทั้งหมด (อาจใช้เวลาโหลด)
+                        </a>
+                    </div>
+                </div>
+            </div>
+        @else
         <div class="card-body p-3">
             <div class="table-responsive">
                 <table id="users-table" class="table table-bordered table-striped table-hover table-sm mb-0">
@@ -305,6 +363,7 @@
                 </table>
             </div>
         </div>
+        @endif
     </div>
 
     <div class="modal fade" id="addUserModal" tabindex="-1" role="dialog" aria-labelledby="addUserModalLabel" aria-hidden="true">
@@ -569,30 +628,85 @@
 @section('js')
     <script>
         $(document).ready(function() {
-            $('#users-table').DataTable({
-                "pageLength": -1,
-                "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "ทั้งหมด"]],
-                "language": {
-                    "url": "//cdn.datatables.net/plug-ins/1.10.19/i18n/Thai.json"
-                },
-                "responsive": true,
-                "autoWidth": false,
-                "order": [],
-                "columnDefs": [
-                    @if($role === 'student')
-                    {
-                        "targets": 0,
-                        "orderable": false,
-                        "searchable": false
+            if ($('#users-table').length) {
+                $('#users-table').DataTable({
+                    "pageLength": -1,
+                    "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "ทั้งหมด"]],
+                    "language": {
+                        "url": "//cdn.datatables.net/plug-ins/1.10.19/i18n/Thai.json"
                     },
-                    @endif
-                    {
-                        "targets": -1,
-                        "orderable": false,
-                        "searchable": false
+                    "responsive": true,
+                    "autoWidth": false,
+                    "order": [],
+                    "columnDefs": [
+                        @if($role === 'student')
+                        {
+                            "targets": 0,
+                            "orderable": false,
+                            "searchable": false
+                        },
+                        @endif
+                        {
+                            "targets": -1,
+                            "orderable": false,
+                            "searchable": false
+                        }
+                    ]
+                });
+            }
+
+            @if($role === 'student')
+            // Dynamic client-side classroom options filter
+            function filterClassroomOptions() {
+                var selectedLevel = $('#filter-level-select').val();
+                var selectedYear = $('#filter-year-select').val();
+                var selectedShift = $('#filter-shift-select').val();
+                var currentClassroomVal = $('#filter-classroom-select').val();
+
+                var currentStillVisible = false;
+
+                $('#filter-classroom-select option').each(function() {
+                    var opt = $(this);
+                    var val = opt.val();
+                    if (!val || val === '' || val === 'all') {
+                        opt.show();
+                        return;
                     }
-                ]
+                    if (val === 'unassigned') {
+                        var showUnassigned = !selectedLevel && !selectedYear && !selectedShift;
+                        opt.toggle(showUnassigned);
+                        if (val === currentClassroomVal && showUnassigned) currentStillVisible = true;
+                        return;
+                    }
+
+                    var optLevel = opt.data('level') || '';
+                    var optYear = String(opt.data('year') || '');
+                    var optShift = opt.data('shift') || '';
+
+                    var matchLevel = !selectedLevel || optLevel === selectedLevel;
+                    var matchYear = !selectedYear || optYear === selectedYear;
+                    var matchShift = !selectedShift || optShift === selectedShift;
+
+                    if (matchLevel && matchYear && matchShift) {
+                        opt.show();
+                        if (val === currentClassroomVal) {
+                            currentStillVisible = true;
+                        }
+                    } else {
+                        opt.hide();
+                    }
+                });
+
+                if (currentClassroomVal && currentClassroomVal !== '' && !currentStillVisible) {
+                    $('#filter-classroom-select').val('');
+                }
+            }
+
+            $('#filter-level-select, #filter-year-select, #filter-shift-select').on('change', function() {
+                filterClassroomOptions();
             });
+            filterClassroomOptions();
+            @endif
 
             // Function to toggle add fields
             function toggleAddFields(role) {
