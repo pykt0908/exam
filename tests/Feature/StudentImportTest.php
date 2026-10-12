@@ -240,7 +240,7 @@ class StudentImportTest extends TestCase
             'role' => 'student',
         ]));
         $resInitial->assertOk();
-        $resInitial->assertSee('ค้นหาข้อมูลนักศึกษา');
+        $resInitial->assertSee('รายชื่อนักศึกษาในระบบ');
         $resInitial->assertSee('เลือกตัวกรองแล้วกดปุ่ม');
         $resInitial->assertDontSee('เด็กห้องหนึ่ง');
 

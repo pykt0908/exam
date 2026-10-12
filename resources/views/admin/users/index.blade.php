@@ -97,14 +97,14 @@
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
             <h3 class="card-title font-weight-bold text-dark mb-1 mb-md-0 mr-3">
                 @if($role === 'student')
-                    @if(!$hasSearchedOrFiltered)
-                        ค้นหาข้อมูลนักศึกษา
-                    @elseif($selectedClassroom)
+                    @if($selectedClassroom)
                         รายชื่อนักศึกษา: {{ $selectedClassroom->name }} ({{ $users->count() }} คน)
                     @elseif(request('classroom_id') === 'unassigned')
                         รายชื่อนักศึกษา: ยังไม่มีห้องเรียน ({{ $users->count() }} คน)
                     @elseif(request('search') || request('q'))
                         ผลการค้นหา: "{{ request('search', request('q')) }}" ({{ $users->count() }} คน)
+                    @elseif(!$hasSearchedOrFiltered)
+                        รายชื่อนักศึกษาในระบบ
                     @else
                         รายชื่อนักศึกษาในระบบ ({{ $users->count() }} คน)
                     @endif
@@ -190,55 +190,6 @@
                 @endif
             </div>
         </div>
-        @if($role === 'student' && !$hasSearchedOrFiltered)
-            <div class="card-body p-4 text-center">
-                <div class="py-4">
-                    <div class="mb-3">
-                        <span class="d-inline-flex align-items-center justify-content-center bg-light border rounded-circle shadow-xs" style="width: 80px; height: 80px;">
-                            <i class="fas fa-filter text-primary fa-2x"></i>
-                        </span>
-                    </div>
-                    <h4 class="text-dark font-weight-bold mb-2">เลือกตัวกรองแล้วกดปุ่ม "ค้นหา"</h4>
-                    <p class="text-muted mx-auto mb-4" style="max-width: 550px;">
-                        ระบบยังไม่แสดงรายชื่อนักศึกษาทั้งหมดในทันทีเพื่อความรวดเร็วในการเปิดหน้าเว็บ กรุณาเลือก ระดับชั้น, ชั้นปี, ภาคเรียน, ห้องเรียน หรือพิมพ์ชื่อ/รหัสนักศึกษา แล้วกดปุ่ม <strong>ค้นหา</strong> เพื่อแสดงข้อมูล
-                    </p>
-
-                    <div class="row justify-content-center mb-4">
-                        <div class="col-sm-4 col-md-3 mb-2">
-                            <div class="border rounded p-3 bg-light">
-                                <div class="text-muted small">นักศึกษาทั้งหมดในระบบ</div>
-                                <div class="h4 font-weight-bold text-primary mb-0">{{ number_format($totalStudentsCount) }} คน</div>
-                            </div>
-                        </div>
-                        <div class="col-sm-4 col-md-3 mb-2">
-                            <div class="border rounded p-3 bg-light">
-                                <div class="text-muted small">ห้องเรียนทั้งหมด</div>
-                                <div class="h4 font-weight-bold text-info mb-0">{{ number_format($classrooms->count()) }} ห้อง</div>
-                            </div>
-                        </div>
-                        @if($unassignedStudentsCount > 0)
-                            <div class="col-sm-4 col-md-3 mb-2">
-                                <div class="border rounded p-3 bg-light">
-                                    <div class="text-muted small">ยังไม่ได้ระบุห้องเรียน</div>
-                                    <div class="h4 font-weight-bold text-danger mb-0">{{ number_format($unassignedStudentsCount) }} คน</div>
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-
-                    <div class="d-flex justify-content-center align-items-center flex-wrap">
-                        @if($unassignedStudentsCount > 0)
-                            <a href="{{ route('admin.users.index', ['role' => 'student', 'classroom_id' => 'unassigned', 'searched' => 1]) }}" class="btn btn-outline-danger btn-sm font-weight-bold mr-2 mb-2">
-                                <i class="fas fa-user-tag mr-1"></i>ดูนักศึกษาที่ยังไม่มีห้องเรียน ({{ $unassignedStudentsCount }} คน)
-                            </a>
-                        @endif
-                        <a href="{{ route('admin.users.index', ['role' => 'student', 'show_all' => 1, 'searched' => 1]) }}" class="btn btn-outline-secondary btn-sm font-weight-bold mb-2">
-                            <i class="fas fa-list-ul mr-1"></i>แสดงนักศึกษาทั้งหมด (อาจใช้เวลาโหลด)
-                        </a>
-                    </div>
-                </div>
-            </div>
-        @else
         <div class="card-body p-3">
             <div class="table-responsive">
                 <table id="users-table" class="table table-bordered table-striped table-hover table-sm mb-0">
@@ -356,14 +307,22 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ $role === 'student' ? '7' : ($role === 'staff' ? '6' : '8') }}" class="text-center text-muted py-4">ไม่มีข้อมูลผู้ใช้งานตามกลุ่มที่เลือกในระบบ</td>
+                                <td colspan="{{ $role === 'student' ? '8' : ($role === 'staff' ? '6' : '8') }}" class="text-center text-muted py-5">
+                                    @if($role === 'student' && !$hasSearchedOrFiltered)
+                                        <i class="fas fa-search fa-2x mb-3 d-block text-secondary"></i>
+                                        <div class="font-weight-bold text-dark text-md mb-1">กรุณาเลือกตัวกรองแล้วกดปุ่ม "ค้นหา"</div>
+                                        <div class="small text-muted">เลือกระดับชั้น, ชั้นปี, ภาคเรียน, ห้องเรียน หรือค้นหาชื่อ/รหัส แล้วกดปุ่มค้นหาเพื่อแสดงรายชื่อนักศึกษา</div>
+                                    @else
+                                        <i class="fas fa-info-circle fa-2x mb-2 d-block text-secondary"></i>
+                                        <span>ไม่มีข้อมูลผู้ใช้งานตามกลุ่มที่เลือกในระบบ</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
-        @endif
     </div>
 
     <div class="modal fade" id="addUserModal" tabindex="-1" role="dialog" aria-labelledby="addUserModalLabel" aria-hidden="true">
@@ -628,6 +587,7 @@
 @section('js')
     <script>
         $(document).ready(function() {
+            @if($users->count() > 0)
             if ($('#users-table').length) {
                 $('#users-table').DataTable({
                     "pageLength": -1,
@@ -654,6 +614,7 @@
                     ]
                 });
             }
+            @endif
 
             @if($role === 'student')
             // Dynamic client-side classroom options filter
