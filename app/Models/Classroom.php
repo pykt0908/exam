@@ -19,60 +19,56 @@ class Classroom extends Model
     }
 
     /**
-     * ดึงรหัสรอบเวลา ('morning', 'afternoon', 'dual')
+     * ดึงรหัสภาค ('morning', 'afternoon') โดยทวิภาคีนับเป็นภาคเช้าด้วย
      */
     public function getShiftAttribute(): string
     {
         if (str_contains($this->name, 'บ่าย')) {
             return 'afternoon';
         }
-        if (str_contains($this->name, 'ทวิภาคี')) {
-            return 'dual';
-        }
         return 'morning';
     }
 
     /**
-     * ดึงข้อความชื่อรอบเวลาภาษาไทย
+     * ดึงข้อความชื่อภาค ('เช้า', 'บ่าย') โดยทวิภาคีนับเป็นเช้า
+     */
+    public function getShiftTextAttribute(): string
+    {
+        if (str_contains($this->name, 'บ่าย')) {
+            return 'บ่าย';
+        }
+        return 'เช้า';
+    }
+
+    /**
+     * ดึงข้อความชื่อภาคภาษาไทย
      */
     public function getShiftLabelAttribute(): string
     {
-        if (str_contains($this->name, 'บ่าย')) {
-            return 'ภาคบ่าย';
-        }
-        if (str_contains($this->name, 'ทวิภาคี')) {
-            return 'ภาคทวิภาคี';
-        }
-        return 'ภาคเช้า';
+        return $this->shift_text;
     }
 
     /**
-     * ดึง HTML Badge สำหรับแสดงผล
+     * ดึงข้อความภาคสำหรับแสดงผลในตาราง (ไม่ใช้ badge ตามความต้องการผู้ใช้)
      */
     public function getShiftBadgeAttribute(): string
     {
-        if (str_contains($this->name, 'บ่าย')) {
-            return '<span class="badge badge-warning text-dark"><i class="fas fa-sun mr-1"></i>ภาคบ่าย</span>';
-        }
-        if (str_contains($this->name, 'ทวิภาคี')) {
-            return '<span class="badge badge-info"><i class="fas fa-handshake mr-1"></i>ภาคทวิภาคี</span>';
-        }
-        return '<span class="badge badge-success"><i class="fas fa-cloud-sun mr-1"></i>ภาคเช้า</span>';
+        return $this->shift_text;
     }
 
     /**
-     * Scope กรองตามรอบเวลา
+     * Scope กรองตามภาค
      */
     public function scopeShift($query, string $shift)
     {
         if ($shift === 'afternoon' || $shift === 'บ่าย') {
             return $query->where('name', 'LIKE', '%บ่าย%');
         }
+        if ($shift === 'morning' || $shift === 'เช้า') {
+            return $query->where('name', 'NOT LIKE', '%บ่าย%');
+        }
         if ($shift === 'dual' || $shift === 'ทวิภาคี') {
             return $query->where('name', 'LIKE', '%ทวิภาคี%');
-        }
-        if ($shift === 'morning' || $shift === 'เช้า') {
-            return $query->where('name', 'LIKE', '%เช้า%');
         }
         return $query;
     }

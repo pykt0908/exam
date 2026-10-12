@@ -108,16 +108,15 @@
                                     <div class="col-md-5">
                                         <div class="form-group">
                                             <label class="font-weight-bold">
-                                                <i class="far fa-clock text-info mr-1"></i>รอบเวลา (กรองห้อง)
+                                                <i class="far fa-clock text-info mr-1"></i>ภาค (กรองห้อง)
                                             </label>
                                             @php
-                                                $currentShift = $user->classroom ? (str_contains($user->classroom->name, 'เช้า') ? 'เช้า' : (str_contains($user->classroom->name, 'บ่าย') ? 'บ่าย' : (str_contains($user->classroom->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''))) : '';
+                                                $currentShift = $user->classroom ? (str_contains($user->classroom->name, 'บ่าย') ? 'บ่าย' : 'เช้า') : '';
                                             @endphp
                                             <select id="filter_shift_select" class="form-control">
-                                                <option value="">-- แสดงทุกรอบเวลา --</option>
+                                                <option value="">-- แสดงทุกภาค --</option>
                                                 <option value="เช้า" {{ $currentShift === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
                                                 <option value="บ่าย" {{ $currentShift === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
-                                                <option value="ทวิภาคี" {{ $currentShift === 'ทวิภาคี' ? 'selected' : '' }}>ภาคทวิภาคี</option>
                                             </select>
                                         </div>
                                     </div>
@@ -128,7 +127,7 @@
                                                 <option value="" disabled>-- เลือกห้องเรียน --</option>
                                                 @foreach($classrooms as $room)
                                                     @php
-                                                        $shiftType = str_contains($room->name, 'เช้า') ? 'เช้า' : (str_contains($room->name, 'บ่าย') ? 'บ่าย' : (str_contains($room->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''));
+                                                        $shiftType = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
                                                     @endphp
                                                     <option value="{{ $room->id }}" data-shift="{{ $shiftType }}" {{ old('classroom_id', $user->classroom_id) == $room->id ? 'selected' : '' }}>
                                                         {{ $room->name }}

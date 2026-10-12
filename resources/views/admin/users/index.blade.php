@@ -101,13 +101,12 @@
                         <input type="hidden" name="role" value="student">
                         
                         <label class="font-weight-bold text-dark text-md mr-2 mb-0">
-                            <i class="far fa-clock text-info mr-1"></i>รอบเวลา:
+                            <i class="far fa-clock text-info mr-1"></i>ภาค:
                         </label>
                         <select name="shift" id="filter-shift-select" class="form-control form-control-sm bg-white mr-3" onchange="this.form.classroom_id.value=''; this.form.submit();">
-                            <option value="">-- ทุกรอบเวลา --</option>
+                            <option value="">-- ทุกภาค --</option>
                             <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
                             <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
-                            <option value="ทวิภาคี" {{ request('shift') === 'ทวิภาคี' ? 'selected' : '' }}>ภาคทวิภาคี</option>
                         </select>
 
                         <label class="font-weight-bold text-dark text-md mr-2 mb-0">
@@ -116,7 +115,7 @@
                         <select name="classroom_id" class="form-control form-control-sm bg-white" onchange="this.form.submit()" style="min-width: 200px;">
                             <option value="">-- ทุกห้องเรียน --</option>
                             @foreach($classrooms as $c)
-                                @if(!request('shift') || str_contains($c->name, request('shift')))
+                                @if(!request('shift') || (request('shift') === 'เช้า' ? !str_contains($c->name, 'บ่าย') : str_contains($c->name, 'บ่าย')))
                                     <option value="{{ $c->id }}" {{ request('classroom_id') == $c->id ? 'selected' : '' }}>
                                         {{ $c->name }} ({{ $c->students_count }} คน)
                                     </option>
@@ -159,7 +158,7 @@
                                 <th style="width: 14%">เลขประจำตัวประชาชน</th>
                                 <th>ชื่อ-นามสกุล</th>
                                 <th style="width: 18%">ระดับชั้น</th>
-                                <th style="width: 12%" class="text-center">รอบเวลา</th>
+                                <th style="width: 10%" class="text-center">ภาค</th>
                             @elseif($role === 'staff')
                                 <th style="width: 15%">รหัสประจำตัวครู</th>
                                 <th>ชื่อ-นามสกุล</th>
@@ -193,7 +192,7 @@
                                     <td>{{ $u->classroom ? $u->classroom->name : 'ไม่ได้ระบุ' }}</td>
                                     <td class="text-center">
                                         @if($u->classroom)
-                                            {!! $u->classroom->shift_badge !!}
+                                            <span class="text-dark font-weight-bold">{{ $u->classroom->shift_text }}</span>
                                         @else
                                             <span class="text-muted">-</span>
                                         @endif

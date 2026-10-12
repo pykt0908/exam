@@ -235,7 +235,7 @@
                         <tr>
                             <th style="width: 6%" class="text-center">#</th>
                             <th>ชื่อห้องเรียน / ระดับชั้น</th>
-                            <th style="width: 15%" class="text-center">รอบเวลา</th>
+                            <th style="width: 12%" class="text-center">ภาค</th>
                             <th style="width: 20%" class="text-center">จำนวนนักศึกษาในวิชา</th>
                             <th class="text-center" style="width: 1%; white-space: nowrap;">การจัดการ</th>
                         </tr>
@@ -275,7 +275,7 @@
                                     </a>
                                 </td>
                                 <td class="text-center align-middle">
-                                    {!! $room->shift_badge !!}
+                                    <span class="text-dark font-weight-bold">{{ $room->shift_text }}</span>
                                 </td>
                                 <td class="text-center align-middle">
                                     <span class=" px-3 py-1 font-weight-bold text-md">
@@ -338,13 +338,12 @@
                         <div class="row text-dark mb-3">
                             <div class="col-md-3 mb-2 mb-md-0">
                                 <label class="font-weight-bold mb-1">
-                                    <i class="far fa-clock text-info mr-1"></i>รอบเวลา
+                                    <i class="far fa-clock text-info mr-1"></i>ภาค
                                 </label>
                                 <select id="modal_cr_shift_filter" class="form-control">
-                                    <option value="">-- ทุกรอบเวลา --</option>
+                                    <option value="">-- ทุกภาค --</option>
                                     <option value="เช้า">ภาคเช้า</option>
                                     <option value="บ่าย">ภาคบ่าย</option>
-                                    <option value="ทวิภาคี">ภาคทวิภาคี</option>
                                 </select>
                             </div>
                             <div class="col-md-3 mb-2 mb-md-0">
@@ -406,7 +405,7 @@
                                         </th>
                                         <th style="width: 50px;" class="text-center align-middle">#</th>
                                         <th class="align-middle">ชื่อห้องเรียน / ระดับชั้น</th>
-                                        <th style="width: 140px;" class="text-center align-middle">รอบเวลา</th>
+                                        <th style="width: 100px;" class="text-center align-middle">ภาค</th>
                                         <th style="width: 140px;" class="text-center align-middle">จำนวนนักศึกษา</th>
                                         <th style="width: 150px;" class="text-center align-middle">สถานะในวิชา</th>
                                     </tr>
@@ -415,7 +414,7 @@
                                     @forelse($allClassrooms as $index => $room)
                                         @php
                                             $isEnrolled = in_array($room->id, $enrolledIds);
-                                            $roomShift = str_contains($room->name, 'เช้า') ? 'เช้า' : (str_contains($room->name, 'บ่าย') ? 'บ่าย' : (str_contains($room->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''));
+                                            $roomShift = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
                                         @endphp
                                         <tr class="modal-cr-row"
                                             data-shift="{{ $roomShift }}"
@@ -433,7 +432,7 @@
                                                 <span class="font-weight-bold text-dark">{{ $room->name }}</span>
                                             </td>
                                             <td class="text-center align-middle">
-                                                {!! $room->shift_badge !!}
+                                                <span class="text-dark font-weight-bold">{{ $room->shift_text }}</span>
                                             </td>
                                             <td class="text-center align-middle">
                                                 <span class="font-weight-bold text-secondary">{{ $room->users_count }} คน</span>
@@ -506,13 +505,12 @@
                     <div class="row text-dark mb-3">
                         <div class="col-md-3 mb-2 mb-md-0">
                             <label class="font-weight-bold mb-1">
-                                <i class="far fa-clock text-info mr-1"></i>รอบเวลา
+                                <i class="far fa-clock text-info mr-1"></i>ภาค
                             </label>
                             <select id="modal_student_shift_filter" class="form-control">
-                                <option value="">-- ทุกรอบเวลา --</option>
+                                <option value="">-- ทุกภาค --</option>
                                 <option value="เช้า">ภาคเช้า</option>
                                 <option value="บ่าย">ภาคบ่าย</option>
-                                <option value="ทวิภาคี">ภาคทวิภาคี</option>
                             </select>
                         </div>
                         <div class="col-md-4 mb-2 mb-md-0">
@@ -523,7 +521,7 @@
                                 <option value="">-- แสดงนักศึกษาทุกกลุ่มเรียน --</option>
                                 @foreach($allClassrooms as $room)
                                     @php
-                                        $roomShift = str_contains($room->name, 'เช้า') ? 'เช้า' : (str_contains($room->name, 'บ่าย') ? 'บ่าย' : (str_contains($room->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''));
+                                        $roomShift = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
                                     @endphp
                                     <option value="{{ $room->id }}" data-shift="{{ $roomShift }}" {{ (isset($selectedClassroom) && $selectedClassroom->id == $room->id) ? 'selected' : '' }}>
                                         {{ $room->name }}
@@ -588,13 +586,13 @@
                                     <th style="width: 140px;" class="align-middle">รหัสนักศึกษา</th>
                                     <th class="align-middle">ชื่อ-นามสกุล</th>
                                     <th style="width: 200px;" class="align-middle">กลุ่มเรียน</th>
-                                    <th style="width: 130px;" class="text-center align-middle">รอบเวลา</th>
+                                    <th style="width: 100px;" class="text-center align-middle">ภาค</th>
                                 </tr>
                             </thead>
                             <tbody id="modal_students_tbody">
                                 @forelse($availableStudents as $student)
                                     @php
-                                        $studShift = $student->classroom ? (str_contains($student->classroom->name, 'เช้า') ? 'เช้า' : (str_contains($student->classroom->name, 'บ่าย') ? 'บ่าย' : (str_contains($student->classroom->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''))) : '';
+                                        $studShift = $student->classroom ? (str_contains($student->classroom->name, 'บ่าย') ? 'บ่าย' : 'เช้า') : '';
                                     @endphp
                                     <tr class="modal-student-row"
                                         data-classroom-id="{{ $student->classroom_id ?? 'unassigned' }}"
@@ -614,7 +612,7 @@
                                         </td>
                                         <td class="text-center align-middle">
                                             @if($student->classroom)
-                                                {!! $student->classroom->shift_badge !!}
+                                                <span class="text-dark font-weight-bold">{{ $student->classroom->shift_text }}</span>
                                             @else
                                                 <span class="text-muted">-</span>
                                             @endif

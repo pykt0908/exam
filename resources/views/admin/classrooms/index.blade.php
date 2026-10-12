@@ -25,10 +25,9 @@
                             <span class="input-group-text bg-white"><i class="far fa-clock text-info"></i></span>
                         </div>
                         <select name="shift" class="form-control" onchange="this.form.submit()">
-                            <option value="">-- ทุกรอบเวลา --</option>
+                            <option value="">-- ทุกภาค --</option>
                             <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>ภาคเช้า</option>
                             <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>ภาคบ่าย</option>
-                            <option value="ทวิภาคี" {{ request('shift') === 'ทวิภาคี' ? 'selected' : '' }}>ภาคทวิภาคี</option>
                         </select>
                     </div>
                 </div>
@@ -60,7 +59,7 @@
                         <tr>
                             <th style="width: 6%">#</th>
                             <th>ชื่อห้องเรียน / ระดับชั้น</th>
-                            <th style="width: 14%" class="text-center">รอบเวลา</th>
+                            <th style="width: 12%" class="text-center">ภาค</th>
                             <th style="width: 14%" class="text-center">จำนวนนักเรียน</th>
                             <th style="width: 24%" class="text-center">สถานะสิทธิ์การสอบ</th>
                             <th class="text-center" style="width: 1%; white-space: nowrap;">การจัดการ</th>
@@ -72,7 +71,7 @@
                                 <td>{{ $index + 1 }}</td>
                                 <td class="font-weight-bold text-dark">{{ $room->name }}</td>
                                 <td class="text-center align-middle">
-                                    {!! $room->shift_badge !!}
+                                    <span class="text-dark font-weight-bold">{{ $room->shift_text }}</span>
                                 </td>
                                 <td class="text-center">
                                     <span class="badge badge-light border px-2 py-1 font-weight-bold">{{ $room->students_count }} คน</span>
