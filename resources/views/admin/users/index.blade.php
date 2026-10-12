@@ -99,20 +99,30 @@
                 @if($role === 'student')
                     <form action="{{ route('admin.users.index') }}" method="GET" class="form-inline mr-2 my-1">
                         <input type="hidden" name="role" value="student">
-                        @if(request('shift'))
-                            <input type="hidden" name="shift" value="{{ request('shift') }}">
-                        @endif
+                        
                         <label class="font-weight-bold text-dark text-md mr-2 mb-0">
-                            กรองตามห้องเรียน:
+                            <i class="far fa-clock text-info mr-1"></i>รอบเวลา:
+                        </label>
+                        <select name="shift" id="filter-shift-select" class="form-control form-control-sm bg-white mr-3" onchange="this.form.classroom_id.value=''; this.form.submit();">
+                            <option value="">-- ทุกรอบเวลา --</option>
+                            <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>🌅 ภาคเช้า</option>
+                            <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>🌇 ภาคบ่าย</option>
+                            <option value="ทวิภาคี" {{ request('shift') === 'ทวิภาคี' ? 'selected' : '' }}>🤝 ภาคทวิภาคี</option>
+                        </select>
+
+                        <label class="font-weight-bold text-dark text-md mr-2 mb-0">
+                            ห้องเรียน:
                         </label>
                         <select name="classroom_id" class="form-control form-control-sm bg-white" onchange="this.form.submit()" style="min-width: 200px;">
                             <option value="">-- ทุกห้องเรียน --</option>
                             @foreach($classrooms as $c)
-                                <option value="{{ $c->id }}" {{ request('classroom_id') == $c->id ? 'selected' : '' }}>
-                                    {{ $c->name }} ({{ $c->students_count }} คน)
-                                </option>
+                                @if(!request('shift') || str_contains($c->name, request('shift')))
+                                    <option value="{{ $c->id }}" {{ request('classroom_id') == $c->id ? 'selected' : '' }}>
+                                        {{ $c->name }} ({{ $c->students_count }} คน)
+                                    </option>
+                                @endif
                             @endforeach
-                            @if(isset($unassignedStudentsCount) && $unassignedStudentsCount > 0)
+                            @if(isset($unassignedStudentsCount) && $unassignedStudentsCount > 0 && !request('shift'))
                                 <option value="unassigned" {{ request('classroom_id') === 'unassigned' ? 'selected' : '' }}>
                                     -- ยังไม่มีห้องเรียน ({{ $unassignedStudentsCount }} คน) --
                                 </option>
@@ -134,27 +144,6 @@
             </div>
         </div>
         <div class="card-body p-3">
-            @if($role === 'student' || empty($role))
-                <div class="mb-3 d-flex align-items-center flex-wrap" style="gap: 6px;">
-                    <span class="text-xs font-weight-bold text-muted mr-1"><i class="fas fa-clock mr-1"></i>รอบเวลาเรียน:</span>
-                    <a href="{{ route('admin.users.index', array_filter(array_merge(request()->query(), ['shift' => null]))) }}" 
-                       class="btn btn-xs {{ empty($shift) ? 'btn-primary' : 'btn-outline-secondary' }} font-weight-bold shadow-xs">
-                        ทั้งหมด ({{ $totalStudentsCount ?? $users->count() }})
-                    </a>
-                    <a href="{{ route('admin.users.index', array_merge(request()->query(), ['shift' => 'morning'])) }}" 
-                       class="btn btn-xs {{ $shift === 'morning' ? 'btn-success text-white' : 'btn-outline-success' }} font-weight-bold shadow-xs">
-                        <i class="fas fa-cloud-sun mr-1"></i>ภาคเช้า ({{ $morningCount ?? 0 }})
-                    </a>
-                    <a href="{{ route('admin.users.index', array_merge(request()->query(), ['shift' => 'afternoon'])) }}" 
-                       class="btn btn-xs {{ $shift === 'afternoon' ? 'btn-warning text-dark' : 'btn-outline-warning text-dark' }} font-weight-bold shadow-xs">
-                        <i class="fas fa-sun mr-1"></i>ภาคบ่าย ({{ $afternoonCount ?? 0 }})
-                    </a>
-                    <a href="{{ route('admin.users.index', array_merge(request()->query(), ['shift' => 'dual'])) }}" 
-                       class="btn btn-xs {{ $shift === 'dual' ? 'btn-info text-white' : 'btn-outline-info' }} font-weight-bold shadow-xs">
-                        <i class="fas fa-handshake mr-1"></i>ทวิภาคี ({{ $dualCount ?? 0 }})
-                    </a>
-                </div>
-            @endif
             <div class="table-responsive">
                 <table id="users-table" class="table table-bordered table-striped table-hover table-sm mb-0">
                     <thead>
@@ -199,11 +188,16 @@
                                 @if($role === 'student')
                                     <td>{{ $u->student_code }}</td>
                                     <td>{{ $u->citizen_id }}</td>
-                                    <td>{{ $u->name }}</td>
                                     <td>
                                         {{ $u->classroom ? $u->classroom->name : 'ไม่ได้ระบุ' }}
-                                        @if($u->shift_badge)
-                                            <span class="ml-1">{!! $u->shift_badge !!}</span>
+                                        @if($u->classroom)
+                                            @if(str_contains($u->classroom->name, 'เช้า'))
+                                                <span class="badge badge-success ml-1 text-xs"><i class="fas fa-cloud-sun mr-1"></i>เช้า</span>
+                                            @elseif(str_contains($u->classroom->name, 'บ่าย'))
+                                                <span class="badge badge-warning text-dark ml-1 text-xs"><i class="fas fa-sun mr-1"></i>บ่าย</span>
+                                            @elseif(str_contains($u->classroom->name, 'ทวิภาคี'))
+                                                <span class="badge badge-info ml-1 text-xs"><i class="fas fa-handshake mr-1"></i>ทวิภาคี</span>
+                                            @endif
                                         @endif
                                     </td>
                                 @elseif($role === 'staff')

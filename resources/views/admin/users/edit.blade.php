@@ -104,17 +104,40 @@
                                     @error('citizen_id')<span class="invalid-feedback">{{ $message }}</span>@enderror
                                 </div>
 
-                                <div class="form-group">
-                                    <label class="font-weight-bold">ระดับชั้น / ห้องเรียน <span class="text-danger">*</span></label>
-                                    <select name="classroom_id" class="form-control @error('classroom_id') is-invalid @enderror" required>
-                                        <option value="" disabled>-- เลือกห้องเรียน --</option>
-                                        @foreach($classrooms as $room)
-                                            <option value="{{ $room->id }}" {{ old('classroom_id', $user->classroom_id) == $room->id ? 'selected' : '' }}>
-                                                {{ $room->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('classroom_id')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                                <div class="row">
+                                    <div class="col-md-5">
+                                        <div class="form-group">
+                                            <label class="font-weight-bold">
+                                                <i class="far fa-clock text-info mr-1"></i>รอบเวลา (กรองห้อง)
+                                            </label>
+                                            @php
+                                                $currentShift = $user->classroom ? (str_contains($user->classroom->name, 'เช้า') ? 'เช้า' : (str_contains($user->classroom->name, 'บ่าย') ? 'บ่าย' : (str_contains($user->classroom->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''))) : '';
+                                            @endphp
+                                            <select id="filter_shift_select" class="form-control">
+                                                <option value="">-- แสดงทุกรอบเวลา --</option>
+                                                <option value="เช้า" {{ $currentShift === 'เช้า' ? 'selected' : '' }}>🌅 ภาคเช้า</option>
+                                                <option value="บ่าย" {{ $currentShift === 'บ่าย' ? 'selected' : '' }}>🌇 ภาคบ่าย</option>
+                                                <option value="ทวิภาคี" {{ $currentShift === 'ทวิภาคี' ? 'selected' : '' }}>🤝 ภาคทวิภาคี</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-7">
+                                        <div class="form-group">
+                                            <label class="font-weight-bold">ระดับชั้น / ห้องเรียน <span class="text-danger">*</span></label>
+                                            <select name="classroom_id" id="classroom_id_select" class="form-control @error('classroom_id') is-invalid @enderror" required>
+                                                <option value="" disabled>-- เลือกห้องเรียน --</option>
+                                                @foreach($classrooms as $room)
+                                                    @php
+                                                        $shiftType = str_contains($room->name, 'เช้า') ? 'เช้า' : (str_contains($room->name, 'บ่าย') ? 'บ่าย' : (str_contains($room->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''));
+                                                    @endphp
+                                                    <option value="{{ $room->id }}" data-shift="{{ $shiftType }}" {{ old('classroom_id', $user->classroom_id) == $room->id ? 'selected' : '' }}>
+                                                        {{ $room->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @error('classroom_id')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
                                 </div>
 
                             @else
@@ -232,6 +255,26 @@
             };
             reader.readAsDataURL(file);
         });
+    }
+    // Filter classroom options by shift
+    function applyShiftFilter() {
+        var shift = $('#filter_shift_select').val();
+        $('#classroom_id_select option').each(function() {
+            var roomShift = $(this).data('shift');
+            if (!shift || !roomShift || roomShift === shift || $(this).val() === "") {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+        if ($('#classroom_id_select option:selected').css('display') === 'none') {
+            $('#classroom_id_select').val('');
+        }
+    }
+
+    $('#filter_shift_select').on('change', applyShiftFilter);
+    if ($('#filter_shift_select').val()) {
+        applyShiftFilter();
     }
 
     @if(session('success'))

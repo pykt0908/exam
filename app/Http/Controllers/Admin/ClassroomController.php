@@ -28,6 +28,11 @@ class ClassroomController extends Controller
             }
         ]);
 
+        if ($request->filled('shift')) {
+            $shift = $request->get('shift');
+            $query->shift($shift);
+        }
+
         if ($request->filled('q')) {
             $q = $request->get('q');
             $query->where('name', 'like', "%{$q}%");

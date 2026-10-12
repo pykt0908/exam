@@ -60,9 +60,6 @@ class UserController extends Controller
 
         $totalStudentsCount = User::where('role', 'student')->count();
         $unassignedStudentsCount = User::where('role', 'student')->whereNull('classroom_id')->count();
-        $morningCount = User::where('role', 'student')->shift('morning')->count();
-        $afternoonCount = User::where('role', 'student')->shift('afternoon')->count();
-        $dualCount = User::where('role', 'student')->shift('dual')->count();
 
         $selectedClassroom = null;
         if ($classroom_id && $classroom_id !== 'unassigned') {
@@ -128,10 +125,7 @@ class UserController extends Controller
             'selectedClassroom', 
             'totalStudentsCount', 
             'unassignedStudentsCount',
-            'shift',
-            'morningCount',
-            'afternoonCount',
-            'dualCount'
+            'shift'
         ));
     }
 

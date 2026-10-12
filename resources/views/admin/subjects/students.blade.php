@@ -309,11 +309,25 @@
                     @csrf
                     <div class="modal-body">
                         <div class="form-group text-dark mb-0">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="font-weight-bold mb-0">
-                                    เลือกห้องเรียน / ระดับชั้น <span class="text-danger">*</span>
-                                </label>
-                                <div>
+                            <div class="row align-items-center mb-2">
+                                <div class="col-md-5 mb-2 mb-md-0">
+                                    <div class="input-group input-group-sm">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text bg-light font-weight-bold"><i class="far fa-clock text-info mr-1"></i>รอบเวลา</span>
+                                        </div>
+                                        <select id="modal_classroom_shift_filter" class="form-control form-control-sm">
+                                            <option value="">-- กรองรอบเวลา (ทั้งหมด) --</option>
+                                            <option value="เช้า">🌅 ภาคเช้า</option>
+                                            <option value="บ่าย">🌇 ภาคบ่าย</option>
+                                            <option value="ทวิภาคี">🤝 ภาคทวิภาคี</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-7 text-md-right">
+                                    <button type="button" class="btn btn-xs btn-outline-info font-weight-bold mr-1"
+                                        id="btn-select-shift-rooms" title="เลือกทุกห้องที่ตรงกับรอบเวลาที่เลือก">
+                                        <i class="fas fa-check-double mr-1"></i>เลือกตามรอบที่เลือก
+                                    </button>
                                     <button type="button" class="btn btn-xs btn-outline-success font-weight-bold mr-1"
                                         id="btn-select-all-rooms">
                                         เลือกทั้งหมด
@@ -324,6 +338,9 @@
                                     </button>
                                 </div>
                             </div>
+                            <label class="font-weight-bold mb-1">
+                                เลือกห้องเรียน / ระดับชั้น <span class="text-danger">*</span>
+                            </label>
                             @php
                                 $enrolledIds = isset($enrolledClassrooms) ? $enrolledClassrooms->pluck('id')->toArray() : [];
                             @endphp
@@ -333,8 +350,9 @@
                                 @foreach($allClassrooms as $room)
                                     @php
                                         $isEnrolled = in_array($room->id, $enrolledIds);
+                                        $roomShift = str_contains($room->name, 'เช้า') ? 'เช้า' : (str_contains($room->name, 'บ่าย') ? 'บ่าย' : (str_contains($room->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''));
                                     @endphp
-                                    <option value="{{ $room->id }}" data-enrolled="{{ $isEnrolled ? '1' : '0' }}">
+                                    <option value="{{ $room->id }}" data-shift="{{ $roomShift }}" data-enrolled="{{ $isEnrolled ? '1' : '0' }}">
                                         {{ $room->name }} ({{ $room->users_count }} คน)
                                         {{ $isEnrolled ? '— [อยู่ในวิชานี้แล้ว]' : '' }}
                                     </option>
@@ -374,7 +392,18 @@
                 <div class="modal-body p-4">
                     <!-- Classroom Filter & Search Row -->
                     <div class="row text-dark mb-3">
-                        <div class="col-md-6 mb-2 mb-md-0">
+                        <div class="col-md-3 mb-2 mb-md-0">
+                            <label class="font-weight-bold mb-1">
+                                <i class="far fa-clock text-info mr-1"></i>รอบเวลา
+                            </label>
+                            <select id="modal_student_shift_filter" class="form-control">
+                                <option value="">-- ทุกรอบเวลา --</option>
+                                <option value="เช้า">🌅 ภาคเช้า</option>
+                                <option value="บ่าย">🌇 ภาคบ่าย</option>
+                                <option value="ทวิภาคี">🤝 ภาคทวิภาคี</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-2 mb-md-0">
                             <label class="font-weight-bold mb-1">
                                 กรองตามกลุ่มเรียน / ห้องเรียน
                             </label>
@@ -382,9 +411,9 @@
                                 <option value="">-- แสดงนักศึกษาทุกกลุ่มเรียน --</option>
                                 @foreach($allClassrooms as $room)
                                     @php
-                                        $roomAvailableCount = $availableStudents->where('classroom_id', $room->id)->count();
+                                        $roomShift = str_contains($room->name, 'เช้า') ? 'เช้า' : (str_contains($room->name, 'บ่าย') ? 'บ่าย' : (str_contains($room->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''));
                                     @endphp
-                                    <option value="{{ $room->id }}" {{ (isset($selectedClassroom) && $selectedClassroom->id == $room->id) ? 'selected' : '' }}>
+                                    <option value="{{ $room->id }}" data-shift="{{ $roomShift }}" {{ (isset($selectedClassroom) && $selectedClassroom->id == $room->id) ? 'selected' : '' }}>
                                         {{ $room->name }}
                                     </option>
                                 @endforeach
@@ -392,13 +421,13 @@
                                     $noRoomCount = $availableStudents->whereNull('classroom_id')->count();
                                 @endphp
                                 @if($noRoomCount > 0)
-                                    <option value="unassigned" {{ (isset($selectedClassroom) && $selectedClassroom->id === 'unassigned') ? 'selected' : '' }}>
+                                    <option value="unassigned" data-shift="">
                                         ไม่มีกลุ่มเรียน
                                     </option>
                                 @endif
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-5">
                             <label class="font-weight-bold mb-1">
                                 ค้นหาชื่อ หรือรหัสนักศึกษา
                             </label>
@@ -451,8 +480,12 @@
                             </thead>
                             <tbody id="modal_students_tbody">
                                 @forelse($availableStudents as $student)
+                                    @php
+                                        $studShift = $student->classroom ? (str_contains($student->classroom->name, 'เช้า') ? 'เช้า' : (str_contains($student->classroom->name, 'บ่าย') ? 'บ่าย' : (str_contains($student->classroom->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''))) : '';
+                                    @endphp
                                     <tr class="modal-student-row"
                                         data-classroom-id="{{ $student->classroom_id ?? 'unassigned' }}"
+                                        data-shift="{{ $studShift }}"
                                         data-search="{{ mb_strtolower($student->student_code . ' ' . $student->name . ' ' . ($student->classroom ? $student->classroom->name : 'ไม่มีกลุ่มเรียน')) }}">
                                         <td class="text-center align-middle" style="width: 45px;">
                                             <input type="checkbox" name="student_ids[]" value="{{ $student->id }}"
@@ -465,6 +498,15 @@
                                             <span class="badge badge-light text-secondary font-weight-bold px-2 py-1">
                                                 {{ $student->classroom ? $student->classroom->name : 'ไม่มีกลุ่มเรียน' }}
                                             </span>
+                                            @if($student->classroom)
+                                                @if(str_contains($student->classroom->name, 'เช้า'))
+                                                    <span class="badge badge-success text-xs ml-1"><i class="fas fa-cloud-sun mr-1"></i>เช้า</span>
+                                                @elseif(str_contains($student->classroom->name, 'บ่าย'))
+                                                    <span class="badge badge-warning text-dark text-xs ml-1"><i class="fas fa-sun mr-1"></i>บ่าย</span>
+                                                @elseif(str_contains($student->classroom->name, 'ทวิภาคี'))
+                                                    <span class="badge badge-info text-xs ml-1"><i class="fas fa-handshake mr-1"></i>ทวิภาคี</span>
+                                                @endif
+                                            @endif
                                         </td>
                                     </tr>
                                 @empty
@@ -516,8 +558,9 @@
             width: '100%'
         });
 
-        // Filter function (Classroom + Search Input)
+        // Filter function (Classroom + Search Input + Shift)
         function filterModalStudents() {
+            var selectedShift = $('#modal_student_shift_filter').val();
             var selectedRoom = $('#modal_classroom_filter').val();
             var searchTerm = ($('#modal_student_search').val() || '').trim().toLowerCase();
             var visibleCount = 0;
@@ -525,12 +568,14 @@
             $('.modal-student-row').each(function () {
                 var row = $(this);
                 var room = row.attr('data-classroom-id');
+                var shift = row.attr('data-shift') || '';
                 var searchData = row.attr('data-search') || '';
 
+                var matchShift = !selectedShift || shift === selectedShift;
                 var matchRoom = !selectedRoom || room === selectedRoom;
                 var matchSearch = !searchTerm || searchData.indexOf(searchTerm) !== -1;
 
-                if (matchRoom && matchSearch) {
+                if (matchShift && matchRoom && matchSearch) {
                     row.removeClass('d-none');
                     visibleCount++;
                 } else {
@@ -548,6 +593,25 @@
 
             updateModalSelectionState();
         }
+
+        $('#modal_student_shift_filter').on('change', function () {
+            var shift = $(this).val();
+            $('#modal_classroom_filter option').each(function () {
+                var roomShift = $(this).data('shift');
+                if (!shift || !roomShift || roomShift === shift || $(this).val() === "" || $(this).val() === "unassigned") {
+                    $(this).prop('disabled', false);
+                } else {
+                    $(this).prop('disabled', true);
+                }
+            });
+            var currentRoomShift = $('#modal_classroom_filter option:selected').data('shift');
+            if (shift && currentRoomShift && currentRoomShift !== shift) {
+                $('#modal_classroom_filter').val('').trigger('change.select2');
+            } else {
+                $('#modal_classroom_filter').trigger('change.select2');
+            }
+            filterModalStudents();
+        });
 
         $('#modal_classroom_filter').on('change', function () {
             filterModalStudents();
@@ -669,10 +733,51 @@
             width: '100%'
         });
 
+        // Filter classroom select options by shift
+        $('#modal_classroom_shift_filter').on('change', function () {
+            var shift = $(this).val();
+            $('#classroom_select option').each(function () {
+                var roomShift = $(this).data('shift');
+                if (!shift || roomShift === shift) {
+                    $(this).prop('disabled', false);
+                } else {
+                    $(this).prop('disabled', true);
+                }
+            });
+            $('#classroom_select').select2('destroy').select2({
+                dropdownParent: $('#addClassroomModal'),
+                placeholder: "คลิกเพื่อเลือกห้องเรียน (เลือกได้หลายห้อง)...",
+                allowClear: true,
+                width: '100%'
+            });
+        });
+
+        // Quick select classrooms by selected shift
+        $('#btn-select-shift-rooms').on('click', function () {
+            var shift = $('#modal_classroom_shift_filter').val();
+            if (!shift) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'กรุณาเลือกรอบเวลาก่อน',
+                    text: 'กรุณาเลือก ภาคเช้า, ภาคบ่าย หรือ ทวิภาคี จากเมนูรอบเวลาเพื่อเลือกห้องเรียนตามรอบ',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+            var currentVals = $('#classroom_select').val() || [];
+            $('#classroom_select option').each(function () {
+                var roomShift = $(this).data('shift');
+                if (roomShift === shift && currentVals.indexOf($(this).val()) === -1) {
+                    currentVals.push($(this).val());
+                }
+            });
+            $('#classroom_select').val(currentVals).trigger('change');
+        });
+
         // Quick select all rooms
         $('#btn-select-all-rooms').on('click', function () {
             var allVals = [];
-            $('#classroom_select option').each(function () {
+            $('#classroom_select option:not(:disabled)').each(function () {
                 allVals.push($(this).val());
             });
             $('#classroom_select').val(allVals).trigger('change');

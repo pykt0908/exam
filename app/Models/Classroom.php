@@ -65,13 +65,13 @@ class Classroom extends Model
      */
     public function scopeShift($query, string $shift)
     {
-        if ($shift === 'afternoon') {
+        if ($shift === 'afternoon' || $shift === 'บ่าย') {
             return $query->where('name', 'LIKE', '%บ่าย%');
         }
-        if ($shift === 'dual') {
+        if ($shift === 'dual' || $shift === 'ทวิภาคี') {
             return $query->where('name', 'LIKE', '%ทวิภาคี%');
         }
-        if ($shift === 'morning') {
+        if ($shift === 'morning' || $shift === 'เช้า') {
             return $query->where('name', 'LIKE', '%เช้า%');
         }
         return $query;

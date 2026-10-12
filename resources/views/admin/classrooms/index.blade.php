@@ -17,15 +17,33 @@
             <h3 class="card-title font-weight-bold text-dark mb-0"><i class="fas fa-filter mr-2"></i>ตัวกรองและค้นหาห้องเรียน</h3>
         </div>
         <div class="card-body">
-            <form action="{{ route('admin.classrooms.index') }}" method="GET" class="form-row">
+            <form action="{{ route('admin.classrooms.index') }}" method="GET" class="form-row align-items-center">
                 <input type="hidden" name="search" value="1">
-                <div class="form-group col-md-9 mb-2 mb-md-0">
+                <div class="form-group col-md-3 mb-2 mb-md-0">
+                    <div class="input-group">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text bg-white"><i class="far fa-clock text-info"></i></span>
+                        </div>
+                        <select name="shift" class="form-control" onchange="this.form.submit()">
+                            <option value="">-- ทุกรอบเวลา --</option>
+                            <option value="เช้า" {{ request('shift') === 'เช้า' ? 'selected' : '' }}>🌅 ภาคเช้า</option>
+                            <option value="บ่าย" {{ request('shift') === 'บ่าย' ? 'selected' : '' }}>🌇 ภาคบ่าย</option>
+                            <option value="ทวิภาคี" {{ request('shift') === 'ทวิภาคี' ? 'selected' : '' }}>🤝 ภาคทวิภาคี</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group col-md-6 mb-2 mb-md-0">
                     <input type="text" name="q" class="form-control w-100" value="{{ request('q') }}" placeholder="ค้นหาชื่อห้องเรียน หรือระดับชั้น...">
                 </div>
-                <div class="form-group col-md-3 mb-0">
+                <div class="form-group col-md-3 mb-0 d-flex">
                     <button type="submit" class="btn btn-primary btn-block font-weight-bold shadow-sm">
-                        <i class="fas fa-search mr-2"></i>ค้นหาข้อมูล
+                        <i class="fas fa-search mr-2"></i>ค้นหาห้องเรียน
                     </button>
+                    @if(request('shift') || request('q'))
+                        <a href="{{ route('admin.classrooms.index') }}" class="btn btn-outline-secondary ml-2 font-weight-bold" title="ล้างการค้นหา">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    @endif
                 </div>
             </form>
         </div>
