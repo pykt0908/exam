@@ -254,3 +254,40 @@ body:not(.sidebar-collapse) .nav-sidebar .nav-treeview > .nav-item > .nav-link {
     }
 }
 
+/* =========================================================================
+   Rich Text Choice Content (Pinyin, Ruby, Math Formulas, Sub/Sup)
+   ========================================================================= */
+.choice-box label p,
+.choice-item-box p,
+.choice-row .note-editable p,
+.choice-item-wrong p,
+.choice-item-correct p {
+    margin-bottom: 0 !important;
+    display: inline;
+}
+
+ruby {
+    font-size: 1.15em;
+    line-height: 1.8;
+}
+
+rt {
+    font-size: 0.65em;
+    font-weight: normal;
+    color: #495057;
+}
+
+sub, sup {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+}
+sup {
+    top: -0.5em;
+}
+sub {
+    bottom: -0.25em;
+}
+
+

@@ -22,6 +22,9 @@
                     </button>
                 </form>
             @endif
+            <button type="button" id="toggle-exam-details-btn" class="btn btn-outline-secondary font-weight-bold shadow-sm mr-2" title="ซ่อน/แสดง รายละเอียดข้อสอบ เพื่อขยายพื้นที่ทำข้อสอบ">
+                <i class="fas fa-columns mr-1"></i><span id="toggle-exam-details-btn-text">ซ่อนรายละเอียด</span>
+            </button>
             <button type="button" class="btn btn-outline-info font-weight-bold shadow-sm mr-2" data-toggle="modal" data-target="#examSettingsModal">
                 ตั้งค่าข้อสอบ
             </button>
@@ -157,10 +160,13 @@
 
     <div class="row">
         <!-- Left Column: Edit Exam details form -->
-        <div class="col-lg-4">
+        <div class="col-lg-4" id="exam-details-col">
             <div class="card shadow-sm mb-4 sticky-card">
-                <div class="card-header bg-light">
-                    <h3 class="card-title font-weight-bold text-dark"><i class="fas fa-edit mr-2"></i>รายละเอียดข้อสอบ</h3>
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h3 class="card-title font-weight-bold text-dark mb-0"><i class="fas fa-edit mr-2"></i>รายละเอียดข้อสอบ</h3>
+                    <button type="button" class="btn btn-sm btn-outline-secondary font-weight-bold collapse-exam-details-btn" title="ย่อ/ซ่อนรายละเอียดข้อสอบ เพื่อขยายพื้นที่ทำข้อสอบ">
+                        <i class="fas fa-chevron-left mr-1"></i>ย่อแผงนี้
+                    </button>
                 </div>
                 <form id="exam-details-form" action="{{ route('admin.exams.update', $exam->id) }}" method="post">
                     @csrf
@@ -292,7 +298,7 @@
         </div>
 
         <!-- Right Column: Quiz Builder -->
-        <div class="col-lg-8">
+        <div class="col-lg-8" id="quiz-builder-col">
             <!-- Alert for dynamic actions -->
             <div id="alert-container"></div>
             
@@ -455,35 +461,37 @@
                                                 
                                                 <div class="choices-container">
                                                     @foreach($question->choices as $choiceIndex => $choice)
-                                                        <div class="choice-row mb-3">
-                                                            <div class="input-group">
-                                                                <div class="input-group-prepend">
-                                                                    <div class="input-group-text bg-white border-right-0">
-                                                                        <input type="radio" name="correct_choice_{{ $question->id }}" class="correct-radio" value="{{ $choiceIndex }}" {{ $choice->is_correct ? 'checked' : '' }} style="transform: scale(1.25); cursor:pointer;">
-                                                                    </div>
+                                                        <div class="choice-row card card-outline card-light border mb-2 shadow-none {{ $choice->is_correct ? 'is-correct-choice' : '' }}">
+                                                            <div class="card-header py-1 px-3 bg-light d-flex align-items-center justify-content-between">
+                                                                <div class="d-flex align-items-center">
+                                                                    <label class="mb-0 d-flex align-items-center font-weight-bold text-dark mr-3" style="cursor: pointer;">
+                                                                        <input type="radio" name="correct_choice_{{ $question->id }}" class="correct-radio mr-2" value="{{ $choiceIndex }}" {{ $choice->is_correct ? 'checked' : '' }} style="transform: scale(1.25); cursor:pointer;">
+                                                                        <span class="choice-label badge {{ $choice->is_correct ? 'badge-success' : 'badge-secondary' }} mr-2" style="font-size: 0.95rem;">{{ chr(65 + $choiceIndex) }}</span>
+                                                                        <span class="choice-status-text {{ $choice->is_correct ? 'text-success font-weight-bold' : 'text-muted' }}">
+                                                                            {{ $choice->is_correct ? '✓ ตัวเลือกที่ถูกต้อง (เฉลย)' : 'คลิกเพื่อตั้งเป็นเฉลย' }}
+                                                                        </span>
+                                                                    </label>
                                                                 </div>
-                                                                <input type="text" class="form-control choice-text-input" value="{{ $choice->choice_text }}" placeholder="ตัวเลือก {{ chr(65 + $choiceIndex) }}" required>
-                                                                
-                                                                <!-- Hidden input to store choice image URL/path -->
-                                                                <input type="hidden" class="choice-image-path" value="{{ $choice->choice_image ? asset($choice->choice_image) : '' }}">
-
-                                                                <div class="input-group-append">
-                                                                    <button type="button" class="btn btn-outline-info upload-choice-image-btn border-left-0 border-right-0" title="อัปโหลดรูปภาพ"><i class="far fa-image"></i></button>
-                                                                    <button type="button" class="btn btn-outline-danger remove-choice-btn border-left-0"><i class="fas fa-times"></i></button>
-                                                                </div>
-                                                                
-                                                                <!-- Hidden file input for uploading -->
-                                                                <input type="file" class="choice-image-file" style="display: none;" accept="image/*">
-                                                            </div>
-
-                                                            <!-- Image preview container -->
-                                                            <div class="choice-image-preview-container mt-1 ml-5 {{ $choice->choice_image ? '' : 'd-none' }}">
-                                                                <div class="position-relative d-inline-block">
-                                                                    <img src="{{ $choice->choice_image ? asset($choice->choice_image) : '' }}" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
-                                                                    <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
-                                                                        <i class="fas fa-times" style="font-size: 10px;"></i>
+                                                                <div>
+                                                                    <button type="button" class="btn btn-tool text-danger remove-choice-btn" title="ลบตัวเลือกนี้">
+                                                                        <i class="fas fa-times"></i>
                                                                     </button>
                                                                 </div>
+                                                            </div>
+                                                            <div class="card-body p-2">
+                                                                <textarea class="form-control choice-text-input" placeholder="เนื้อหาตัวเลือก {{ chr(65 + $choiceIndex) }}" required>{{ $choice->choice_text }}</textarea>
+                                                                <input type="hidden" class="choice-image-path" value="{{ $choice->choice_image ? asset($choice->choice_image) : '' }}">
+
+                                                                @if($choice->choice_image)
+                                                                    <div class="choice-image-preview-container mt-2 ml-2">
+                                                                        <div class="position-relative d-inline-block">
+                                                                            <img src="{{ asset($choice->choice_image) }}" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
+                                                                            <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
+                                                                                <i class="fas fa-times" style="font-size: 10px;"></i>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                @endif
                                                             </div>
                                                         </div>
                                                     @endforeach
@@ -611,25 +619,39 @@
             box-shadow: none;
             border-color: #007bff;
         }
-        .choice-row .form-control.choice-text-input {
-            border-left: none !important;
-            border-right: none !important;
-            border-top-left-radius: 0 !important;
-            border-bottom-left-radius: 0 !important;
-            border-top-right-radius: 0 !important;
-            border-bottom-right-radius: 0 !important;
+        .choice-row {
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e0e6ed;
+            background-color: #fff;
+            transition: all 0.2s ease;
         }
-        .choice-row .input-group-prepend .input-group-text {
-            border-top-left-radius: 8px !important;
-            border-bottom-left-radius: 8px !important;
-            border-top-right-radius: 0 !important;
-            border-bottom-right-radius: 0 !important;
+        .choice-row:hover {
+            border-color: #b0c4de;
         }
-        .choice-row .input-group-append .remove-choice-btn {
-            border-top-left-radius: 0 !important;
-            border-bottom-left-radius: 0 !important;
-            border-top-right-radius: 8px !important;
-            border-bottom-right-radius: 8px !important;
+        .choice-row .card-header {
+            background-color: #f8fafc;
+            border-bottom: 1px solid #edf2f7;
+            padding: 8px 14px;
+        }
+        .choice-row.is-correct-choice {
+            border-color: #28a745;
+        }
+        .choice-row.is-correct-choice .card-header {
+            background-color: #eafaf1;
+            border-bottom-color: #d4edda;
+        }
+        .choice-row .note-editor.note-frame {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 0;
+        }
+        .choice-image-preview {
+            max-height: 80px;
+        }
+        .note-dropdown-menu {
+            max-height: 280px;
+            overflow-y: auto;
         }
         .status-badge {
             font-size: 0.8rem;
@@ -747,6 +769,28 @@
                 });
             }
 
+            // Font configuration for Summernote editors
+            var customFontNames = [
+                'Google Sans',
+                'Noto Sans Thai',
+                'Sarabun',
+                'TH Sarabun New',
+                'LINESeedSansTH',
+                'Arial',
+                'Courier New',
+                'Tahoma',
+                'Times New Roman',
+                'Verdana'
+            ];
+            var customFontNamesIgnoreCheck = [
+                'Google Sans',
+                'Noto Sans Thai',
+                'Sarabun',
+                'TH Sarabun New',
+                'LINESeedSansTH'
+            ];
+            var customFontSizes = ['10', '12', '14', '16', '18', '20', '22', '24', '28', '32', '36', '48'];
+
             // Initialize Summernote with full options for questions
             function initQuestionSummernote(element) {
                 $(element).summernote({
@@ -754,13 +798,18 @@
                     tabsize: 2,
                     toolbar: [
                         ['style', ['style']],
-                        ['font', ['bold', 'underline', 'clear']],
+                        ['fontname', ['fontname']],
+                        ['fontsize', ['fontsize']],
+                        ['font', ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', 'clear']],
                         ['color', ['color']],
                         ['para', ['ul', 'ol', 'paragraph']],
                         ['table', ['table']],
                         ['insert', ['link', 'picture', 'video', 'hr']],
                         ['view', ['fullscreen', 'codeview']]
                     ],
+                    fontNames: customFontNames,
+                    fontNamesIgnoreCheck: customFontNamesIgnoreCheck,
+                    fontSizes: customFontSizes,
                     callbacks: {
                         onImageUpload: function(files) {
                             uploadSummernoteImage(files[0], this);
@@ -772,6 +821,51 @@
                         }
                     }
                 });
+            }
+
+            // Initialize Summernote for choices
+            function initChoiceSummernote(element) {
+                $(element).summernote({
+                    height: 90,
+                    tabsize: 2,
+                    toolbar: [
+                        ['fontname', ['fontname']],
+                        ['fontsize', ['fontsize']],
+                        ['font', ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', 'clear']],
+                        ['color', ['color']],
+                        ['para', ['ul', 'ol', 'paragraph']],
+                        ['insert', ['picture', 'link', 'table', 'hr']],
+                        ['view', ['codeview']]
+                    ],
+                    fontNames: customFontNames,
+                    fontNamesIgnoreCheck: customFontNamesIgnoreCheck,
+                    fontSizes: customFontSizes,
+                    callbacks: {
+                        onImageUpload: function(files) {
+                            uploadSummernoteImage(files[0], this);
+                        },
+                        onChange: function(contents, $editable) {
+                            var textarea = $(this);
+                            textarea.val(contents);
+                            textarea.trigger('change');
+                        }
+                    }
+                });
+            }
+
+            // Helper to get clean choice editor value
+            function getChoiceEditorValue(editor) {
+                if (editor.data('summernote')) {
+                    if (editor.summernote('isEmpty')) {
+                        return '';
+                    }
+                    var code = editor.summernote('code');
+                    if (code === '<p><br></p>' || code === '<br>' || code.trim() === '') {
+                        return '';
+                    }
+                    return code;
+                }
+                return (editor.val() || '').trim();
             }
 
             function uploadSummernoteImage(file, editor) {
@@ -799,19 +893,29 @@
                 initQuestionSummernote(this);
             });
 
+            // Initialize Summernote on existing choices
+            $('.choice-text-input').each(function() {
+                initChoiceSummernote(this);
+            });
+
             // Initialize Summernote on description editor (คำชี้แจง)
             $('.summernote-editor').summernote({
                 height: 120,
                 tabsize: 2,
                 toolbar: [
                     ['style', ['style']],
-                    ['font', ['bold', 'underline', 'clear']],
+                    ['fontname', ['fontname']],
+                    ['fontsize', ['fontsize']],
+                    ['font', ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', 'clear']],
                     ['color', ['color']],
                     ['para', ['ul', 'ol', 'paragraph']],
                     ['table', ['table']],
                     ['insert', ['link']],
                     ['view', ['fullscreen', 'codeview']]
-                ]
+                ],
+                fontNames: customFontNames,
+                fontNamesIgnoreCheck: customFontNamesIgnoreCheck,
+                fontSizes: customFontSizes
             });
 
             // Check and update global Save All button status
@@ -877,6 +981,26 @@
             // Handle typing or change inside input to toggle unsaved status
             $(document).on('input change', '.question-text-input, .score-input, .choice-text-input, .correct-radio, .question-type-select, .essay-answer-input, .question-section-id-input', function() {
                 var card = $(this).closest('.card-question');
+                markAsUnsaved(card);
+            });
+
+            // Handle radio button selection change
+            $(document).on('change', '.correct-radio', function() {
+                var card = $(this).closest('.card-question');
+                card.find('.choice-row').each(function() {
+                    var radio = $(this).find('.correct-radio');
+                    var badge = $(this).find('.choice-label');
+                    var status = $(this).find('.choice-status-text');
+                    if (radio.is(':checked')) {
+                        $(this).addClass('is-correct-choice');
+                        badge.removeClass('badge-secondary').addClass('badge-success');
+                        status.removeClass('text-muted').addClass('text-success font-weight-bold').text('✓ ตัวเลือกที่ถูกต้อง (เฉลย)');
+                    } else {
+                        $(this).removeClass('is-correct-choice');
+                        badge.removeClass('badge-success').addClass('badge-secondary');
+                        status.removeClass('text-success font-weight-bold').addClass('text-muted').text('คลิกเพื่อตั้งเป็นเฉลย');
+                    }
+                });
                 markAsUnsaved(card);
             });
 
@@ -958,28 +1082,26 @@
                                 
                                 <div class="choices-container">
                                     ${[0,1,2,3].map(i => `
-                                        <div class="choice-row mb-3">
-                                            <div class="input-group">
-                                                <div class="input-group-prepend">
-                                                    <div class="input-group-text bg-white border-right-0">
-                                                        <input type="radio" name="correct_choice_${tempId}" class="correct-radio" value="${i}" ${i === 0 ? 'checked' : ''} style="transform: scale(1.25); cursor:pointer;">
-                                                    </div>
+                                        <div class="choice-row card card-outline card-light border mb-2 shadow-none ${i === 0 ? 'is-correct-choice' : ''}">
+                                            <div class="card-header py-1 px-3 bg-light d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center">
+                                                    <label class="mb-0 d-flex align-items-center font-weight-bold text-dark mr-3" style="cursor: pointer;">
+                                                        <input type="radio" name="correct_choice_${tempId}" class="correct-radio mr-2" value="${i}" ${i === 0 ? 'checked' : ''} style="transform: scale(1.25); cursor:pointer;">
+                                                        <span class="choice-label badge ${i === 0 ? 'badge-success' : 'badge-secondary'} mr-2" style="font-size: 0.95rem;">${getAlphabetLetter(i)}</span>
+                                                        <span class="choice-status-text ${i === 0 ? 'text-success font-weight-bold' : 'text-muted'}">
+                                                            ${i === 0 ? '✓ ตัวเลือกที่ถูกต้อง (เฉลย)' : 'คลิกเพื่อตั้งเป็นเฉลย'}
+                                                        </span>
+                                                    </label>
                                                 </div>
-                                                <input type="text" class="form-control choice-text-input" placeholder="ตัวเลือก ${getAlphabetLetter(i)}" required>
-                                                <input type="hidden" class="choice-image-path" value="">
-                                                <div class="input-group-append">
-                                                    <button type="button" class="btn btn-outline-info upload-choice-image-btn border-left-0 border-right-0" title="อัปโหลดรูปภาพ"><i class="far fa-image"></i></button>
-                                                    <button type="button" class="btn btn-outline-danger remove-choice-btn border-left-0"><i class="fas fa-times"></i></button>
-                                                </div>
-                                                <input type="file" class="choice-image-file" style="display: none;" accept="image/*">
-                                            </div>
-                                            <div class="choice-image-preview-container mt-1 ml-5 d-none">
-                                                <div class="position-relative d-inline-block">
-                                                    <img src="" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
-                                                    <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
-                                                        <i class="fas fa-times" style="font-size: 10px;"></i>
+                                                <div>
+                                                    <button type="button" class="btn btn-tool text-danger remove-choice-btn" title="ลบตัวเลือกนี้">
+                                                        <i class="fas fa-times"></i>
                                                     </button>
                                                 </div>
+                                            </div>
+                                            <div class="card-body p-2">
+                                                <textarea class="form-control choice-text-input" placeholder="เนื้อหาตัวเลือก ${getAlphabetLetter(i)}" required></textarea>
+                                                <input type="hidden" class="choice-image-path" value="">
                                             </div>
                                         </div>
                                     `).join('')}
@@ -1005,6 +1127,9 @@
                 card.find('.question-section-id-input').val(sectionId);
                 
                 initQuestionSummernote(card.find('.question-text-input'));
+                card.find('.choice-text-input').each(function() {
+                    initChoiceSummernote(this);
+                });
                 updateCardIndices();
                 checkUnsavedChanges();
                 
@@ -1038,33 +1163,30 @@
                 
                 var letter = getAlphabetLetter(newIndex);
                 var rowHtml = `
-                    <div class="choice-row mb-3">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <div class="input-group-text bg-white border-right-0">
-                                    <input type="radio" name="correct_choice_${cardId}" class="correct-radio" value="${newIndex}" style="transform: scale(1.25); cursor:pointer;">
-                                </div>
+                    <div class="choice-row card card-outline card-light border mb-2 shadow-none">
+                        <div class="card-header py-1 px-3 bg-light d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <label class="mb-0 d-flex align-items-center font-weight-bold text-dark mr-3" style="cursor: pointer;">
+                                    <input type="radio" name="correct_choice_${cardId}" class="correct-radio mr-2" value="${newIndex}" style="transform: scale(1.25); cursor:pointer;">
+                                    <span class="choice-label badge badge-secondary mr-2" style="font-size: 0.95rem;">${letter}</span>
+                                    <span class="choice-status-text text-muted">คลิกเพื่อตั้งเป็นเฉลย</span>
+                                </label>
                             </div>
-                            <input type="text" class="form-control choice-text-input" placeholder="ตัวเลือก ${letter}" required>
-                            <input type="hidden" class="choice-image-path" value="">
-                            <div class="input-group-append">
-                                <button type="button" class="btn btn-outline-info upload-choice-image-btn border-left-0 border-right-0" title="อัปโหลดรูปภาพ"><i class="far fa-image"></i></button>
-                                <button type="button" class="btn btn-outline-danger remove-choice-btn border-left-0"><i class="fas fa-times"></i></button>
-                            </div>
-                            <input type="file" class="choice-image-file" style="display: none;" accept="image/*">
-                        </div>
-                        <div class="choice-image-preview-container mt-1 ml-5 d-none">
-                            <div class="position-relative d-inline-block">
-                                <img src="" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
-                                <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
-                                    <i class="fas fa-times" style="font-size: 10px;"></i>
+                            <div>
+                                <button type="button" class="btn btn-tool text-danger remove-choice-btn" title="ลบตัวเลือกนี้">
+                                    <i class="fas fa-times"></i>
                                 </button>
                             </div>
+                        </div>
+                        <div class="card-body p-2">
+                            <textarea class="form-control choice-text-input" placeholder="เนื้อหาตัวเลือก ${letter}" required></textarea>
+                            <input type="hidden" class="choice-image-path" value="">
                         </div>
                     </div>
                 `;
 
-                $(rowHtml).appendTo(container);
+                var newRow = $(rowHtml).appendTo(container);
+                initChoiceSummernote(newRow.find('.choice-text-input'));
                 markAsUnsaved(card);
             });
 
@@ -1084,12 +1206,18 @@
                     return;
                 }
                 
+                var editor = row.find('.choice-text-input');
+                if (editor.data('summernote')) {
+                    editor.summernote('destroy');
+                }
                 row.remove();
                 
                 // Re-align values and radio indices
                 container.find('.choice-row').each(function(i) {
+                    var letter = getAlphabetLetter(i);
                     $(this).find('.correct-radio').val(i);
-                    $(this).find('.choice-text-input').attr('placeholder', 'ตัวเลือก ' + getAlphabetLetter(i));
+                    $(this).find('.choice-label').text(letter);
+                    $(this).find('.choice-text-input').attr('placeholder', 'เนื้อหาตัวเลือก ' + letter);
                 });
                 
                 markAsUnsaved(card);
@@ -1115,7 +1243,7 @@
                     correctChoice = card.find('.correct-radio:checked').val();
                     var hasEmptyChoices = false;
                     card.find('.choice-row').each(function() {
-                        var val = $(this).find('.choice-text-input').val().trim();
+                        var val = getChoiceEditorValue($(this).find('.choice-text-input'));
                         if (val === '') {
                             hasEmptyChoices = true;
                         }
@@ -1183,39 +1311,54 @@
                             }
 
                             var container = card.find('.choices-container');
+                            container.find('.choice-text-input').each(function() {
+                                if ($(this).data('summernote')) {
+                                    $(this).summernote('destroy');
+                                }
+                            });
                             container.empty();
                             
                             if (response.question.choices && response.question.choices.length > 0) {
                                 response.question.choices.forEach(function(choice, idx) {
                                     var choiceImgUrl = choice.choice_image ? `{{ asset('') }}${choice.choice_image}` : '';
                                     var hasImg = choice.choice_image ? '' : 'd-none';
+                                    var letter = getAlphabetLetter(idx);
+                                    var isCorrect = choice.is_correct;
                                     var rowHtml = `
-                                        <div class="choice-row mb-3">
-                                            <div class="input-group">
-                                                <div class="input-group-prepend">
-                                                    <div class="input-group-text bg-white border-right-0">
-                                                        <input type="radio" name="correct_choice_${response.question.id}" class="correct-radio" value="${idx}" ${choice.is_correct ? 'checked' : ''} style="transform: scale(1.25); cursor:pointer;">
-                                                    </div>
+                                        <div class="choice-row card card-outline card-light border mb-2 shadow-none ${isCorrect ? 'is-correct-choice' : ''}">
+                                            <div class="card-header py-1 px-3 bg-light d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center">
+                                                    <label class="mb-0 d-flex align-items-center font-weight-bold text-dark mr-3" style="cursor: pointer;">
+                                                        <input type="radio" name="correct_choice_${response.question.id}" class="correct-radio mr-2" value="${idx}" ${isCorrect ? 'checked' : ''} style="transform: scale(1.25); cursor:pointer;">
+                                                        <span class="choice-label badge ${isCorrect ? 'badge-success' : 'badge-secondary'} mr-2" style="font-size: 0.95rem;">${letter}</span>
+                                                        <span class="choice-status-text ${isCorrect ? 'text-success font-weight-bold' : 'text-muted'}">
+                                                            ${isCorrect ? '✓ ตัวเลือกที่ถูกต้อง (เฉลย)' : 'คลิกเพื่อตั้งเป็นเฉลย'}
+                                                        </span>
+                                                    </label>
                                                 </div>
-                                                <input type="text" class="form-control choice-text-input" value="${choice.choice_text}" placeholder="ตัวเลือก ${getAlphabetLetter(idx)}" required>
-                                                <input type="hidden" class="choice-image-path" value="${choiceImgUrl}">
-                                                <div class="input-group-append">
-                                                    <button type="button" class="btn btn-outline-info upload-choice-image-btn border-left-0 border-right-0" title="อัปโหลดรูปภาพ"><i class="far fa-image"></i></button>
-                                                    <button type="button" class="btn btn-outline-danger remove-choice-btn border-left-0"><i class="fas fa-times"></i></button>
-                                                </div>
-                                                <input type="file" class="choice-image-file" style="display: none;" accept="image/*">
-                                            </div>
-                                            <div class="choice-image-preview-container mt-1 ml-5 ${hasImg}">
-                                                <div class="position-relative d-inline-block">
-                                                    <img src="${choiceImgUrl}" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
-                                                    <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
-                                                        <i class="fas fa-times" style="font-size: 10px;"></i>
+                                                <div>
+                                                    <button type="button" class="btn btn-tool text-danger remove-choice-btn" title="ลบตัวเลือกนี้">
+                                                        <i class="fas fa-times"></i>
                                                     </button>
+                                                </div>
+                                            </div>
+                                            <div class="card-body p-2">
+                                                <textarea class="form-control choice-text-input" placeholder="เนื้อหาตัวเลือก ${letter}" required></textarea>
+                                                <input type="hidden" class="choice-image-path" value="${choiceImgUrl}">
+                                                <div class="choice-image-preview-container mt-2 ml-2 ${hasImg}">
+                                                    <div class="position-relative d-inline-block">
+                                                        <img src="${choiceImgUrl}" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
+                                                        <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
+                                                            <i class="fas fa-times" style="font-size: 10px;"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     `;
-                                    container.append(rowHtml);
+                                    var newRow = $(rowHtml).appendTo(container);
+                                    newRow.find('.choice-text-input').val(choice.choice_text || '');
+                                    initChoiceSummernote(newRow.find('.choice-text-input'));
                                 });
                             }
 
@@ -1337,7 +1480,7 @@
                     if (type === 'choice') {
                         correctChoice = card.find('.correct-radio:checked').val();
                         card.find('.choice-row').each(function() {
-                            var val = $(this).find('.choice-text-input').val().trim();
+                            var val = getChoiceEditorValue($(this).find('.choice-text-input'));
                             if (val === '') hasEmptyChoices = true;
                             choices.push(val);
                             choiceImages.push($(this).find('.choice-image-path').val() || '');
@@ -1387,37 +1530,52 @@
 
                             var container = card.find('.choices-container');
                             if (response.question.type === 'choice' && response.question.choices) {
+                                container.find('.choice-text-input').each(function() {
+                                    if ($(this).data('summernote')) {
+                                        $(this).summernote('destroy');
+                                    }
+                                });
                                 container.empty();
                                 response.question.choices.forEach(function(choice, idx) {
                                     var choiceImgUrl = choice.choice_image ? `{{ asset('') }}${choice.choice_image}` : '';
                                     var hasImg = choice.choice_image ? '' : 'd-none';
+                                    var letter = getAlphabetLetter(idx);
+                                    var isCorrect = choice.is_correct;
                                     var rowHtml = `
-                                        <div class="choice-row mb-3">
-                                            <div class="input-group">
-                                                <div class="input-group-prepend">
-                                                    <div class="input-group-text bg-white border-right-0">
-                                                        <input type="radio" name="correct_choice_${response.question.id}" class="correct-radio" value="${idx}" ${choice.is_correct ? 'checked' : ''} style="transform: scale(1.25); cursor:pointer;">
-                                                    </div>
+                                        <div class="choice-row card card-outline card-light border mb-2 shadow-none ${isCorrect ? 'is-correct-choice' : ''}">
+                                            <div class="card-header py-1 px-3 bg-light d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center">
+                                                    <label class="mb-0 d-flex align-items-center font-weight-bold text-dark mr-3" style="cursor: pointer;">
+                                                        <input type="radio" name="correct_choice_${response.question.id}" class="correct-radio mr-2" value="${idx}" ${isCorrect ? 'checked' : ''} style="transform: scale(1.25); cursor:pointer;">
+                                                        <span class="choice-label badge ${isCorrect ? 'badge-success' : 'badge-secondary'} mr-2" style="font-size: 0.95rem;">${letter}</span>
+                                                        <span class="choice-status-text ${isCorrect ? 'text-success font-weight-bold' : 'text-muted'}">
+                                                            ${isCorrect ? '✓ ตัวเลือกที่ถูกต้อง (เฉลย)' : 'คลิกเพื่อตั้งเป็นเฉลย'}
+                                                        </span>
+                                                    </label>
                                                 </div>
-                                                <input type="text" class="form-control choice-text-input" value="${choice.choice_text}" placeholder="ตัวเลือก ${getAlphabetLetter(idx)}" required>
-                                                <input type="hidden" class="choice-image-path" value="${choiceImgUrl}">
-                                                <div class="input-group-append">
-                                                    <button type="button" class="btn btn-outline-info upload-choice-image-btn border-left-0 border-right-0" title="อัปโหลดรูปภาพ"><i class="far fa-image"></i></button>
-                                                    <button type="button" class="btn btn-outline-danger remove-choice-btn border-left-0"><i class="fas fa-times"></i></button>
-                                                </div>
-                                                <input type="file" class="choice-image-file" style="display: none;" accept="image/*">
-                                            </div>
-                                            <div class="choice-image-preview-container mt-1 ml-5 ${hasImg}">
-                                                <div class="position-relative d-inline-block">
-                                                    <img src="${choiceImgUrl}" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
-                                                    <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
-                                                        <i class="fas fa-times" style="font-size: 10px;"></i>
+                                                <div>
+                                                    <button type="button" class="btn btn-tool text-danger remove-choice-btn" title="ลบตัวเลือกนี้">
+                                                        <i class="fas fa-times"></i>
                                                     </button>
+                                                </div>
+                                            </div>
+                                            <div class="card-body p-2">
+                                                <textarea class="form-control choice-text-input" placeholder="เนื้อหาตัวเลือก ${letter}" required></textarea>
+                                                <input type="hidden" class="choice-image-path" value="${choiceImgUrl}">
+                                                <div class="choice-image-preview-container mt-2 ml-2 ${hasImg}">
+                                                    <div class="position-relative d-inline-block">
+                                                        <img src="${choiceImgUrl}" class="img-thumbnail choice-image-preview" style="max-height: 80px;">
+                                                        <button type="button" class="btn btn-xs btn-danger position-absolute delete-choice-image-btn" style="top: -5px; right: -5px; border-radius: 50%; width: 20px; height: 20px; padding: 0;" title="ลบรูปภาพ">
+                                                            <i class="fas fa-times" style="font-size: 10px;"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     `;
-                                    container.append(rowHtml);
+                                    var newRow = $(rowHtml).appendTo(container);
+                                    newRow.find('.choice-text-input').val(choice.choice_text || '');
+                                    initChoiceSummernote(newRow.find('.choice-text-input'));
                                 });
                             }
 
@@ -1967,6 +2125,39 @@
             $('#edit_custom_exam_type').on('input', updateEditExamTitle);
             $('#edit_semester_preset, #edit_academic_year_preset').on('change input', updateEditExamTitle);
             $('#edit_apply_title_btn').on('click', updateEditExamTitle);
+
+            // Toggle / Collapse Exam Details Panel
+            function setExamDetailsCollapsed(collapsed) {
+                var $examCol = $('#exam-details-col');
+                var $quizCol = $('#quiz-builder-col');
+                var $topBtn = $('#toggle-exam-details-btn');
+                var $topText = $('#toggle-exam-details-btn-text');
+
+                if (collapsed) {
+                    $examCol.addClass('d-none');
+                    $quizCol.removeClass('col-lg-8').addClass('col-lg-12');
+                    $topText.text('แสดงรายละเอียด');
+                    $topBtn.addClass('btn-info text-white').removeClass('btn-outline-secondary');
+                    localStorage.setItem('exam_details_collapsed', 'true');
+                } else {
+                    $examCol.removeClass('d-none');
+                    $quizCol.removeClass('col-lg-12').addClass('col-lg-8');
+                    $topText.text('ซ่อนรายละเอียด');
+                    $topBtn.removeClass('btn-info text-white').addClass('btn-outline-secondary');
+                    localStorage.setItem('exam_details_collapsed', 'false');
+                }
+            }
+
+            $(document).on('click', '#toggle-exam-details-btn, .collapse-exam-details-btn', function(e) {
+                e.preventDefault();
+                var isCurrentlyCollapsed = $('#exam-details-col').hasClass('d-none');
+                setExamDetailsCollapsed(!isCurrentlyCollapsed);
+            });
+
+            // Restore saved state from localStorage if user previously collapsed it
+            if (localStorage.getItem('exam_details_collapsed') === 'true') {
+                setExamDetailsCollapsed(true);
+            }
         });
     </script>
 @stop

@@ -283,7 +283,7 @@
                                     $isChoiceCorrect = $choice->is_correct;
                                 @endphp
                                 <div>
-                                    <span class="font-weight-bold mr-1">{{ $letter }}.</span> {{ $choice->choice_text }}
+                                    <span class="font-weight-bold mr-1">{{ $letter }}.</span> {!! $choice->choice_text !!}
                                     @if($choice->choice_image)
                                         <div class="my-1">
                                             <img src="{{ asset($choice->choice_image) }}" class="img-fluid border"

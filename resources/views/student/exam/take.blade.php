@@ -146,7 +146,7 @@
                                    {{ $savedChoiceId == $choice->id ? 'checked' : '' }}>
                             <label class="custom-control-label text-dark w-100 pl-2" style="cursor:pointer;font-size:0.9rem;" for="choice_{{ $choice->id }}">
                                 <span class="mr-2">{{ chr(65 + $choiceIndex) }}.</span>
-                                {{ $choice->choice_text }}
+                                {!! $choice->choice_text !!}
                                 @if($choice->choice_image)
                                 <div class="choice-image-container mt-2">
                                     <img src="{{ asset($choice->choice_image) }}" class="img-fluid img-thumbnail" style="max-height:150px;border-radius:8px;">
@@ -227,7 +227,7 @@
                                {{ $savedChoiceId == $choice->id ? 'checked' : '' }}>
                         <label class="custom-control-label text-dark w-100 pl-2" style="cursor:pointer;font-size:0.9rem;" for="choice_{{ $choice->id }}">
                             <span class="mr-2">{{ chr(65 + $choiceIndex) }}.</span>
-                            {{ $choice->choice_text }}
+                            {!! $choice->choice_text !!}
                             @if($choice->choice_image)
                             <div class="choice-image-container mt-2">
                                 <img src="{{ asset($choice->choice_image) }}" class="img-fluid img-thumbnail" style="max-height:150px;border-radius:8px;">

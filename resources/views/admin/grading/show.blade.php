@@ -574,7 +574,7 @@
                                 <div class="col-md-6 mb-2">
                                     <div class="p-2 border rounded small d-flex align-items-center {{ $itemClass }}">
                                         <span class="mr-2 {{ $choiceLetterClass }}" style="min-width: 22px;">{{ chr(65 + $choiceIndex) }}.</span>
-                                        <span class="flex-grow-1 text-dark">{{ $choice->choice_text }}</span>
+                                        <span class="flex-grow-1 text-dark">{!! $choice->choice_text !!}</span>
                                         @if($isStudentPick)
                                             <span class="{{ $choice->is_correct ? 'text-success' : 'text-danger' }} font-weight-bold ml-auto small">
                                                 คำตอบนักศึกษา
