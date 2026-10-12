@@ -384,10 +384,6 @@
                                 <span class="text-muted ml-2">| แสดงอยู่: <span id="modal_cr_visible_count" class="font-weight-bold text-dark">{{ $allClassrooms->count() }}</span> ห้อง</span>
                             </div>
                             <div>
-                                <button type="button" class="btn btn-xs btn-outline-success font-weight-bold mr-1"
-                                    id="btn_cr_select_all_visible">
-                                    <i class="fas fa-check-square mr-1"></i>เลือกทั้งหมดที่แสดง
-                                </button>
                                 <button type="button" class="btn btn-xs btn-outline-danger font-weight-bold"
                                     id="btn_cr_clear_all">
                                     <i class="fas fa-trash-alt mr-1"></i>ล้างที่เลือกทั้งหมด
@@ -941,15 +937,6 @@
                 } else {
                     $(this).removeClass('table-success');
                 }
-            });
-            updateModalClassroomCounts();
-        });
-
-        // Quick button: Select all visible
-        $('#btn_cr_select_all_visible').on('click', function () {
-            $('.modal-cr-row:not(.d-none)').each(function () {
-                $(this).find('.modal-cr-check').prop('checked', true);
-                $(this).addClass('table-success');
             });
             updateModalClassroomCounts();
         });
