@@ -72,6 +72,27 @@
     .modal-student-row.table-primary:hover td {
         background-color: #bae6fd !important;
     }
+
+    /* สไตล์สำหรับตารางกลุ่มเรียนใน Modal เพิ่มกลุ่มเรียน */
+    .modal-cr-row {
+        cursor: pointer;
+        user-select: none;
+        transition: background-color 0.15s ease-in-out;
+    }
+
+    .modal-cr-row:hover {
+        background-color: #f1f5f9 !important;
+    }
+
+    .modal-cr-row.table-success,
+    .modal-cr-row.table-success td {
+        background-color: #dcfce7 !important;
+    }
+
+    .modal-cr-row.table-success:hover,
+    .modal-cr-row.table-success:hover td {
+        background-color: #bbf7d0 !important;
+    }
 </style>
 @stop
 
@@ -299,11 +320,11 @@
     <!-- Add Classroom Modal -->
     <div class="modal fade" id="addClassroomModal" tabindex="-1" role="dialog" aria-labelledby="addClassroomModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-            <div class="modal-content">
-                <div class="modal-header bg-success">
-                    <h5 class="modal-title text-white font-weight-bold" id="addClassroomModalLabel">
-                        เพิ่มกลุ่มเรียนเข้าร่วมรายวิชา
+        <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title font-weight-bold" id="addClassroomModalLabel">
+                        <i class="fas fa-school mr-2"></i>เพิ่มกลุ่มเรียนเข้าร่วมรายวิชา
                     </h5>
                     <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
@@ -312,64 +333,154 @@
                 <form action="{{ route('admin.subjects.students.store', $subject->id) }}" method="post"
                     id="add-classroom-form">
                     @csrf
-                    <div class="modal-body">
-                        <div class="form-group text-dark mb-0">
-                            <div class="row align-items-center mb-2">
-                                <div class="col-md-5 mb-2 mb-md-0">
-                                    <div class="input-group input-group-sm">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text bg-light font-weight-bold"><i class="far fa-clock text-info mr-1"></i>รอบเวลา</span>
-                                        </div>
-                                        <select id="modal_classroom_shift_filter" class="form-control form-control-sm">
-                                            <option value="">-- กรองรอบเวลา (ทั้งหมด) --</option>
-                                            <option value="เช้า">ภาคเช้า</option>
-                                            <option value="บ่าย">ภาคบ่าย</option>
-                                            <option value="ทวิภาคี">ภาคทวิภาคี</option>
-                                        </select>
+                    <div class="modal-body p-4">
+                        <!-- Filters & Search Row -->
+                        <div class="row text-dark mb-3">
+                            <div class="col-md-3 mb-2 mb-md-0">
+                                <label class="font-weight-bold mb-1">
+                                    <i class="far fa-clock text-info mr-1"></i>รอบเวลา
+                                </label>
+                                <select id="modal_cr_shift_filter" class="form-control">
+                                    <option value="">-- ทุกรอบเวลา --</option>
+                                    <option value="เช้า">ภาคเช้า</option>
+                                    <option value="บ่าย">ภาคบ่าย</option>
+                                    <option value="ทวิภาคี">ภาคทวิภาคี</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-2 mb-md-0">
+                                <label class="font-weight-bold mb-1">
+                                    สถานะในรายวิชา
+                                </label>
+                                <select id="modal_cr_status_filter" class="form-control">
+                                    <option value="">-- แสดงทั้งหมด --</option>
+                                    <option value="not_enrolled">ยังไม่เข้าร่วม</option>
+                                    <option value="enrolled">อยู่ในวิชาแล้ว</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="font-weight-bold mb-1">
+                                    ค้นหาชื่อกลุ่มเรียน หรือระดับชั้น
+                                </label>
+                                <div class="input-group">
+                                    <input type="text" id="modal_cr_search" class="form-control"
+                                        placeholder="พิมพ์ชื่อกลุ่มเรียนเพื่อค้นหา...">
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-outline-secondary" id="btn_clear_cr_search"
+                                            title="ล้างการค้นหา">
+                                            <i class="fas fa-times"></i>
+                                        </button>
                                     </div>
                                 </div>
-                                <div class="col-md-7 text-md-right">
-                                    <button type="button" class="btn btn-xs btn-outline-info font-weight-bold mr-1"
-                                        id="btn-select-shift-rooms" title="เลือกทุกห้องที่ตรงกับรอบเวลาที่เลือก">
-                                        <i class="fas fa-check-double mr-1"></i>เลือกตามรอบที่เลือก
-                                    </button>
-                                    <button type="button" class="btn btn-xs btn-outline-success font-weight-bold mr-1"
-                                        id="btn-select-all-rooms">
-                                        เลือกทั้งหมด
-                                    </button>
-                                    <button type="button" class="btn btn-xs btn-outline-danger font-weight-bold"
-                                        id="btn-deselect-all-rooms">
-                                        ล้างที่เลือก
-                                    </button>
-                                </div>
                             </div>
-                            <label class="font-weight-bold mb-1">
-                                เลือกห้องเรียน / ระดับชั้น <span class="text-danger">*</span>
-                            </label>
+                        </div>
+
+                        <!-- Actions & Selection Summary Bar -->
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
+                            <div class="text-dark">
+                                <strong>เลือกแล้ว:</strong>
+                                <span id="modal_cr_selected_count" class="badge badge-success px-2 py-1 font-weight-bold ml-1"
+                                    style="font-size: 0.95rem;">0</span> กลุ่มเรียน
+                                <span class="text-muted ml-1">(รวมนักศึกษา <strong id="modal_cr_student_sum" class="text-success">0</strong> คน)</span>
+                                <span class="text-muted ml-2">| แสดงอยู่: <span id="modal_cr_visible_count" class="font-weight-bold text-dark">{{ $allClassrooms->count() }}</span> ห้อง</span>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-xs btn-outline-success font-weight-bold mr-1"
+                                    id="btn_cr_select_all_visible">
+                                    <i class="fas fa-check-square mr-1"></i>เลือกทั้งหมดที่แสดง
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline-danger font-weight-bold"
+                                    id="btn_cr_clear_all">
+                                    <i class="fas fa-trash-alt mr-1"></i>ล้างที่เลือกทั้งหมด
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Scrollable Table of Classrooms with Checkboxes -->
+                        <div class="table-responsive border rounded" style="max-height: 400px; overflow-y: auto;">
                             @php
                                 $enrolledIds = isset($enrolledClassrooms) ? $enrolledClassrooms->pluck('id')->toArray() : [];
                             @endphp
-                            <select name="classroom_ids[]" id="classroom_select" class="form-control select2 text-dark"
-                                multiple="multiple" data-placeholder="คลิกเพื่อเลือกห้องเรียน (เลือกได้หลายห้อง)..."
-                                required style="width: 100%;">
-                                @foreach($allClassrooms as $room)
-                                    @php
-                                        $isEnrolled = in_array($room->id, $enrolledIds);
-                                        $roomShift = str_contains($room->name, 'เช้า') ? 'เช้า' : (str_contains($room->name, 'บ่าย') ? 'บ่าย' : (str_contains($room->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''));
-                                    @endphp
-                                    <option value="{{ $room->id }}" data-shift="{{ $roomShift }}" data-enrolled="{{ $isEnrolled ? '1' : '0' }}">
-                                        {{ $room->name }} ({{ $room->users_count }} คน)
-                                        {{ $isEnrolled ? '— [อยู่ในวิชานี้แล้ว]' : '' }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <table class="table table-sm table-hover table-striped mb-0" id="modal_classrooms_table">
+                                <thead class="thead-light"
+                                    style="position: sticky; top: 0; z-index: 5; background-color: #f1f5f9;">
+                                    <tr>
+                                        <th style="width: 45px;" class="text-center align-middle">
+                                            <input type="checkbox" id="modal_cr_check_all"
+                                                title="เลือก/ยกเลิกทั้งหมดที่แสดง">
+                                        </th>
+                                        <th style="width: 50px;" class="text-center align-middle">#</th>
+                                        <th class="align-middle">ชื่อห้องเรียน / ระดับชั้น</th>
+                                        <th style="width: 140px;" class="text-center align-middle">รอบเวลา</th>
+                                        <th style="width: 140px;" class="text-center align-middle">จำนวนนักศึกษา</th>
+                                        <th style="width: 150px;" class="text-center align-middle">สถานะในวิชา</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($allClassrooms as $index => $room)
+                                        @php
+                                            $isEnrolled = in_array($room->id, $enrolledIds);
+                                            $roomShift = str_contains($room->name, 'เช้า') ? 'เช้า' : (str_contains($room->name, 'บ่าย') ? 'บ่าย' : (str_contains($room->name, 'ทวิภาคี') ? 'ทวิภาคี' : ''));
+                                        @endphp
+                                        <tr class="modal-cr-row"
+                                            data-shift="{{ $roomShift }}"
+                                            data-name="{{ mb_strtolower($room->name) }}"
+                                            data-enrolled="{{ $isEnrolled ? '1' : '0' }}">
+                                            <td class="text-center align-middle">
+                                                <input type="checkbox" name="classroom_ids[]" value="{{ $room->id }}"
+                                                    class="modal-cr-check"
+                                                    data-count="{{ $room->users_count }}">
+                                            </td>
+                                            <td class="text-center align-middle text-muted modal-cr-row-num">
+                                                {{ $index + 1 }}
+                                            </td>
+                                            <td class="align-middle">
+                                                <span class="font-weight-bold text-dark">{{ $room->name }}</span>
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                {!! $room->shift_badge !!}
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                <span class="font-weight-bold text-secondary">{{ $room->users_count }} คน</span>
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                @if($isEnrolled)
+                                                    <span class="badge badge-success px-2 py-1">
+                                                        <i class="fas fa-check-circle mr-1"></i>อยู่ในวิชาแล้ว
+                                                    </span>
+                                                @else
+                                                    <span class="badge badge-light border text-muted px-2 py-1">
+                                                        ยังไม่เข้าร่วม
+                                                    </span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4 text-muted">
+                                                ไม่พบข้อมูลห้องเรียนในระบบ
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                    <tr id="modal_cr_no_results" class="d-none">
+                                        <td colspan="6" class="text-center py-4 text-muted">
+                                            <i class="fas fa-search mr-1"></i>ไม่พบกลุ่มเรียนที่ตรงกับเงื่อนไขการค้นหา
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Info note -->
+                        <div class="mt-2 text-muted text-xs">
+                            <i class="fas fa-info-circle mr-1 text-info"></i>
+                            คลิกที่แถวเพื่อเลือกหรือยกเลิกการเลือกห้องเรียน | สามารถเลือกหลายห้องเรียนพร้อมกันได้
                         </div>
                     </div>
                     <div class="modal-footer bg-light">
                         <button type="button" class="btn btn-secondary font-weight-bold"
                             data-dismiss="modal">ยกเลิก</button>
-                        <button type="submit" class="btn btn-success font-weight-bold" id="btn-submit-add-rooms">
-                            <i class="fas fa-plus mr-2"></i>เพิ่ม
+                        <button type="submit" class="btn btn-success font-weight-bold shadow-sm" id="btn-submit-add-rooms">
+                            <i class="fas fa-plus mr-1"></i>เพิ่มกลุ่มเรียนเข้ารายวิชา (<span id="modal_cr_submit_count">0</span>)
                         </button>
                     </div>
                 </form>
@@ -734,70 +845,157 @@
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังบันทึก...');
         });
 
-        $('#classroom_select').select2({
-            dropdownParent: $('#addClassroomModal'),
-            placeholder: "คลิกเพื่อเลือกห้องเรียน (เลือกได้หลายห้อง)...",
-            allowClear: true,
-            width: '100%'
-        });
+        // ================= MODAL: ADD CLASSROOMS AS TABLE =================
+        function filterModalClassrooms() {
+            var selectedShift = $('#modal_cr_shift_filter').val();
+            var selectedStatus = $('#modal_cr_status_filter').val();
+            var searchTerm = $.trim($('#modal_cr_search').val()).toLowerCase();
+            var visibleCount = 0;
 
-        // Strictly filter classroom select options by shift: remove non-matching options entirely
-        var allModalClassrooms = $('#classroom_select option').clone();
+            $('.modal-cr-row').each(function () {
+                var row = $(this);
+                var shift = row.attr('data-shift') || '';
+                var name = row.attr('data-name') || '';
+                var isEnrolled = row.attr('data-enrolled') || '0';
 
-        $('#modal_classroom_shift_filter').on('change', function () {
-            var shift = $(this).val();
-            var currentSelected = $('#classroom_select').val() || [];
-            $('#classroom_select').empty();
-            allModalClassrooms.each(function () {
-                var roomShift = $(this).data('shift');
-                if (!shift || roomShift === shift) {
-                    $('#classroom_select').append($(this).clone());
+                var matchShift = !selectedShift || shift === selectedShift;
+                var matchStatus = !selectedStatus ||
+                    (selectedStatus === 'enrolled' && isEnrolled === '1') ||
+                    (selectedStatus === 'not_enrolled' && isEnrolled === '0');
+                var matchSearch = !searchTerm || name.indexOf(searchTerm) !== -1;
+
+                if (matchShift && matchStatus && matchSearch) {
+                    row.removeClass('d-none');
+                    visibleCount++;
+                    row.find('.modal-cr-row-num').text(visibleCount);
+                } else {
+                    row.addClass('d-none');
                 }
             });
-            // Keep previously selected values that still exist in the filtered options
-            var validSelections = [];
-            $('#classroom_select option').each(function () {
-                if (currentSelected.indexOf($(this).val()) !== -1) {
-                    validSelections.push($(this).val());
-                }
-            });
-            $('#classroom_select').val(validSelections).trigger('change.select2');
-        });
 
-        // Quick select classrooms by selected shift
-        $('#btn-select-shift-rooms').on('click', function () {
-            var allVals = [];
-            $('#classroom_select option').each(function () {
-                allVals.push($(this).val());
+            $('#modal_cr_visible_count').text(visibleCount);
+
+            if (visibleCount === 0 && $('.modal-cr-row').length > 0) {
+                $('#modal_cr_no_results').removeClass('d-none');
+            } else {
+                $('#modal_cr_no_results').addClass('d-none');
+            }
+
+            updateModalClassroomCounts();
+        }
+
+        function updateModalClassroomCounts() {
+            var checkedCheckboxes = $('.modal-cr-check:checked');
+            var checkedCount = checkedCheckboxes.length;
+            var studentSum = 0;
+
+            checkedCheckboxes.each(function () {
+                studentSum += parseInt($(this).data('count')) || 0;
             });
-            if (allVals.length === 0) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'ไม่พบห้องเรียนตามรอบที่เลือก',
-                    text: 'ไม่มีห้องเรียนในรอบเวลานี้ที่สามารถเลือกได้',
-                    confirmButtonText: 'ตกลง'
-                });
+
+            $('#modal_cr_selected_count').text(checkedCount);
+            $('#modal_cr_student_sum').text(studentSum.toLocaleString());
+            $('#modal_cr_submit_count').text(checkedCount);
+
+            // Master checkbox state
+            var visibleRows = $('.modal-cr-row:not(.d-none)');
+            var visibleChecked = visibleRows.find('.modal-cr-check:checked').length;
+
+            if (visibleRows.length > 0 && visibleChecked === visibleRows.length) {
+                $('#modal_cr_check_all').prop('checked', true).prop('indeterminate', false);
+            } else if (visibleChecked > 0) {
+                $('#modal_cr_check_all').prop('checked', false).prop('indeterminate', true);
+            } else {
+                $('#modal_cr_check_all').prop('checked', false).prop('indeterminate', false);
+            }
+        }
+
+        // Row click to toggle checkbox
+        $(document).on('click', '.modal-cr-row', function (e) {
+            if ($(e.target).is('input[type="checkbox"]')) {
                 return;
             }
-            $('#classroom_select').val(allVals).trigger('change.select2');
+            var cb = $(this).find('.modal-cr-check');
+            cb.prop('checked', !cb.prop('checked')).trigger('change');
         });
 
-        // Quick select all rooms
-        $('#btn-select-all-rooms').on('click', function () {
-            var allVals = [];
-            $('#classroom_select option').each(function () {
-                allVals.push($(this).val());
+        // Checkbox change updates row highlight and counts
+        $(document).on('change', '.modal-cr-check', function () {
+            var tr = $(this).closest('tr');
+            if (this.checked) {
+                tr.addClass('table-success');
+            } else {
+                tr.removeClass('table-success');
+            }
+            updateModalClassroomCounts();
+        });
+
+        // Master checkbox in table header
+        $('#modal_cr_check_all').on('click', function () {
+            var isChecked = this.checked;
+            $('.modal-cr-row:not(.d-none)').each(function () {
+                var cb = $(this).find('.modal-cr-check');
+                cb.prop('checked', isChecked);
+                if (isChecked) {
+                    $(this).addClass('table-success');
+                } else {
+                    $(this).removeClass('table-success');
+                }
             });
-            $('#classroom_select').val(allVals).trigger('change.select2');
+            updateModalClassroomCounts();
         });
 
-        // Quick deselect all
-        $('#btn-deselect-all-rooms').on('click', function () {
-            $('#classroom_select').val([]).trigger('change.select2');
+        // Quick button: Select all visible
+        $('#btn_cr_select_all_visible').on('click', function () {
+            $('.modal-cr-row:not(.d-none)').each(function () {
+                $(this).find('.modal-cr-check').prop('checked', true);
+                $(this).addClass('table-success');
+            });
+            updateModalClassroomCounts();
         });
 
-        // Form submit loading
-        $('#add-classroom-form').on('submit', function () {
+        // Quick button: Clear all selections
+        $('#btn_cr_clear_all').on('click', function () {
+            $('.modal-cr-row').each(function () {
+                $(this).find('.modal-cr-check').prop('checked', false);
+                $(this).removeClass('table-success');
+            });
+            updateModalClassroomCounts();
+        });
+
+        // Event listeners for filters
+        $('#modal_cr_shift_filter, #modal_cr_status_filter').on('change', function () {
+            filterModalClassrooms();
+        });
+
+        $('#modal_cr_search').on('input', function () {
+            filterModalClassrooms();
+        });
+
+        $('#btn_clear_cr_search').on('click', function () {
+            $('#modal_cr_search').val('');
+            filterModalClassrooms();
+        });
+
+        // Trigger filter and autofocus search when modal opened
+        $('#addClassroomModal').on('shown.bs.modal', function () {
+            filterModalClassrooms();
+            $('#modal_cr_search').focus();
+        });
+
+        // Form submit loading & validation
+        $('#add-classroom-form').on('submit', function (e) {
+            var checkedCount = $('.modal-cr-check:checked').length;
+            if (checkedCount === 0) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'กรุณาเลือกกลุ่มเรียน',
+                    text: 'กรุณาเลือกกลุ่มเรียนที่ต้องการเพิ่มเข้ารายวิชาอย่างน้อย 1 กลุ่ม',
+                    confirmButtonText: 'ตกลง'
+                });
+                return false;
+            }
             var btn = $('#btn-submit-add-rooms');
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังบันทึก...');
         });

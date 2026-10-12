@@ -160,4 +160,16 @@ class SubjectClassroomTest extends TestCase
         $response->assertSee('เพิ่มนักศึกษารายคน');
         $response->assertSee('id="addIndividualStudentModal"', false);
     }
+
+    public function test_subject_students_index_renders_with_classroom_table_modal(): void
+    {
+        $response = $this->actingAs($this->admin)->get(route('admin.subjects.students.index', $this->subject->id));
+        $response->assertStatus(200);
+        $response->assertSee('เพิ่มกลุ่มเรียนเข้าร่วมรายวิชา');
+        $response->assertSee('id="addClassroomModal"', false);
+        $response->assertSee('id="modal_classrooms_table"', false);
+        $response->assertSee('id="modal_cr_shift_filter"', false);
+        $response->assertSee('id="modal_cr_search"', false);
+        $response->assertSee('class="modal-cr-check"', false);
+    }
 }
