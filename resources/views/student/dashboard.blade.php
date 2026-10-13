@@ -111,7 +111,7 @@
                             <thead class="thead-light">
                                 <tr>
                                     <th class="text-center align-middle" style="width: 60px;">ลำดับ</th>
-                                    <th class="text-center align-middle" style="width: 110px;">วันที่</th>
+                                    <th class="text-center align-middle text-nowrap" style="width: 140px;">วันที่</th>
                                     <th class="text-center align-middle text-nowrap" style="width: 135px;">เวลาสอบ</th>
                                     <th class="align-middle" style="width: 28%; min-width: 200px;">รหัส ชื่อวิชา</th>
                                     <th class="align-middle" style="width: 32%; min-width: 220px;">รายละเอียดเบื้องต้นข้อสอบ</th>
@@ -129,6 +129,11 @@
                                         'Thursday' => 'พฤหัสบดี',
                                         'Friday' => 'ศุกร์',
                                         'Saturday' => 'เสาร์'
+                                    ];
+                                    $thaiMonths = [
+                                        1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม', 4 => 'เมษายน',
+                                        5 => 'พฤษภาคม', 6 => 'มิถุนายน', 7 => 'กรกฎาคม', 8 => 'สิงหาคม',
+                                        9 => 'กันยายน', 10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม'
                                     ];
                                 @endphp
                                 @forelse($exams as $index => $exam)
@@ -151,11 +156,11 @@
                                     @endif
                                     <tr>
                                         <td class="text-center align-middle">{{ $index + 1 }}</td>
-                                        <td class="text-center align-middle">
+                                        <td class="text-center align-middle text-nowrap">
                                             @if($exam->starts_at)
-                                                <div class="font-weight-bold text-dark">{{ $dayName }}</div>
-                                                <div class="text-sm font-weight-bold text-dark">
-                                                    {{ $exam->starts_at->format('d/m/Y') }}</div>
+                                                <span class="font-weight-bold text-dark">
+                                                    {{ (int) $exam->starts_at->format('j') }} {{ $thaiMonths[(int) $exam->starts_at->format('n')] ?? '' }} {{ (int) $exam->starts_at->format('Y') + 543 }}
+                                                </span>
                                             @else
                                                 <span class="text-muted text-sm">ไม่ระบุวัน</span>
                                             @endif
@@ -289,6 +294,11 @@
                                 'Friday' => 'ศุกร์',
                                 'Saturday' => 'เสาร์'
                             ];
+                            $thaiMonthsMobile = [
+                                1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม', 4 => 'เมษายน',
+                                5 => 'พฤษภาคม', 6 => 'มิถุนายน', 7 => 'กรกฎาคม', 8 => 'สิงหาคม',
+                                9 => 'กันยายน', 10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม'
+                            ];
                         @endphp
                         @forelse($exams as $index => $exam)
                             @php
@@ -314,7 +324,7 @@
                                 </div>
                                 <div class="mb-1 text-sm font-weight-bold text-dark">
                                     @if($exam->starts_at)
-                                        วัน{{ $dayNameMobile }}ที่ {{ $exam->starts_at->format('d/m/Y') }}
+                                        วัน{{ $dayNameMobile }}ที่ {{ (int) $exam->starts_at->format('j') }} {{ $thaiMonthsMobile[(int) $exam->starts_at->format('n')] ?? '' }} {{ (int) $exam->starts_at->format('Y') + 543 }}
                                         เวลา
                                         {{ $exam->starts_at && $exam->ends_at ? $exam->starts_at->format('H:i') . ' - ' . $exam->ends_at->format('H:i') . ' น.' : ($exam->starts_at ? 'ตั้งแต่ ' . $exam->starts_at->format('H:i') . ' น.' : 'ไม่จำกัดเวลา') }}
                                     @else
