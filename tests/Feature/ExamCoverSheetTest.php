@@ -189,4 +189,27 @@ class ExamCoverSheetTest extends TestCase
         $responseIneligible->assertStatus(200);
         $responseIneligible->assertSee('นายกรกฎ ชื่นอุรา (69319100216)');
     }
+
+    public function test_cover_sheet_auto_populates_morning_or_afternoon_session(): void
+    {
+        // Classroom 1 has shift 'morning' (default when no 'บ่าย')
+        $this->classroom1->update(['shift' => 'morning']);
+
+        $responseMorning = $this->actingAs($this->admin)->get(route('admin.exams.cover-sheet', [
+            $this->exam->id,
+            'classroom_id' => $this->classroom1->id,
+        ]));
+        $responseMorning->assertStatus(200);
+        $responseMorning->assertSee('data-default-session="เช้า"', false);
+
+        // Update classroom 1 to afternoon
+        $this->classroom1->update(['shift' => 'afternoon']);
+
+        $responseAfternoon = $this->actingAs($this->admin)->get(route('admin.exams.cover-sheet', [
+            $this->exam->id,
+            'classroom_id' => $this->classroom1->id,
+        ]));
+        $responseAfternoon->assertStatus(200);
+        $responseAfternoon->assertSee('data-default-session="บ่าย"', false);
+    }
 }

@@ -876,10 +876,9 @@
                     <div class="col-6 form-group mb-2">
                         <label class="font-weight-bold text-dark text-xs mb-1">ภาค:</label>
                         <select id="input_session" class="form-control form-control-sm">
-                            <option value="" selected>-- เลือก --</option>
-                            <option value="บ่าย">บ่าย</option>
-                            <option value="เช้า">เช้า</option>
-
+                            <option value="auto" selected>อัตโนมัติ (ตามกลุ่มเรียน)</option>
+                            <option value="เช้า">เช้า (ทุกห้อง)</option>
+                            <option value="บ่าย">บ่าย (ทุกห้อง)</option>
                         </select>
                     </div>
                 </div>
@@ -966,6 +965,22 @@
                         $ineligibleStudents = $group['ineligible_students'];
                         $eligibleCount = $eligibleStudents->count();
                         $hasTeacher = $teacherName && $teacherName !== '-';
+
+                        $cShift = '-';
+                        if (!empty($classroom->shift_text)) {
+                            $cShift = $classroom->shift_text;
+                        } elseif (!empty($classroom->shift)) {
+                            $cShift = ($classroom->shift === 'afternoon') ? 'บ่าย' : 'เช้า';
+                        } elseif (!empty($classroom->name)) {
+                            if (str_contains($classroom->name, 'บ่าย') || str_contains($classroom->name, 'ปวส. พิเศษ')) {
+                                $cShift = 'บ่าย';
+                            } elseif (str_contains($classroom->name, 'เช้า')) {
+                                $cShift = 'เช้า';
+                            }
+                        }
+                        if ($cShift === '-' && $exam->starts_at) {
+                            $cShift = ((int) $exam->starts_at->format('H') < 12) ? 'เช้า' : 'บ่าย';
+                        }
                     @endphp
 
                     <!-- ========================================================= -->
@@ -1037,7 +1052,7 @@
                                 <span class="doc-value font-weight-bold flex-grow-1">{{ $classroom->name }}</span>
                                 <span class="doc-label ml-3">ภาค:</span>
                                 <span class="doc-value text-center" style="min-width: 60px;">
-                                    <span class="sync-session highlight-needed">-</span>
+                                    <span class="sync-session {{ $cShift === '-' ? 'highlight-needed' : 'font-weight-bold' }}" data-default-session="{{ $cShift }}">{{ $cShift }}</span>
                                 </span>
                                 <span class="doc-label ml-3">เลขที่:</span>
                                 <span class="doc-value text-center" style="min-width: 80px;">
@@ -1261,7 +1276,7 @@
                             <div class="row no-gutters mb-1">
                                 <div class="col-7">
                                     <span class="font-weight-bold">ชั้น:</span> <strong>{{ $classroom->name }}</strong>
-                                    &nbsp;&nbsp; ภาค<span class="sync-session highlight-needed font-weight-bold">-</span>
+                                    &nbsp;&nbsp; ภาค<span class="sync-session font-weight-bold {{ $cShift === '-' ? 'highlight-needed' : '' }}" data-default-session="{{ $cShift }}">{{ $cShift }}</span>
                                 </div>
                                 <div class="col-5">
                                     <span class="font-weight-bold">ห้องสอบ:</span> <span
@@ -1456,9 +1471,26 @@
                 syncField('input_room', 'sync-room', '-');
             }
 
+            function syncSession() {
+                var selected = sessionInput ? sessionInput.value : 'auto';
+                document.querySelectorAll('.sync-session').forEach(function (el) {
+                    var val = selected;
+                    if (val === 'auto' || !val) {
+                        val = el.getAttribute('data-default-session') || '-';
+                    }
+                    el.textContent = val;
+                    if (val && val !== '-') {
+                        el.classList.remove('highlight-needed');
+                        el.classList.add('font-weight-bold');
+                    } else {
+                        el.classList.add('highlight-needed');
+                    }
+                });
+            }
+
             if (sessionInput) {
-                sessionInput.addEventListener('change', function () { syncField('input_session', 'sync-session', '-'); });
-                syncField('input_session', 'sync-session', '-');
+                sessionInput.addEventListener('change', syncSession);
+                syncSession();
             }
 
             if (dateInput) {
