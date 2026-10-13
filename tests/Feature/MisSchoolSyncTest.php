@@ -212,4 +212,36 @@ class MisSchoolSyncTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $inactiveStudent->id]);
         $this->assertDatabaseHas('users', ['id' => $activeStudent->id]);
     }
+
+    public function test_sync_student_handles_invalid_or_hyphen_email_gracefully(): void
+    {
+        $service = app(MisSchoolService::class);
+
+        // Sync first student with '-' email
+        $student1 = $service->syncStudentUser([
+            'std_no' => '99001',
+            'full_name' => 'นักเรียน หนึ่ง',
+            'citizen_id' => '1111111111111',
+            'email' => '-',
+            'level_no' => '1',
+            'depart_no' => '01',
+            'year' => '1',
+            'room' => '1',
+        ], '1111111111111');
+
+        // Sync second student with same '-' email
+        $student2 = $service->syncStudentUser([
+            'std_no' => '99002',
+            'full_name' => 'นักเรียน สอง',
+            'citizen_id' => '2222222222222',
+            'email' => '-',
+            'level_no' => '1',
+            'depart_no' => '01',
+            'year' => '1',
+            'room' => '1',
+        ], '2222222222222');
+
+        $this->assertEquals('99001@exam.local', $student1->email);
+        $this->assertEquals('99002@exam.local', $student2->email);
+    }
 }

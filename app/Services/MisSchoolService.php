@@ -316,7 +316,11 @@ class MisSchoolService
     {
         $stdNo = trim($data['std_no'] ?? '');
         $fullName = trim($data['full_name'] ?? '');
-        $email = !empty($data['email']) ? trim($data['email']) : "{$stdNo}@exam.local";
+        $rawEmail = trim($data['email'] ?? '');
+        $isValidEmail = !empty($rawEmail) 
+            && !in_array($rawEmail, ['-', 'ไม่ระบุ', 'none', 'null', 'N/A'], true)
+            && filter_var($rawEmail, FILTER_VALIDATE_EMAIL) !== false;
+        $email = $isValidEmail ? $rawEmail : "{$stdNo}@exam.local";
         $levelNo = $data['level_no'] ?? null;
         $departNo = $data['depart_no'] ?? null;
         $year = $data['year'] ?? null;
@@ -370,10 +374,10 @@ class MisSchoolService
             $attributes['email'] = $email;
             $attributes['password'] = Hash::make($password);
         } else {
-            // ถ้ามี user อยู่แล้ว ไม่ทับอีเมลเดิมยกเว้นจะไม่มีอีเมล หรือมีการระบุอีเมลใหม่จาก MisSchool
-            if (!empty($data['email'])) {
-                $attributes['email'] = $data['email'];
-            } elseif (empty($user->email)) {
+            // ถ้ามี user อยู่แล้ว ให้อัปเดตเฉพาะเมื่อมีอีเมลที่ถูกต้องจาก MisSchool
+            if ($isValidEmail) {
+                $attributes['email'] = $rawEmail;
+            } elseif (empty($user->email) || in_array($user->email, ['-', 'ไม่ระบุ'], true)) {
                 $attributes['email'] = $email;
             }
             // Hash รหัสผ่านใหม่เฉพาะเมื่อ citizen_id เปลี่ยนแปลง
@@ -754,6 +758,7 @@ class MisSchoolService
         $updatedCount = 0;
         $failedCount = 0;
         $skippedInactiveCount = 0;
+        $failedItems = [];
 
         foreach ($students as $st) {
             $stdNo = trim($st['std_no'] ?? '');
@@ -785,6 +790,12 @@ class MisSchoolService
                 }
             } catch (\Throwable $e) {
                 $failedCount++;
+                $failedItems[] = [
+                    'std_no' => $stdNo,
+                    'name' => trim($st['full_name'] ?? ''),
+                    'citizen_id' => $citizenId,
+                    'reason' => $e->getMessage(),
+                ];
                 Log::warning("Skipped student sync for {$stdNo} ({$citizenId}): " . $e->getMessage());
             }
         }
@@ -805,6 +816,7 @@ class MisSchoolService
             'updated' => $updatedCount,
             'skipped_inactive' => $skippedInactiveCount,
             'failed' => $failedCount,
+            'failed_items' => $failedItems,
         ];
     }
 
