@@ -74,6 +74,10 @@ $(document).ready(function() {
                 <i class="fas fa-chevron-up" id="sidebar-user-chevron" style="font-size:0.7rem; color:#6c757d; transition:transform 0.2s;"></i>
             </div>
             <div id="sidebar-user-submenu" style="display:none; padding:4px 0;">
+                <a href="/profile" id="sidebar-profile-btn" style="text-decoration:none; display:flex; align-items:center; gap:8px; padding:8px 16px; border-radius:6px; margin:2px 8px; transition:background 0.15s; color:#343a40;">
+                    <i class="fas fa-user-edit" style="color:#007bff;"></i>
+                    <span style="font-weight:600;">ข้อมูลส่วนตัว</span>
+                </a>
                 <div id="sidebar-logout-btn" style="cursor:pointer; display:flex; align-items:center; gap:8px; padding:8px 16px; border-radius:6px; margin:2px 8px; transition:background 0.15s;">
                     <i class="fas fa-sign-out-alt" style="color:#dc3545;"></i>
                     <span style="color:#dc3545; font-weight:600;">ออกจากระบบ</span>
@@ -89,6 +93,13 @@ $(document).ready(function() {
             var chevron = $('#sidebar-user-chevron');
             submenu.slideToggle(150);
             chevron.css('transform', submenu.is(':hidden') ? 'rotate(0deg)' : 'rotate(180deg)');
+        });
+
+        // Hover effect on profile
+        userCard.on('mouseenter', '#sidebar-profile-btn', function() {
+            $(this).css('background', 'rgba(0, 123, 255, 0.12)');
+        }).on('mouseleave', '#sidebar-profile-btn', function() {
+            $(this).css('background', 'transparent');
         });
 
         // Logout
