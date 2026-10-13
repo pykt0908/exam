@@ -152,35 +152,17 @@
                             @enderror
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="phone" class="font-weight-bold">เบอร์โทรศัพท์</label>
-                                    <input type="text" 
-                                           name="phone" 
-                                           id="phone" 
-                                           class="form-control @error('phone') is-invalid @enderror" 
-                                           placeholder="เช่น 0812345678"
-                                           value="{{ old('phone', $user->phone) }}">
-                                    @error('phone')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="email" class="font-weight-bold">อีเมลเข้าสู่ระบบ</label>
-                                    <input type="email" 
-                                           name="email" 
-                                           id="email" 
-                                           class="form-control @error('email') is-invalid @enderror" 
-                                           value="{{ old('email', $user->email) }}">
-                                    @error('email')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
+                        <div class="form-group">
+                            <label for="phone" class="font-weight-bold">เบอร์โทรศัพท์</label>
+                            <input type="text" 
+                                   name="phone" 
+                                   id="phone" 
+                                   class="form-control @error('phone') is-invalid @enderror" 
+                                   placeholder="เช่น 0812345678" 
+                                   value="{{ old('phone', $user->phone) }}">
+                            @error('phone')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <hr class="my-3">
