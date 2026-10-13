@@ -3,7 +3,8 @@
 @section('title', 'หน้าแรกนักศึกษา')
 
 @section('meta_tags')
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 @stop
 
 @section('content_header')
@@ -49,7 +50,8 @@
                             </div>
                             <div class="col-6 col-md-2 mb-2 mb-md-0">
                                 <span class="text-muted d-block text-xs">ภาค</span>
-                                <span class="text-sm font-weight-bold text-dark">{{ Auth::user()->classroom ? (Auth::user()->classroom->shift_text === 'บ่าย' ? 'ภาคบ่าย' : 'ภาคเช้า') : '-' }}</span>
+                                <span
+                                    class="text-sm font-weight-bold text-dark">{{ Auth::user()->classroom ? (Auth::user()->classroom->shift_text === 'บ่าย' ? 'ภาคบ่าย' : 'ภาคเช้า') : '-' }}</span>
                             </div>
                             <div class="col-6 col-md-2 mb-2 mb-md-0">
                                 <span class="text-muted d-block text-xs">เลขประจำตัวประชาชน</span>
@@ -105,16 +107,16 @@
                 <div class="card-body p-0">
                     <!-- Desktop Timetable Table (>= 768px) -->
                     <div class="d-none d-md-block table-responsive">
-                        <table class="table table-bordered table-hover mb-0">
+                        <table class="table table-hover mb-0">
                             <thead class="thead-light">
                                 <tr>
-                                    <th class="text-center" style="width: 50px;">ลำดับ</th>
-                                    <th class="text-center" style="width: 120px;">วัน / วันที่</th>
-                                    <th class="text-center" style="width: 150px;">เวลาสอบ</th>
-                                    <th style="width: 220px;">รหัส ชื่อวิชา</th>
-                                    <th>รายละเอียดเบื้องต้นข้อสอบ</th>
-                                    <th class="text-center" style="width: 140px;">สถานะ</th>
-                                    <th class="text-center" style="width: 110px;">เข้าสอบ</th>
+                                    <th class="text-center align-middle" style="width: 60px;">ลำดับ</th>
+                                    <th class="text-center align-middle" style="width: 110px;">วันที่</th>
+                                    <th class="text-center align-middle text-nowrap" style="width: 135px;">เวลาสอบ</th>
+                                    <th class="align-middle" style="width: 28%; min-width: 200px;">รหัส ชื่อวิชา</th>
+                                    <th class="align-middle" style="width: 32%; min-width: 220px;">รายละเอียดเบื้องต้นข้อสอบ</th>
+                                    <th class="text-center align-middle text-nowrap" style="width: 125px;">สถานะ</th>
+                                    <th class="text-center align-middle text-nowrap" style="width: 120px;">เข้าสอบ</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -152,12 +154,13 @@
                                         <td class="text-center align-middle">
                                             @if($exam->starts_at)
                                                 <div class="font-weight-bold text-dark">{{ $dayName }}</div>
-                                                <div class="text-sm font-weight-bold text-dark">{{ $exam->starts_at->format('d/m/Y') }}</div>
+                                                <div class="text-sm font-weight-bold text-dark">
+                                                    {{ $exam->starts_at->format('d/m/Y') }}</div>
                                             @else
                                                 <span class="text-muted text-sm">ไม่ระบุวัน</span>
                                             @endif
                                         </td>
-                                        <td class="text-center align-middle text-sm">
+                                        <td class="text-center align-middle text-sm text-nowrap">
                                             @if($exam->starts_at && $exam->ends_at)
                                                 {{ $exam->starts_at->format('H:i') }} - {{ $exam->ends_at->format('H:i') }} น.
                                             @elseif($exam->starts_at)
@@ -176,7 +179,7 @@
                                                 {{ $exam->questions_count }} ข้อ
                                             </div>
                                         </td>
-                                        <td class="text-center align-middle text-sm">
+                                        <td class="text-center align-middle text-sm text-nowrap">
                                             @if(!$eligibility['eligible'])
                                                 <span class="badge badge-danger px-2 py-1 font-weight-bold"
                                                     title="{{ $eligibility['reason'] }}">
@@ -203,7 +206,7 @@
                                                 <span class="text-success font-weight-bold">พร้อมสอบ</span>
                                             @endif
                                         </td>
-                                        <td class="text-center align-middle">
+                                        <td class="text-center align-middle text-nowrap">
                                             @if(!$eligibility['eligible'])
                                                 <button type="button" class="btn btn-sm btn-secondary font-weight-bold" disabled
                                                     title="ถูกระงับสิทธิ์การสอบ: {{ $eligibility['reason'] }}">
@@ -265,7 +268,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted py-5">
+                                        <td colspan="7" class="text-center text-muted py-5">
                                             ยังไม่มีตารางสอบสำหรับรายวิชาที่คุณลงทะเบียนในขณะนี้
                                         </td>
                                     </tr>
@@ -432,14 +435,19 @@
 
 @section('css')
 <style>
-    html, body {
+    html,
+    body {
         touch-action: pan-x pan-y;
         -webkit-text-size-adjust: 100%;
         -ms-text-size-adjust: 100%;
     }
 
     @media (max-width: 768px) {
-        input, textarea, select, .form-control {
+
+        input,
+        textarea,
+        select,
+        .form-control {
             font-size: 16px !important;
         }
     }
