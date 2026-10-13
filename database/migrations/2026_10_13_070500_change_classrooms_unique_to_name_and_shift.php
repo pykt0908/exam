@@ -11,10 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('classrooms', function (Blueprint $table) {
-            $table->dropUnique('classrooms_name_unique');
-            $table->unique(['name', 'shift']);
-        });
+        try {
+            Schema::table('classrooms', function (Blueprint $table) {
+                $table->dropUnique('classrooms_name_unique');
+            });
+        } catch (\Throwable $e) {
+            // Ignore if index already dropped or not found
+        }
+
+        try {
+            Schema::table('classrooms', function (Blueprint $table) {
+                $table->unique(['name', 'shift']);
+            });
+        } catch (\Throwable $e) {
+            // Ignore if index already exists
+        }
     }
 
     /**

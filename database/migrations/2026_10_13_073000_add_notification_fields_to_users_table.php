@@ -12,9 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('notification_email')->nullable()->after('email');
-            $table->string('phone')->nullable()->after('notification_email');
-            $table->boolean('notify_email_approval')->default(true)->after('phone');
+            if (!Schema::hasColumn('users', 'notification_email')) {
+                $table->string('notification_email')->nullable()->after('email');
+            }
+            if (!Schema::hasColumn('users', 'phone')) {
+                $table->string('phone')->nullable()->after('notification_email');
+            }
+            if (!Schema::hasColumn('users', 'notify_email_approval')) {
+                $table->boolean('notify_email_approval')->default(true)->after('phone');
+            }
         });
     }
 

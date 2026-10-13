@@ -12,17 +12,25 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('classrooms', function (Blueprint $table) {
-            $table->string('shift')->nullable()->after('name');
-        });
+        if (!Schema::hasColumn('classrooms', 'shift')) {
+            Schema::table('classrooms', function (Blueprint $table) {
+                $table->string('shift')->nullable()->after('name');
+            });
+        }
 
         // Backfill existing classrooms based on name content
         DB::table('classrooms')
             ->where('name', 'LIKE', '%บ่าย%')
+            ->where(function ($q) {
+                $q->whereNull('shift')->orWhere('shift', '');
+            })
             ->update(['shift' => 'afternoon']);
 
         DB::table('classrooms')
             ->where('name', 'NOT LIKE', '%บ่าย%')
+            ->where(function ($q) {
+                $q->whereNull('shift')->orWhere('shift', '');
+            })
             ->update(['shift' => 'morning']);
     }
 
