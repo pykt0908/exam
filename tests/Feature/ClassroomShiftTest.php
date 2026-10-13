@@ -78,4 +78,36 @@ class ClassroomShiftTest extends TestCase
         $resMorning->assertSee('ปวช.1/1 ช่างยนต์');
         $resMorning->assertDontSee('ปวส.1/1 การตลาด');
     }
+
+    public function test_morning_and_afternoon_classrooms_can_share_same_name(): void
+    {
+        $afternoon = Classroom::create([
+            'name' => 'ปวช.3/4 โลจิสติกส์',
+            'shift' => 'afternoon',
+        ]);
+
+        $morning = Classroom::create([
+            'name' => 'ปวช.3/4 โลจิสติกส์ เช้า',
+            'shift' => 'morning',
+        ]);
+
+        // Renaming morning to 'ปวช.3/4 โลจิสติกส์' should succeed because shift is different
+        $response = $this->actingAs($this->admin)->put(route('admin.classrooms.update', $morning->id), [
+            'name' => 'ปวช.3/4 โลจิสติกส์',
+            'shift' => 'morning',
+        ]);
+
+        $response->assertRedirect(route('admin.classrooms.index'));
+        $morning->refresh();
+        $this->assertEquals('ปวช.3/4 โลจิสติกส์', $morning->name);
+        $this->assertEquals('morning', $morning->shift);
+        $this->assertEquals($afternoon->name, $morning->name);
+
+        // But creating duplicate in same shift should fail validation
+        $failResponse = $this->actingAs($this->admin)->post(route('admin.classrooms.store'), [
+            'name' => 'ปวช.3/4 โลจิสติกส์',
+            'shift' => 'morning',
+        ]);
+        $failResponse->assertSessionHasErrors('name');
+    }
 }

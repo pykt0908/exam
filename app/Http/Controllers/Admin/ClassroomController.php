@@ -67,20 +67,25 @@ class ClassroomController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:classrooms,name'],
-            'shift' => ['nullable', 'string', 'in:morning,afternoon,เช้า,บ่าย'],
-        ], [
-            'name.required' => 'กรุณากรอกชื่อห้องเรียน/ระดับชั้น',
-            'name.unique' => 'มีห้องเรียนชื่อนี้ในระบบแล้ว',
-        ]);
-
         $shift = $request->input('shift');
         if (!$shift) {
             $shift = str_contains($request->name, 'บ่าย') ? 'afternoon' : 'morning';
         } else {
             $shift = in_array($shift, ['afternoon', 'บ่าย']) ? 'afternoon' : 'morning';
         }
+
+        $request->validate([
+            'name' => [
+                'required', 
+                'string', 
+                'max:255', 
+                \Illuminate\Validation\Rule::unique('classrooms', 'name')->where('shift', $shift)
+            ],
+            'shift' => ['nullable', 'string', 'in:morning,afternoon,เช้า,บ่าย'],
+        ], [
+            'name.required' => 'กรุณากรอกชื่อห้องเรียน/ระดับชั้น',
+            'name.unique' => 'มีห้องเรียนชื่อนี้ในภาคเรียนที่เลือกแล้ว',
+        ]);
 
         Classroom::create([
             'name' => $request->name,
@@ -92,20 +97,27 @@ class ClassroomController extends Controller
 
     public function update(Request $request, Classroom $classroom)
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:classrooms,name,' . $classroom->id],
-            'shift' => ['nullable', 'string', 'in:morning,afternoon,เช้า,บ่าย'],
-        ], [
-            'name.required' => 'กรุณากรอกชื่อห้องเรียน/ระดับชั้น',
-            'name.unique' => 'มีห้องเรียนชื่อนี้ในระบบแล้ว',
-        ]);
-
         $shift = $request->input('shift');
         if (!$shift) {
             $shift = str_contains($request->name, 'บ่าย') ? 'afternoon' : ($classroom->shift ?? 'morning');
         } else {
             $shift = in_array($shift, ['afternoon', 'บ่าย']) ? 'afternoon' : 'morning';
         }
+
+        $request->validate([
+            'name' => [
+                'required', 
+                'string', 
+                'max:255', 
+                \Illuminate\Validation\Rule::unique('classrooms', 'name')
+                    ->ignore($classroom->id)
+                    ->where('shift', $shift)
+            ],
+            'shift' => ['nullable', 'string', 'in:morning,afternoon,เช้า,บ่าย'],
+        ], [
+            'name.required' => 'กรุณากรอกชื่อห้องเรียน/ระดับชั้น',
+            'name.unique' => 'มีห้องเรียนชื่อนี้ในภาคเรียนที่เลือกแล้ว',
+        ]);
 
         $classroom->update([
             'name' => $request->name,
