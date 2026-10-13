@@ -109,8 +109,7 @@
                             <thead class="thead-light">
                                 <tr>
                                     <th class="text-center" style="width: 50px;">ลำดับ</th>
-                                    <th class="text-center" style="width: 85px;">วัน</th>
-                                    <th class="text-center" style="width: 105px;">วันที่</th>
+                                    <th class="text-center" style="width: 120px;">วัน / วันที่</th>
                                     <th class="text-center" style="width: 150px;">เวลาสอบ</th>
                                     <th style="width: 220px;">รหัส ชื่อวิชา</th>
                                     <th>รายละเอียดเบื้องต้นข้อสอบ</th>
@@ -150,14 +149,12 @@
                                     @endif
                                     <tr>
                                         <td class="text-center align-middle">{{ $index + 1 }}</td>
-                                        <td class="text-center align-middle font-weight-bold text-dark">
-                                            {{ $dayName }}
-                                        </td>
-                                        <td class="text-center align-middle text-sm font-weight-bold text-dark">
+                                        <td class="text-center align-middle">
                                             @if($exam->starts_at)
-                                                {{ $exam->starts_at->format('d/m/Y') }}
+                                                <div class="font-weight-bold text-dark">{{ $dayName }}</div>
+                                                <div class="text-sm font-weight-bold text-dark">{{ $exam->starts_at->format('d/m/Y') }}</div>
                                             @else
-                                                ไม่ระบุวัน
+                                                <span class="text-muted text-sm">ไม่ระบุวัน</span>
                                             @endif
                                         </td>
                                         <td class="text-center align-middle text-sm">
