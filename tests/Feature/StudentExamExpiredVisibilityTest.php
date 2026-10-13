@@ -58,6 +58,8 @@ class StudentExamExpiredVisibilityTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('สอบกลางภาควิชาเครื่องยนต์');
         $response->assertSee('พร้อมสอบ');
+        $response->assertSee('ภาค');
+        $response->assertSee('ภาคเช้า');
     }
 
     public function test_expired_exam_is_hidden_from_student_dashboard(): void

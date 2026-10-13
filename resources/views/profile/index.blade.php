@@ -43,34 +43,45 @@
 
                     <ul class="list-group list-group-unbordered mb-0 text-left">
                         <li class="list-group-item">
-                            <b>รหัสผู้ใช้</b>
-                            <span class="float-right font-weight-bold">{{ $user->teacher_code ?: $user->username }}</span>
+                            <b>{{ $user->isStudent() ? 'รหัสนักศึกษา' : 'รหัสผู้ใช้' }}</b>
+                            <span class="float-right font-weight-bold">{{ $user->student_code ?: ($user->teacher_code ?: $user->username) }}</span>
                         </li>
-                        <li class="list-group-item">
-                            <b>แผนกวิชา</b>
-                            <span class="float-right text-muted">{{ $user->department?->name ?? 'ไม่ระบุ' }}</span>
-                        </li>
-                        <li class="list-group-item">
-                            <b>ตำแหน่ง</b>
-                            <span class="float-right text-right font-weight-bold text-dark" style="max-width: 65%;">
-                                @php
-                                    $rolesMap = [
-                                        'academic_deputy' => 'รองฝ่ายวิชาการ',
-                                        'evaluation_head' => 'หัวหน้างานวัดผล',
-                                        'department_head' => 'หัวหน้าแผนก',
-                                    ];
-                                    $positionLabels = [];
-                                    if (!empty($user->academic_roles)) {
-                                        foreach ($user->academic_roles as $roleKey) {
-                                            if (isset($rolesMap[$roleKey])) {
-                                                $positionLabels[] = $rolesMap[$roleKey];
+                        @if($user->isStudent())
+                            <li class="list-group-item">
+                                <b>ห้องเรียน / ระดับชั้น</b>
+                                <span class="float-right text-dark font-weight-bold">{{ $user->classroom?->name ?? 'ไม่ระบุ' }}</span>
+                            </li>
+                            <li class="list-group-item">
+                                <b>ภาค</b>
+                                <span class="float-right text-dark font-weight-bold">{{ $user->classroom ? ($user->classroom->shift_text === 'บ่าย' ? 'ภาคบ่าย' : 'ภาคเช้า') : '-' }}</span>
+                            </li>
+                        @else
+                            <li class="list-group-item">
+                                <b>แผนกวิชา</b>
+                                <span class="float-right text-muted">{{ $user->department?->name ?? 'ไม่ระบุ' }}</span>
+                            </li>
+                            <li class="list-group-item">
+                                <b>ตำแหน่ง</b>
+                                <span class="float-right text-right font-weight-bold text-dark" style="max-width: 65%;">
+                                    @php
+                                        $rolesMap = [
+                                            'academic_deputy' => 'รองฝ่ายวิชาการ',
+                                            'evaluation_head' => 'หัวหน้างานวัดผล',
+                                            'department_head' => 'หัวหน้าแผนก',
+                                        ];
+                                        $positionLabels = [];
+                                        if (!empty($user->academic_roles)) {
+                                            foreach ($user->academic_roles as $roleKey) {
+                                                if (isset($rolesMap[$roleKey])) {
+                                                    $positionLabels[] = $rolesMap[$roleKey];
+                                                }
                                             }
                                         }
-                                    }
-                                @endphp
-                                {{ !empty($positionLabels) ? implode(', ', $positionLabels) : '-' }}
-                            </span>
-                        </li>
+                                    @endphp
+                                    {{ !empty($positionLabels) ? implode(', ', $positionLabels) : '-' }}
+                                </span>
+                            </li>
+                        @endif
                         <li class="list-group-item">
                             <b>สถานะ MisSchool</b>
                             <span class="float-right {{ $user->mis_synced_at ? 'text-success font-weight-bold' : 'text-muted' }}">

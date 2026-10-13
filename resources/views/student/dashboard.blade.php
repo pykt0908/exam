@@ -38,7 +38,7 @@
                                 <span class="text-muted d-block text-xs">ชื่อ-นามสกุล</span>
                                 <span class="text-sm font-weight-bold text-dark">{{ Auth::user()->name }}</span>
                             </div>
-                            <div class="col-6 col-md-3 mb-2 mb-md-0">
+                            <div class="col-6 col-md-2 mb-2 mb-md-0">
                                 <span class="text-muted d-block text-xs">รหัสนักศึกษา</span>
                                 <span class="text-sm font-weight-bold text-dark">{{ Auth::user()->student_code }}</span>
                             </div>
@@ -47,7 +47,11 @@
                                 <span
                                     class="text-sm font-weight-bold text-dark">{{ Auth::user()->classroom ? Auth::user()->classroom->name : 'ไม่ได้ระบุห้องเรียน' }}</span>
                             </div>
-                            <div class="col-6 col-md-3 mb-2 mb-md-0">
+                            <div class="col-6 col-md-2 mb-2 mb-md-0">
+                                <span class="text-muted d-block text-xs">ภาค</span>
+                                <span class="text-sm font-weight-bold text-dark">{{ Auth::user()->classroom ? (Auth::user()->classroom->shift_text === 'บ่าย' ? 'ภาคบ่าย' : 'ภาคเช้า') : '-' }}</span>
+                            </div>
+                            <div class="col-6 col-md-2 mb-2 mb-md-0">
                                 <span class="text-muted d-block text-xs">เลขประจำตัวประชาชน</span>
                                 <span
                                     class="text-sm font-weight-bold text-dark">{{ Auth::user()->citizen_id ?: '-' }}</span>

@@ -66,6 +66,10 @@
                                 <span class="font-weight-bold text-dark text-truncate" style="max-width: 135px;" title="{{ $user->classroom ? $user->classroom->name : 'ไม่ได้ระบุ' }}">{{ $user->classroom ? $user->classroom->name : 'ไม่ได้ระบุ' }}</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-1">
+                                <span class="text-muted"><i class="far fa-clock mr-1 text-secondary"></i>ภาค</span>
+                                <span class="font-weight-bold text-dark">{{ $user->classroom ? ($user->classroom->shift_text === 'บ่าย' ? 'ภาคบ่าย' : 'ภาคเช้า') : '-' }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-1">
                                 <span class="text-muted"><i class="fas fa-id-card mr-1 text-secondary"></i>เลขบัตร</span>
                                 <code class="font-weight-bold text-dark">{{ $user->citizen_id ?? '-' }}</code>
                             </li>

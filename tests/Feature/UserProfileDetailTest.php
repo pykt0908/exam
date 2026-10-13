@@ -85,6 +85,7 @@ class UserProfileDetailTest extends TestCase
         $response->assertSee('สมชาย รักเรียน');
         $response->assertSee('STD001');
         $response->assertSee('ปวช.1 คอมพิวเตอร์ธุรกิจ 1');
+        $response->assertSee('ภาคเช้า');
         $response->assertSee('1234567890123');
         $response->assertSee('ประวัติการสอบ');
         $response->assertSee('การเขียนโปรแกรมคอมพิวเตอร์เบื้องต้น');
