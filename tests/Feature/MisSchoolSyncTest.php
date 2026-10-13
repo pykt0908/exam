@@ -244,4 +244,42 @@ class MisSchoolSyncTest extends TestCase
         $this->assertEquals('99001@exam.local', $student1->email);
         $this->assertEquals('99002@exam.local', $student2->email);
     }
+
+    public function test_admin_can_cleanup_resigned_students(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        // Create a student who resigned
+        $resignedUser = User::factory()->create([
+            'role' => 'student',
+            'student_code' => '999999',
+            'username' => '999999',
+            'mis_synced_at' => now(),
+        ]);
+
+        \Illuminate\Support\Facades\Http::fake([
+            '*action=resigned-students*' => \Illuminate\Support\Facades\Http::response([
+                'success' => true,
+                'count' => 1,
+                'students' => [
+                    [
+                        'std_no' => '999999',
+                        'citizen_id' => '1234567890123',
+                        'full_name' => 'นักเรียน ลาออก',
+                        'status_no' => '2',
+                        'cause' => 'แจ้งลาออก',
+                    ],
+                ],
+            ]),
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->postJson(route('admin.misschool.cleanup-resigned'));
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.deleted', 1);
+
+        $this->assertDatabaseMissing('users', ['id' => $resignedUser->id]);
+    }
 }

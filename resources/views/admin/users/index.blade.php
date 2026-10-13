@@ -47,6 +47,9 @@
                     <a class="dropdown-item" href="javascript:void(0)" onclick="triggerCleanupStudents()">
                         <i class="fas fa-user-minus mr-2 text-warning"></i>ล้างนักศึกษาเก่าที่ไม่มีห้องเรียน
                     </a>
+                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerCleanupResigned()">
+                        <i class="fas fa-user-times mr-2 text-danger"></i>ล้าง/ระงับนักศึกษาที่ลาออก (MisSchool)
+                    </a>
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item" href="javascript:void(0)" onclick="triggerCheckHealth()">
                         <i class="fas fa-network-wired mr-2 text-secondary"></i>เช็คสถานะการเชื่อมต่อ
@@ -1056,9 +1059,54 @@
                 });
             }
 
+            function triggerCleanupResigned() {
+                Swal.fire({
+                    title: 'ตรวจสอบและจัดการนักศึกษาที่ลาออก?',
+                    text: 'ระบบจะตรวจสอบสถานะจาก MisSchool: หากนักศึกษาลาออกและยังไม่เคยสอบ ระบบจะลบออกจากระบบ หากเคยมีประวัติสอบจะปรับระงับสิทธิ์สอบและปลดออกจากห้องเรียน',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e3342f',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-user-times mr-1"></i> ยืนยันดำเนินการ',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'กำลังตรวจสอบสถานะกับ MisSchool...',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        $.ajax({
+                            url: '{{ route("admin.misschool.cleanup-resigned") }}',
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            success: function(res) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'สำเร็จ',
+                                    text: res.message,
+                                    confirmButtonText: 'ตกลง'
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            },
+                            error: function(xhr) {
+                                Swal.fire('เกิดข้อผิดพลาด', xhr.responseJSON?.message || 'ไม่สามารถดำเนินการได้', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+
             window.triggerSyncTeachers = triggerSyncTeachers;
             window.triggerSyncStudents = triggerSyncStudents;
             window.triggerCleanupStudents = triggerCleanupStudents;
+            window.triggerCleanupResigned = triggerCleanupResigned;
             window.triggerCheckHealth = triggerCheckHealth;
         });
     </script>

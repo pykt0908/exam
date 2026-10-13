@@ -119,6 +119,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/misschool/sync-classrooms', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'syncClassrooms'])->name('misschool.sync-classrooms');
             Route::post('/misschool/sync-students', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'syncStudents'])->name('misschool.sync-students');
             Route::post('/misschool/cleanup-students', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'cleanupInactiveStudents'])->name('misschool.cleanup-students');
+            Route::post('/misschool/cleanup-resigned', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'cleanupResignedStudents'])->name('misschool.cleanup-resigned');
 
             // Users
             Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -239,6 +240,12 @@ Route::match(['get', 'post'], '/system/deploy-helper', function (\Illuminate\Htt
             ->whereDoesntHave('examAttempts')
             ->delete();
         $output .= "=== CLEANUP INACTIVE STUDENTS OUTPUT ===\nDeleted {$deleted} historical/inactive students with no classroom.\n";
+    }
+
+    if ($action === 'cleanup-resigned' || $action === 'clean-resigned' || $action === 'all') {
+        $misService = app(\App\Services\MisSchoolService::class);
+        $res = $misService->cleanupResignedStudents();
+        $output .= "=== CLEANUP RESIGNED STUDENTS OUTPUT ===\nDeleted {$res['deleted']} and inactivated {$res['inactivated']} resigned students from MisSchool (Total resigned in MisSchool: {$res['total_resigned_in_mis']}).\n";
     }
 
     return response('<pre style="background:#111827; color:#10b981; padding:24px; font-family:monospace; border-radius:8px; line-height:1.5;">' . htmlspecialchars($output) . '</pre>');

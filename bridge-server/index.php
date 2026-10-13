@@ -112,6 +112,15 @@ if ($action === 'verify-student') {
         $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($student) {
+            // ป้องกันนักเรียนที่ลาออก/พ้นสภาพเข้าสู่ระบบ (StatusNo '0' = กำลังศึกษา)
+            if (isset($student['StatusNo']) && $student['StatusNo'] !== '0' && $student['StatusNo'] !== null) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'นักศึกษาพ้นสภาพการศึกษาแล้ว (ลาออก หรือสำเร็จการศึกษา)'
+                ], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+
             unset($student['IdNo']);
             echo json_encode([
                 'success' => true,
@@ -293,14 +302,18 @@ if ($action === 'sync-students') {
         $topClause = ($limit > 0) ? "TOP {$limit}" : "";
         $sql = "SELECT {$topClause}
                     sn.StdNo, s.IdNo, s.PreFixNo, s.Fname, s.Lname, s.Email,
-                    r.LavelNo, r.DepartNo, r.Year, r.Room
+                    r.LavelNo, r.DepartNo, r.Year, r.Room, r.StatusNo,
+                    r.RoundNo AS Shift,
+                    st.Status AS StatusText
                 FROM Tabain.dbo.tblStudentNumber sn
                 INNER JOIN Tabain.dbo.tblStudent s ON sn.StdNoRef = s.StdNoRef
                 INNER JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
+                LEFT JOIN Tabain.dbo.tblStdStatus st ON r.StatusNo = st.StatusNo
                 WHERE s.IsUse = '1'";
 
         if ($onlyActive) {
             $sql .= " AND r.Year <> '-' AND r.Room <> '-' AND r.Year IS NOT NULL AND r.Room IS NOT NULL";
+            $sql .= " AND (r.StatusNo = '0' OR r.StatusNo IS NULL)"; // เฉพาะสถานะ '0' = กำลังศึกษา (ตัดลาออก, พักการเรียน, ขาดการติดต่อ)
         }
 
         if ($year !== null && $year !== '' && $year !== 'all') {
@@ -326,6 +339,8 @@ if ($action === 'sync-students') {
                 'room' => $st['Room'],
                 'shift' => $st['Shift'] ?? $st['รอบ'] ?? ($st['LavelNo'] == '3' ? 'บ่าย' : 'เช้า'),
                 'email' => $st['Email'] ?? null,
+                'status_no' => $st['StatusNo'] ?? '0',
+                'status_text' => $st['StatusText'] ?? 'กำลังศึกษา',
             ];
         }, $students);
 
@@ -339,6 +354,56 @@ if ($action === 'sync-students') {
         echo json_encode([
             'success' => false,
             'message' => 'Sync students failed: ' . $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
+// Action 7: ดึงรายชื่อนักศึกษาที่ลาออก / พ้นสภาพจาก MisSchool (Resigned Students)
+if ($action === 'resigned-students') {
+    try {
+        $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
+        $sql = "SELECT 
+                    sn.StdNo, s.IdNo, s.Fname, s.Lname,
+                    r.LavelNo, r.DepartNo, r.Year, r.Room, r.StatusNo,
+                    st.Status AS StatusText,
+                    ss.LeavingCause
+                FROM Tabain.dbo.tblStudentNumber sn
+                INNER JOIN Tabain.dbo.tblStudent s ON sn.StdNoRef = s.StdNoRef
+                INNER JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
+                LEFT JOIN Tabain.dbo.tblStdStatus st ON r.StatusNo = st.StatusNo
+                LEFT JOIN Tabain.dbo.tblStudentStatus ss ON sn.StdNo = ss.StdNo
+                WHERE r.StatusNo IN ('1', '2', '3', '4', '8')
+                ORDER BY r.StatusNo ASC, sn.StdNo ASC";
+
+        $stmt = $conn->query($sql);
+        $resigned = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $data = array_map(function($st) {
+            return [
+                'std_no' => trim($st['StdNo']),
+                'citizen_id' => trim($st['IdNo']),
+                'full_name' => trim(($st['Fname'] ?? '') . ' ' . ($st['Lname'] ?? '')),
+                'level_no' => $st['LavelNo'],
+                'depart_no' => $st['DepartNo'],
+                'year' => $st['Year'],
+                'room' => $st['Room'],
+                'status_no' => $st['StatusNo'],
+                'status_text' => $st['StatusText'] ?? 'ลาออก/พ้นสภาพ',
+                'cause' => trim($st['LeavingCause'] ?? ''),
+            ];
+        }, $resigned);
+
+        echo json_encode([
+            'success' => true,
+            'count' => count($data),
+            'students' => $data,
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Fetch resigned students failed: ' . $e->getMessage()
         ], JSON_UNESCAPED_UNICODE);
     }
     exit;

@@ -198,4 +198,40 @@ class MisSchoolSyncController extends Controller
             return back()->with('error', 'เกิดข้อผิดพลาดในการล้างข้อมูล: ' . $e->getMessage());
         }
     }
+
+    /**
+     * ล้างหรือระงับสิทธิ์นักศึกษาที่ลาออก / พ้นสภาพจาก MisSchool
+     */
+    public function cleanupResignedStudents(Request $request)
+    {
+        if (auth()->user()->isTeacher()) {
+            abort(403, 'คุณไม่มีสิทธิ์เข้าถึงส่วนนี้');
+        }
+
+        try {
+            $result = $this->misSchool->cleanupResignedStudents();
+            $msg = "ดำเนินการล้าง/ระงับสิทธิ์นักศึกษาที่ลาออกแล้ว: ลบออกจากระบบ {$result['deleted']} คน, ระงับสิทธิ์สอบ {$result['inactivated']} คน";
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $msg,
+                    'data' => $result,
+                ]);
+            }
+
+            return back()->with('success', $msg);
+        } catch (\Throwable $e) {
+            \Log::error('MisSchool cleanupResignedStudents error: ' . $e->getMessage());
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
+        }
+    }
 }

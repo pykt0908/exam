@@ -770,8 +770,10 @@ class MisSchoolService
                 continue;
             }
 
-            // กรองเอาเฉพาะนักศึกษาปัจจุบันที่มีห้องเรียนจริง (ข้ามศิษย์เก่าที่ไม่มีห้องเรียน / year หรือ room เป็น '-')
-            if ($onlyActive && ($year === '-' || $room === '-' || empty($year) || empty($room))) {
+            $statusNo = (string)($st['status_no'] ?? '0');
+
+            // กรองเอาเฉพาะนักศึกษาปัจจุบันที่มีห้องเรียนจริง และยังศึกษาอยู่ (ข้ามศิษย์เก่า / ลาออก / พักการเรียน)
+            if ($onlyActive && ($year === '-' || $room === '-' || empty($year) || empty($room) || ($statusNo !== '0' && $statusNo !== ''))) {
                 $skippedInactiveCount++;
                 continue;
             }
@@ -802,7 +804,7 @@ class MisSchoolService
 
         $msg = "ซิงค์ข้อมูลนักศึกษาปัจจุบันจาก MisSchool สำเร็จ (เพิ่มใหม่ {$createdCount} คน, อัปเดต {$updatedCount} คน)";
         if ($skippedInactiveCount > 0) {
-            $msg .= " [กรองข้ามศิษย์เก่า/ไม่มีห้องเรียน {$skippedInactiveCount} คน]";
+            $msg .= " [กรองข้ามศิษย์เก่า/ลาออก/ไม่มีห้องเรียน {$skippedInactiveCount} คน]";
         }
         if ($failedCount > 0) {
             $msg .= " (ข้าม {$failedCount} คนที่ข้อมูลไม่สมบูรณ์)";
@@ -817,6 +819,103 @@ class MisSchoolService
             'skipped_inactive' => $skippedInactiveCount,
             'failed' => $failedCount,
             'failed_items' => $failedItems,
+        ];
+    }
+
+    /**
+     * ดึงรายชื่อนักศึกษาที่ลาออกหรือพ้นสภาพจาก MisSchool
+     */
+    public function fetchResignedStudents(): array
+    {
+        if ($this->mode === 'bridge') {
+            $url = rtrim($this->bridgeConfig['url'] ?? '', '/') . '/?action=resigned-students';
+            $key = $this->bridgeConfig['key'] ?? '';
+            $timeout = (int)($this->bridgeConfig['timeout'] ?? 15);
+
+            try {
+                $response = Http::withHeaders(['X-Bridge-Key' => $key])
+                    ->timeout($timeout)
+                    ->get($url);
+
+                if ($response->successful()) {
+                    return $response->json('students') ?? [];
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Fetch resigned students via bridge failed: ' . $e->getMessage());
+            }
+        }
+
+        // Direct SQL Server fallback (tsql)
+        if ($this->isTsqlAvailable()) {
+            $sql = "SELECT sn.StdNo, r.StatusNo, ss.LeavingCause 
+                    FROM Tabain.dbo.tblStudentNumber sn
+                    INNER JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
+                    LEFT JOIN Tabain.dbo.tblStudentStatus ss ON sn.StdNo = ss.StdNo
+                    WHERE r.StatusNo IN ('1', '2', '3', '4', '8')";
+            $rows = $this->executeTsql('Tabain', $sql);
+            if (!empty($rows)) {
+                return array_map(function ($r) {
+                    return [
+                        'std_no' => trim($r['StdNo'] ?? ''),
+                        'status_no' => trim($r['StatusNo'] ?? ''),
+                        'cause' => trim($r['LeavingCause'] ?? ''),
+                    ];
+                }, $rows);
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * ล้างหรือระงับสิทธิ์นักศึกษาที่ลาออก/พ้นสภาพการศึกษา
+     */
+    public function cleanupResignedStudents(): array
+    {
+        $resignedList = $this->fetchResignedStudents();
+        $deleted = 0;
+        $inactivated = 0;
+
+        foreach ($resignedList as $st) {
+            $code = trim($st['std_no'] ?? '');
+            if (!$code) {
+                continue;
+            }
+
+            $unpadded = ltrim($code, '0');
+            $users = User::where('role', 'student')
+                ->where(function ($q) use ($code, $unpadded) {
+                    $q->where('student_code', $code)
+                      ->orWhere('username', $code)
+                      ->when(!empty($unpadded), function ($sq) use ($unpadded) {
+                          $sq->orWhere('student_code', $unpadded)
+                             ->orWhere('username', $unpadded);
+                      });
+                })
+                ->get();
+
+            foreach ($users as $user) {
+                // หากไม่เคยสอบ ให้ลบออกจากระบบ
+                if (!$user->examAttempts()->exists()) {
+                    $user->delete();
+                    $deleted++;
+                } else {
+                    // หากเคยสอบแล้ว ให้ระงับสิทธิ์สอบและปลดออกจากห้องเรียนเพื่อเก็บบันทึกประวัติ
+                    $cause = !empty($st['cause']) ? $st['cause'] : 'พ้นสภาพการศึกษา (ลาออก)';
+                    $user->update([
+                        'is_exam_eligible' => false,
+                        'ineligible_reason' => "พ้นสภาพการศึกษา (MisSchool): {$cause}",
+                        'classroom_id' => null,
+                    ]);
+                    $inactivated++;
+                }
+            }
+        }
+
+        return [
+            'total_resigned_in_mis' => count($resignedList),
+            'deleted' => $deleted,
+            'inactivated' => $inactivated,
         ];
     }
 
