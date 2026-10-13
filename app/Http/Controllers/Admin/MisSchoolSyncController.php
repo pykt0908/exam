@@ -51,17 +51,33 @@ class MisSchoolSyncController extends Controller
             abort(403, 'คุณไม่มีสิทธิ์เข้าถึงส่วนนี้');
         }
 
-        $result = $this->misSchool->syncAllTeachers();
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
 
-        if ($request->expectsJson() || $request->ajax()) {
-            return response()->json($result);
+        try {
+            $result = $this->misSchool->syncAllTeachers();
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json($result);
+            }
+
+            if ($result['success']) {
+                return back()->with('success', $result['message']);
+            }
+
+            return back()->with('error', $result['message']);
+        } catch (\Throwable $e) {
+            \Log::error('MisSchool syncTeachers error: ' . $e->getMessage());
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'เกิดข้อผิดพลาดในการซิงค์ข้อมูลอาจารย์: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return back()->with('error', 'เกิดข้อผิดพลาดในการซิงค์ข้อมูลอาจารย์: ' . $e->getMessage());
         }
-
-        if ($result['success']) {
-            return back()->with('success', $result['message']);
-        }
-
-        return back()->with('error', $result['message']);
     }
 
     /**
@@ -73,17 +89,33 @@ class MisSchoolSyncController extends Controller
             abort(403, 'คุณไม่มีสิทธิ์เข้าถึงส่วนนี้');
         }
 
-        $result = $this->misSchool->syncAllClassrooms();
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
 
-        if ($request->expectsJson() || $request->ajax()) {
-            return response()->json($result);
+        try {
+            $result = $this->misSchool->syncAllClassrooms();
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json($result);
+            }
+
+            if ($result['success']) {
+                return back()->with('success', $result['message']);
+            }
+
+            return back()->with('error', $result['message']);
+        } catch (\Throwable $e) {
+            \Log::error('MisSchool syncClassrooms error: ' . $e->getMessage());
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'เกิดข้อผิดพลาดในการซิงค์ข้อมูลห้องเรียน: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return back()->with('error', 'เกิดข้อผิดพลาดในการซิงค์ข้อมูลห้องเรียน: ' . $e->getMessage());
         }
-
-        if ($result['success']) {
-            return back()->with('success', $result['message']);
-        }
-
-        return back()->with('error', $result['message']);
     }
 
     /**
@@ -95,22 +127,38 @@ class MisSchoolSyncController extends Controller
             abort(403, 'คุณไม่มีสิทธิ์เข้าถึงส่วนนี้');
         }
 
-        $options = [
-            'limit' => $request->input('limit', 1000),
-            'year' => $request->input('year'),
-            'room' => $request->input('room'),
-        ];
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
 
-        $result = $this->misSchool->syncAllStudents($options);
+        try {
+            $options = [
+                'limit' => (int) $request->input('limit', 1000),
+                'year' => $request->input('year'),
+                'room' => $request->input('room'),
+            ];
 
-        if ($request->expectsJson() || $request->ajax()) {
-            return response()->json($result);
+            $result = $this->misSchool->syncAllStudents($options);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json($result);
+            }
+
+            if ($result['success']) {
+                return back()->with('success', $result['message']);
+            }
+
+            return back()->with('error', $result['message']);
+        } catch (\Throwable $e) {
+            \Log::error('MisSchool syncStudents error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'เกิดข้อผิดพลาดในการซิงค์ข้อมูลนักศึกษา: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return back()->with('error', 'เกิดข้อผิดพลาดในการซิงค์ข้อมูลนักศึกษา: ' . $e->getMessage());
         }
-
-        if ($result['success']) {
-            return back()->with('success', $result['message']);
-        }
-
-        return back()->with('error', $result['message']);
     }
 }

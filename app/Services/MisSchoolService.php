@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use PDO;
 use Exception;
 use Throwable;
@@ -246,21 +247,43 @@ class MisSchoolService
             ->orWhere('username', $stdNo)
             ->first();
 
+        static $userColumns = null;
+        if ($userColumns === null) {
+            $userColumns = Schema::getColumnListing('users');
+        }
+
         $attributes = [
             'name' => $fullName ?: ($user ? $user->name : "นักศึกษา {$stdNo}"),
             'email' => $email,
-            'password' => Hash::make($password),
             'student_code' => $stdNo,
-            'username' => $stdNo,
             'role' => 'student',
             'citizen_id' => $citizenId,
-            'level_no' => $levelNo,
-            'depart_no' => $departNo,
-            'year' => $year,
-            'room' => $room,
-            'mis_synced_at' => now(),
             'is_exam_eligible' => true,
         ];
+
+        // Only hash password if creating new user or citizen_id changed to prevent execution timeout
+        if (!$user || $user->citizen_id !== $citizenId) {
+            $attributes['password'] = Hash::make($password);
+        }
+
+        if (in_array('username', $userColumns)) {
+            $attributes['username'] = $stdNo;
+        }
+        if (in_array('level_no', $userColumns)) {
+            $attributes['level_no'] = $levelNo;
+        }
+        if (in_array('depart_no', $userColumns)) {
+            $attributes['depart_no'] = $departNo;
+        }
+        if (in_array('year', $userColumns)) {
+            $attributes['year'] = $year;
+        }
+        if (in_array('room', $userColumns)) {
+            $attributes['room'] = $room;
+        }
+        if (in_array('mis_synced_at', $userColumns)) {
+            $attributes['mis_synced_at'] = now();
+        }
 
         if ($classroomId) {
             $attributes['classroom_id'] = $classroomId;
@@ -303,17 +326,32 @@ class MisSchoolService
             ->orWhereRaw('LOWER(username) = ?', [strtolower($username)])
             ->first();
 
+        static $teacherColumns = null;
+        if ($teacherColumns === null) {
+            $teacherColumns = Schema::getColumnListing('users');
+        }
+
         $role = $isAdmin ? 'admin' : ($user && $user->role === 'admin' ? 'admin' : 'teacher');
 
         $attributes = [
             'name' => $fullName ?: ($user ? $user->name : "อาจารย์ {$username}"),
             'teacher_code' => $teacherNo,
-            'username' => $username,
-            'password' => Hash::make($password),
             'role' => $role,
-            'depart_no' => $departNo,
-            'mis_synced_at' => now(),
         ];
+
+        if (!$user) {
+            $attributes['password'] = Hash::make($password);
+        }
+
+        if (in_array('username', $teacherColumns)) {
+            $attributes['username'] = $username;
+        }
+        if (in_array('depart_no', $teacherColumns)) {
+            $attributes['depart_no'] = $departNo;
+        }
+        if (in_array('mis_synced_at', $teacherColumns)) {
+            $attributes['mis_synced_at'] = now();
+        }
 
         if ($email) {
             $attributes['email'] = $email;
@@ -379,6 +417,11 @@ class MisSchoolService
         $createdCount = 0;
         $updatedCount = 0;
 
+        static $teacherColumns = null;
+        if ($teacherColumns === null) {
+            $teacherColumns = Schema::getColumnListing('users');
+        }
+
         foreach ($teachers as $t) {
             $teacherNo = trim($t['teacher_no'] ?? '');
             $username = trim($t['username'] ?? $teacherNo);
@@ -399,10 +442,15 @@ class MisSchoolService
             $data = [
                 'name' => $fullName ?: ($user ? $user->name : "อาจารย์ {$username}"),
                 'teacher_code' => $teacherNo,
-                'username' => $username,
                 'role' => $isAdmin ? 'admin' : ($user && $user->role === 'admin' ? 'admin' : 'teacher'),
-                'mis_synced_at' => now(),
             ];
+
+            if (in_array('username', $teacherColumns)) {
+                $data['username'] = $username;
+            }
+            if (in_array('mis_synced_at', $teacherColumns)) {
+                $data['mis_synced_at'] = now();
+            }
 
             if ($email) {
                 $data['email'] = $email;
