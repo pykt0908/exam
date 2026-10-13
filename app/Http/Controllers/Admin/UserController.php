@@ -280,6 +280,9 @@ class UserController extends Controller
         } else {
             $rules['teacher_code'] = ['required', 'string', 'max:50', 'unique:users,teacher_code,' . $user->id];
             $rules['password'] = ['nullable', 'string', 'min:6'];
+            $rules['notification_email'] = ['nullable', 'email', 'max:255'];
+            $rules['phone'] = ['nullable', 'string', 'max:30'];
+            $rules['notify_email_approval'] = ['nullable', 'boolean'];
         }
 
         $request->validate($rules, [
@@ -294,6 +297,7 @@ class UserController extends Controller
             'citizen_id.digits' => 'เลขประจำตัวประชาชนต้องมี 13 หลัก',
             'password.min' => 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
             'department_id.exists' => 'ไม่พบหมวดวิชา/แผนกวิชาที่เลือก',
+            'notification_email.email' => 'รูปแบบอีเมลแจ้งเตือนไม่ถูกต้อง',
         ]);
 
         $userData = [
@@ -317,7 +321,6 @@ class UserController extends Controller
             if ($request->citizen_id !== $user->citizen_id) {
                 $userData['password'] = Hash::make($request->citizen_id);
             }
-            $userData['email'] = null;
             $userData['teacher_code'] = null;
             $userData['academic_role'] = null;
             $userData['department_id'] = null;
@@ -331,13 +334,15 @@ class UserController extends Controller
                 $academicRoleValue = json_encode([trim($academicRolesInput)], JSON_UNESCAPED_UNICODE);
             }
 
-            $userData['email'] = null;
             if ($request->filled('password')) {
                 $userData['password'] = Hash::make($request->password);
             }
             $userData['teacher_code'] = $request->teacher_code;
             $userData['academic_role'] = $academicRoleValue;
             $userData['department_id'] = $request->department_id;
+            $userData['notification_email'] = $request->notification_email ? trim($request->notification_email) : null;
+            $userData['phone'] = $request->phone ? trim($request->phone) : null;
+            $userData['notify_email_approval'] = $request->boolean('notify_email_approval');
             $userData['student_code'] = null;
             $userData['classroom_id'] = null;
             $userData['citizen_id'] = null;

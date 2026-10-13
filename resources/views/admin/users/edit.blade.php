@@ -215,6 +215,42 @@
                                            value="{{ old('name', $user->name) }}" required>
                                     @error('name')<span class="invalid-feedback">{{ $message }}</span>@enderror
                                 </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="font-weight-bold text-primary">
+                                                <i class="fas fa-envelope mr-1"></i>อีเมลสำหรับรับแจ้งเตือน (Notification Email)
+                                            </label>
+                                            <input type="email" name="notification_email" class="form-control @error('notification_email') is-invalid @enderror"
+                                                   value="{{ old('notification_email', $user->notification_email) }}"
+                                                   placeholder="เช่น teacher@gmail.com หรือ @technosriracha.ac.th">
+                                            <small class="text-muted">ใช้อีเมลนี้เพื่อส่งแจ้งเตือนการอนุมัติข้อสอบ</small>
+                                            @error('notification_email')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="font-weight-bold">
+                                                <i class="fas fa-phone mr-1 text-muted"></i>เบอร์โทรศัพท์ติดต่อ
+                                            </label>
+                                            <input type="text" name="phone" class="form-control @error('phone') is-invalid @enderror"
+                                                   value="{{ old('phone', $user->phone) }}" placeholder="เช่น 0812345678">
+                                            @error('phone')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="admin_notify_email_approval" name="notify_email_approval" value="1"
+                                               {{ old('notify_email_approval', $user->notify_email_approval ?? true) ? 'checked' : '' }}>
+                                        <label class="custom-control-label font-weight-bold" for="admin_notify_email_approval">
+                                            เปิดรับการแจ้งเตือนการอนุมัติข้อสอบทางอีเมล
+                                        </label>
+                                    </div>
+                                </div>
+
                                 <div class="form-group">
                                     <label class="font-weight-bold">รหัสผ่านใหม่ <span class="text-muted text-xs">(เว้นว่างไว้หากไม่เปลี่ยน)</span></label>
                                     <input type="password" name="password" class="form-control @error('password') is-invalid @enderror"
