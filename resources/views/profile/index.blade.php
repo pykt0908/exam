@@ -67,13 +67,7 @@
 
                     <h4 class="font-weight-bold text-dark mb-1">{{ $user->name }}</h4>
                     <p class="text-muted mb-3">
-                        @if($user->isAdmin())
-                            <span class="badge badge-danger px-2 py-1">ผู้ดูแลระบบ</span>
-                        @elseif($user->isTeacher())
-                            <span class="badge badge-primary px-2 py-1">ครูผู้สอน</span>
-                        @else
-                            <span class="badge badge-secondary px-2 py-1">นักเรียน</span>
-                        @endif
+                        {{ $user->isAdmin() ? 'ผู้ดูแลระบบ' : ($user->isTeacher() ? 'ครูผู้สอน' : 'นักเรียน') }}
                     </p>
 
                     <ul class="list-group list-group-unbordered mb-0 text-left">
@@ -86,31 +80,30 @@
                             <span class="float-right text-muted">{{ $user->department?->name ?? 'ไม่ระบุ' }}</span>
                         </li>
                         <li class="list-group-item">
-                            <b>บทบาทวิชาการ</b>
-                            <span class="float-right text-right" style="max-width: 60%;">
-                                @if(!empty($user->academic_roles))
-                                    @foreach($user->academic_roles as $roleKey)
-                                        @if($roleKey === 'academic_deputy')
-                                            <span class="badge badge-info px-1 mb-1">รองฝ่ายวิชาการ</span>
-                                        @elseif($roleKey === 'evaluation_head')
-                                            <span class="badge badge-primary px-1 mb-1">หัวหน้างานวัดผล</span>
-                                        @elseif($roleKey === 'department_head')
-                                            <span class="badge badge-warning text-dark px-1 mb-1">หัวหน้าแผนก</span>
-                                        @endif
-                                    @endforeach
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
+                            <b>ตำแหน่ง</b>
+                            <span class="float-right text-right font-weight-bold text-dark" style="max-width: 65%;">
+                                @php
+                                    $rolesMap = [
+                                        'academic_deputy' => 'รองฝ่ายวิชาการ',
+                                        'evaluation_head' => 'หัวหน้างานวัดผล',
+                                        'department_head' => 'หัวหน้าแผนก',
+                                    ];
+                                    $positionLabels = [];
+                                    if (!empty($user->academic_roles)) {
+                                        foreach ($user->academic_roles as $roleKey) {
+                                            if (isset($rolesMap[$roleKey])) {
+                                                $positionLabels[] = $rolesMap[$roleKey];
+                                            }
+                                        }
+                                    }
+                                @endphp
+                                {{ !empty($positionLabels) ? implode(', ', $positionLabels) : '-' }}
                             </span>
                         </li>
                         <li class="list-group-item">
                             <b>สถานะ MisSchool</b>
-                            <span class="float-right">
-                                @if($user->mis_synced_at)
-                                    <span class="badge badge-success">เชื่อมต่อแล้ว</span>
-                                @else
-                                    <span class="badge badge-light text-muted">บัญชีท้องถิ่น</span>
-                                @endif
+                            <span class="float-right {{ $user->mis_synced_at ? 'text-success font-weight-bold' : 'text-muted' }}">
+                                {{ $user->mis_synced_at ? 'เชื่อมต่อแล้ว' : 'บัญชีท้องถิ่น' }}
                             </span>
                         </li>
                     </ul>

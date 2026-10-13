@@ -184,7 +184,7 @@
                                     @error('department_id')<span class="invalid-feedback">{{ $message }}</span>@enderror
                                 </div>
                                 <div class="form-group" id="academic-role-group-edit">
-                                    <label class="font-weight-bold d-block">ตำแหน่ง / บทบาทหน้าที่เสริม <span class="text-muted font-weight-normal text-xs">(สามารถเลือกได้มากกว่า 1 ตำแหน่ง)</span></label>
+                                    <label class="font-weight-bold d-block">ตำแหน่ง <span class="text-muted font-weight-normal text-xs">(สามารถเลือกได้มากกว่า 1 ตำแหน่ง)</span></label>
                                     <div class="d-flex flex-wrap" style="gap: 15px;">
                                         <div class="custom-control custom-checkbox">
                                             <input type="checkbox" class="custom-control-input" id="role_academic_deputy" name="academic_roles[]" value="academic_deputy" 
