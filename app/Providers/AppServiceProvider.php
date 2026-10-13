@@ -56,6 +56,16 @@ class AppServiceProvider extends ServiceProvider
                     'onclick' => "var i=this.querySelector('i');if(i){i.classList.add('fa-spin');}window.location.reload();return false;",
                 ]);
 
+                // Add direct Profile button to top navbar right side
+                $event->menu->add([
+                    'text' => 'ข้อมูลส่วนตัว',
+                    'topnav_right' => true,
+                    'icon' => 'fas fa-user-circle text-info',
+                    'route' => 'profile.index',
+                    'classes' => 'text-white font-weight-bold mr-2',
+                    'title' => 'ตั้งค่าข้อมูลส่วนตัวและอีเมลแจ้งเตือน',
+                ]);
+
                 // แจ้งเตือนหากครู/เจ้าหน้าที่ยังไม่ได้ระบุอีเมลสำหรับรับการแจ้งเตือน
                 if ($user->isStaff() && method_exists($user, 'hasConfiguredEmail') && !$user->hasConfiguredEmail()) {
                     $event->menu->add([
@@ -213,26 +223,23 @@ class AppServiceProvider extends ServiceProvider
                     ]);
                 }
 
-                // Add User Profile and Logout items at the bottom of the sidebar
+                // Add top-level Profile menu for all authenticated users
                 $event->menu->add([
-                    'text' => $user->name,
-                    'icon' => 'fas fa-user-circle',
+                    'header' => 'ตั้งค่าผู้ใช้งาน',
+                ]);
+                $event->menu->add([
+                    'text' => 'ข้อมูลส่วนตัว / แจ้งเตือน',
+                    'route' => 'profile.index',
+                    'icon' => 'fas fa-fw fa-user-cog text-info',
+                    'active' => ['profile*'],
+                ]);
+
+                // Logout item at the bottom of the sidebar
+                $event->menu->add([
+                    'text' => 'ออกจากระบบ (' . $user->name . ')',
+                    'icon' => 'fas fa-fw fa-sign-out-alt text-danger',
                     'url' => '#',
-                    'id' => 'sidebar-user-item',
-                    'submenu' => [
-                        [
-                            'text' => 'ข้อมูลส่วนตัว / แจ้งเตือน',
-                            'icon' => 'fas fa-user-edit text-info',
-                            'route' => 'profile.index',
-                            'active' => ['profile*'],
-                        ],
-                        [
-                            'text' => 'ออกจากระบบ',
-                            'icon' => 'fas fa-sign-out-alt text-danger',
-                            'url' => '#',
-                            'id' => 'sidebar-logout-item',
-                        ]
-                    ]
+                    'id' => 'sidebar-logout-item',
                 ]);
             }
         );
