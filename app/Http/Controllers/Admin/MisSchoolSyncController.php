@@ -26,19 +26,21 @@ class MisSchoolSyncController extends Controller
         }
 
         $result = $this->misSchool->checkHealth();
-        $connected = (bool) ($result['connected'] ?? false);
+        $connected = !empty($result['connected']) || !empty($result['success']);
+
+        $stats = [
+            'active_teachers' => $result['stats']['active_teachers'] ?? $result['counts']['teachers'] ?? 0,
+            'active_classrooms' => $result['stats']['active_classrooms'] ?? $result['counts']['classrooms'] ?? 0,
+            'active_students' => $result['stats']['active_students'] ?? $result['counts']['students'] ?? 0,
+        ];
 
         return response()->json([
             'success' => $connected,
-            'message' => $connected ? 'เชื่อมต่อฐานข้อมูล MisSchool ได้เรียบร้อย' : 'ไม่สามารถเชื่อมต่อ MisSchool ได้',
-            'source' => $result['source'] ?? '-',
-            'stats' => [
-                'active_teachers' => $result['counts']['teachers'] ?? 0,
-                'active_classrooms' => $result['counts']['classrooms'] ?? 0,
-                'active_students' => $result['counts']['students'] ?? 0,
-            ],
+            'message' => $result['message'] ?? ($connected ? 'เชื่อมต่อฐานข้อมูล MisSchool ได้เรียบร้อย' : 'ไม่สามารถเชื่อมต่อ MisSchool ได้'),
+            'source' => $result['source'] ?? ($this->misSchool->getMode() ?? 'bridge'),
+            'stats' => $stats,
             'timestamp' => $result['timestamp'] ?? now()->toIso8601String(),
-            'data' => $result,
+            'data' => array_merge(['connected' => $connected], $result),
         ]);
     }
 

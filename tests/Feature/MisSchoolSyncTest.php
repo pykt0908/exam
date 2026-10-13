@@ -127,4 +127,55 @@ class MisSchoolSyncTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    public function test_admin_check_health_with_bridge_format_succeeds(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $serviceMock = $this->createMock(MisSchoolService::class);
+        $serviceMock->method('checkHealth')->willReturn([
+            'success' => true,
+            'message' => 'Bridge API is operational and connected to MisSchool SQL Server!',
+            'stats' => [
+                'active_teachers' => 56,
+                'active_students' => 13784,
+            ],
+            'timestamp' => '2026-10-13 10:41:38',
+        ]);
+        $this->app->instance(MisSchoolService::class, $serviceMock);
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('admin.misschool.health'));
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('stats.active_teachers', 56)
+            ->assertJsonPath('stats.active_students', 13784);
+    }
+
+    public function test_sync_student_user_updates_existing_student_by_citizen_id_without_duplicate_error(): void
+    {
+        $existing = User::factory()->create([
+            'student_code' => '8852',
+            'citizen_id' => '3480100490060',
+            'name' => 'ศศิธร เดิม',
+            'role' => 'student',
+        ]);
+
+        $service = app(MisSchoolService::class);
+        $syncedUser = $service->syncStudentUser([
+            'std_no' => '0008852',
+            'full_name' => 'ศศิธร พรมจักร์',
+            'citizen_id' => '3480100490060',
+            'level_no' => '3',
+            'depart_no' => '01',
+            'year' => '2',
+            'room' => '1',
+        ], '3480100490060');
+
+        $this->assertEquals($existing->id, $syncedUser->id);
+        $this->assertEquals('ศศิธร พรมจักร์', $syncedUser->name);
+        $this->assertEquals('0008852', $syncedUser->student_code);
+        $this->assertEquals('3480100490060', $syncedUser->citizen_id);
+    }
 }

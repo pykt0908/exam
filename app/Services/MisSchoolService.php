@@ -242,10 +242,23 @@ class MisSchoolService
             }
         }
 
-        // ค้นหา User เดิมโดยใช้ student_code หรือ username
-        $user = User::where('student_code', $stdNo)
-            ->orWhere('username', $stdNo)
-            ->first();
+        // ค้นหา User เดิมโดยใช้ citizen_id ก่อนเป็นอันดับแรก (เพราะ citizen_id unique และแน่นอนที่สุด)
+        $user = null;
+        if (!empty($citizenId)) {
+            $user = User::where('citizen_id', $citizenId)->first();
+        }
+
+        // หากไม่เจอด้วย citizen_id ให้ค้นหาด้วย student_code หรือ username (ทั้งแบบปกติและ unpadded)
+        if (!$user && !empty($stdNo)) {
+            $unpadded = ltrim($stdNo, '0');
+            $user = User::where('student_code', $stdNo)
+                ->orWhere('username', $stdNo)
+                ->when(!empty($unpadded), function ($q) use ($unpadded) {
+                    $q->orWhere('student_code', $unpadded)
+                      ->orWhere('username', $unpadded);
+                })
+                ->first();
+        }
 
         static $userColumns = null;
         if ($userColumns === null) {
@@ -254,16 +267,30 @@ class MisSchoolService
 
         $attributes = [
             'name' => $fullName ?: ($user ? $user->name : "นักศึกษา {$stdNo}"),
-            'email' => $email,
             'student_code' => $stdNo,
             'role' => 'student',
             'citizen_id' => $citizenId,
             'is_exam_eligible' => true,
         ];
 
-        // Only hash password if creating new user or citizen_id changed to prevent execution timeout
-        if (!$user || $user->citizen_id !== $citizenId) {
+        // จัดการอีเมล: หากยังไม่มี user ให้ตรวจว่าอีเมลชนกับคนอื่นหรือไม่
+        if (!$user) {
+            if (User::where('email', $email)->exists()) {
+                $email = "{$stdNo}_" . substr(uniqid(), -4) . "@exam.local";
+            }
+            $attributes['email'] = $email;
             $attributes['password'] = Hash::make($password);
+        } else {
+            // ถ้ามี user อยู่แล้ว ไม่ทับอีเมลเดิมยกเว้นจะไม่มีอีเมล หรือมีการระบุอีเมลใหม่จาก MisSchool
+            if (!empty($data['email'])) {
+                $attributes['email'] = $data['email'];
+            } elseif (empty($user->email)) {
+                $attributes['email'] = $email;
+            }
+            // Hash รหัสผ่านใหม่เฉพาะเมื่อ citizen_id เปลี่ยนแปลง
+            if ($user->citizen_id !== $citizenId) {
+                $attributes['password'] = Hash::make($password);
+            }
         }
 
         if (in_array('username', $userColumns)) {
@@ -297,7 +324,30 @@ class MisSchoolService
             return $user->fresh();
         }
 
-        return User::create($attributes);
+        try {
+            return User::create($attributes);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // ป้องกัน duplicate entry 1062 ในกรณี race condition หรือข้อมูลซ้ำ
+            if (isset($e->errorInfo[1]) && $e->errorInfo[1] == 1062) {
+                if (!empty($citizenId)) {
+                    $existing = User::where('citizen_id', $citizenId)->first();
+                    if ($existing) {
+                        unset($attributes['email']);
+                        $existing->update($attributes);
+                        return $existing->fresh();
+                    }
+                }
+                if (!empty($stdNo)) {
+                    $existing = User::where('student_code', $stdNo)->first();
+                    if ($existing) {
+                        unset($attributes['email']);
+                        $existing->update($attributes);
+                        return $existing->fresh();
+                    }
+                }
+            }
+            throw $e;
+        }
     }
 
     public function syncTeacherUser(array $data, string $password): User
@@ -612,6 +662,7 @@ class MisSchoolService
 
         $createdCount = 0;
         $updatedCount = 0;
+        $failedCount = 0;
 
         foreach ($students as $st) {
             $stdNo = trim($st['std_no'] ?? '');
@@ -620,22 +671,36 @@ class MisSchoolService
                 continue;
             }
 
-            $user = User::where('student_code', $stdNo)->first();
-            $this->syncStudentUser($st, $citizenId);
+            try {
+                $user = User::where('citizen_id', $citizenId)
+                    ->orWhere('student_code', $stdNo)
+                    ->first();
 
-            if ($user) {
-                $updatedCount++;
-            } else {
-                $createdCount++;
+                $this->syncStudentUser($st, $citizenId);
+
+                if ($user) {
+                    $updatedCount++;
+                } else {
+                    $createdCount++;
+                }
+            } catch (\Throwable $e) {
+                $failedCount++;
+                Log::warning("Skipped student sync for {$stdNo} ({$citizenId}): " . $e->getMessage());
             }
+        }
+
+        $msg = "ซิงค์ข้อมูลนักศึกษาจาก MisSchool สำเร็จ (ทั้งหมด " . count($students) . " คน: เพิ่มใหม่ {$createdCount} คน, อัปเดต {$updatedCount} คน)";
+        if ($failedCount > 0) {
+            $msg .= " (ข้าม {$failedCount} คนที่ข้อมูลไม่สมบูรณ์)";
         }
 
         return [
             'success' => true,
-            'message' => "ซิงค์ข้อมูลนักศึกษาจาก MisSchool สำเร็จ (ทั้งหมด " . count($students) . " คน: เพิ่มใหม่ {$createdCount} คน, อัปเดต {$updatedCount} คน)",
+            'message' => $msg,
             'total' => count($students),
             'created' => $createdCount,
             'updated' => $updatedCount,
+            'failed' => $failedCount,
         ];
     }
 
