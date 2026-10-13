@@ -238,13 +238,13 @@ class MisSchoolService
         $keywords = $deptKeywords[$paddedDept] ?? [];
         $targetRoom = "{$year}/{$room}";
 
-        // แยกและแปลงรอบ (Shift): รอบ 1 = เช้า (morning), รอบ 6/7 = บ่าย (afternoon)
+        // แยกและแปลงรอบ (Shift): รอบ 1 = เช้า (morning), รอบ 7 = ทวิภาคี (morning ในระบบสอบ), รอบ 6 = บ่าย (afternoon)
         $normalizedShift = null;
         if (!empty($shift)) {
             $s = (string)$shift;
-            if ($s === '1' || str_contains($s, 'เช้า') || $s === 'morning') {
+            if ($s === '1' || $s === '7' || str_contains($s, 'เช้า') || str_contains($s, 'ทวิภาคี') || $s === 'morning') {
                 $normalizedShift = 'morning';
-            } elseif ($s === '6' || $s === '7' || str_contains($s, 'บ่าย') || $s === 'afternoon') {
+            } elseif ($s === '6' || str_contains($s, 'บ่าย') || $s === 'afternoon') {
                 $normalizedShift = 'afternoon';
             }
         } elseif ((string)$levelNo === '3') {
@@ -279,14 +279,38 @@ class MisSchoolService
 
         $matched = $query->first();
 
-        // Fallback: หากไม่พบตามแผนก ให้ค้นหาตามระดับชั้นและห้องเรียน
+        // Fallback 1: หากยังไม่พบและมีแผนกวิชา ให้ค้นหาตามแผนกเดิมโดยปลดล็อครอบ เพื่อป้องกันการข้ามไปแผนกอื่น
+        if (!$matched && !empty($keywords)) {
+            $prefix = ((string)$levelNo === '3') ? 'ปวส. พิเศษ' : (((string)$levelNo === '2') ? 'ปวส.' : 'ปวช.');
+            $matched = Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%")
+                ->where(function ($q) use ($keywords) {
+                    foreach ($keywords as $kw) {
+                        $q->orWhere('name', 'LIKE', "%{$kw}%");
+                    }
+                })->first();
+        }
+
+        // Fallback 2: ตรวจสอบห้องตามระดับชั้นและเลขห้อง
         if (!$matched) {
-            $prefix = ((string)$levelNo === '2' || (string)$levelNo === '3') ? 'ปวส.' : 'ปวช.';
-            $fallback = Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%");
+            $prefix = ((string)$levelNo === '3') ? 'ปวส. พิเศษ' : (((string)$levelNo === '2') ? 'ปวส.' : 'ปวช.');
+            $fallbackQuery = Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%");
             if ($normalizedShift) {
-                $fallback->where('shift', $normalizedShift);
+                $fallbackQuery->where('shift', $normalizedShift);
             }
-            $matched = $fallback->first() ?? Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%")->first();
+            $candidates = $fallbackQuery->get();
+            if ($candidates->count() === 1) {
+                // หากมีเพียงห้องเดียวที่ตรงกับระดับชั้นและเลขห้อง สามารถจับคู่ได้โดยตรง (ปลอดภัย)
+                $matched = $candidates->first();
+            } elseif ($candidates->isNotEmpty() && !empty($keywords)) {
+                $matched = $candidates->first(function ($c) use ($keywords) {
+                    foreach ($keywords as $kw) {
+                        if (str_contains($c->name, $kw)) return true;
+                    }
+                    return false;
+                });
+            } elseif ($candidates->isNotEmpty() && empty($keywords)) {
+                $matched = $candidates->first();
+            }
         }
 
         return $matched;

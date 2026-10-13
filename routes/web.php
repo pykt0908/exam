@@ -203,6 +203,16 @@ Route::match(['get', 'post'], '/system/deploy-helper', function (\Illuminate\Htt
 
     if ($action === 'remap-classrooms' || $action === 'remap' || $action === 'all') {
         $misService = app(\App\Services\MisSchoolService::class);
+
+        // ตรวจสอบและสร้างห้องเรียน 2/11 อัตโนมัติหากยังไม่มีในฐานข้อมูล
+        $c211 = \App\Models\Classroom::where('name', 'LIKE', '%2/11%')->first();
+        if (!$c211) {
+            \App\Models\Classroom::create([
+                'name' => 'ปวส. พิเศษ2/11 การจัดการโลจิสติกส์และซัพพลายเชน',
+                'shift' => 'afternoon',
+            ]);
+        }
+
         $students = \App\Models\User::where('role', 'student')
             ->whereNotNull('level_no')
             ->whereNotNull('year')
