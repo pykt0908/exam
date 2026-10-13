@@ -111,10 +111,10 @@
                             <thead class="thead-light">
                                 <tr>
                                     <th class="text-center align-middle" style="width: 60px;">ลำดับ</th>
-                                    <th class="text-center align-middle text-nowrap" style="width: 140px;">วันที่</th>
+                                    <th class="text-center align-middle text-nowrap" style="width: 185px;">วัน / วันที่</th>
                                     <th class="text-center align-middle text-nowrap" style="width: 135px;">เวลาสอบ</th>
-                                    <th class="align-middle" style="width: 28%; min-width: 200px;">รหัส ชื่อวิชา</th>
-                                    <th class="align-middle" style="width: 32%; min-width: 220px;">รายละเอียดเบื้องต้นข้อสอบ</th>
+                                    <th class="align-middle" style="width: 26%; min-width: 190px;">รหัส ชื่อวิชา</th>
+                                    <th class="align-middle" style="width: 30%; min-width: 210px;">รายละเอียดเบื้องต้นข้อสอบ</th>
                                     <th class="text-center align-middle text-nowrap" style="width: 125px;">สถานะ</th>
                                     <th class="text-center align-middle text-nowrap" style="width: 120px;">เข้าสอบ</th>
                                 </tr>
@@ -159,7 +159,7 @@
                                         <td class="text-center align-middle text-nowrap">
                                             @if($exam->starts_at)
                                                 <span class="font-weight-bold text-dark">
-                                                    {{ (int) $exam->starts_at->format('j') }} {{ $thaiMonths[(int) $exam->starts_at->format('n')] ?? '' }} {{ (int) $exam->starts_at->format('Y') + 543 }}
+                                                    วัน{{ $dayName }}ที่ {{ (int) $exam->starts_at->format('j') }} {{ $thaiMonths[(int) $exam->starts_at->format('n')] ?? '' }} {{ (int) $exam->starts_at->format('Y') + 543 }}
                                                 </span>
                                             @else
                                                 <span class="text-muted text-sm">ไม่ระบุวัน</span>
