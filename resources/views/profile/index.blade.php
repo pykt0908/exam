@@ -123,19 +123,6 @@
                             @enderror
                         </div>
 
-                        <div class="form-group">
-                            <label for="phone" class="font-weight-bold">เบอร์โทรศัพท์</label>
-                            <input type="text" 
-                                   name="phone" 
-                                   id="phone" 
-                                   class="form-control @error('phone') is-invalid @enderror" 
-                                   placeholder="เช่น 0812345678" 
-                                   value="{{ old('phone', $user->phone) }}">
-                            @error('phone')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-
                         <hr class="my-3">
 
                         <!-- การเปิด/ปิดรับการแจ้งเตือน -->
