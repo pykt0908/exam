@@ -106,7 +106,7 @@
 
         <!-- Footer -->
         <div style="border-top: 1px solid #e5e7eb; margin-top: 28px; padding-top: 16px; text-align: center; font-size: 12px; color: #9ca3af; line-height: 1.5;">
-            <div>วิทยาลัยเทคโนโลยีศรีราชา (Technological College Sriracha)</div>
+            <div>วิทยาลัยเทคโนโลยีศรีราชา (Sriracha Technological College)</div>
             <div>อีเมลนี้เป็นการแจ้งเตือนอัตโนมัติจากระบบสอบออนไลน์ กรุณาอย่าตอบกลับ</div>
         </div>
 
