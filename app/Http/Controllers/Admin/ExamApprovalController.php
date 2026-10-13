@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Exam;
 use App\Models\ExamApprovalLog;
 use App\Models\Subject;
+use App\Services\ExamNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -217,6 +218,9 @@ class ExamApprovalController extends Controller
             'comment' => 'ส่งข้อสอบเพื่อขออนุมัติ (ส่งต่อไปยัง' . $targetStageName . ')',
         ]);
 
+        // Send Email Notification to approvers of this stage
+        ExamNotificationService::notifyExamSubmitted($exam, $user);
+
         return back()->with('success', 'ส่งข้อสอบเพื่อขออนุมัติไปยัง' . $targetStageName . 'เรียบร้อยแล้ว');
     }
 
@@ -267,6 +271,8 @@ class ExamApprovalController extends Controller
 
         $feedback = $request->input('feedback');
 
+        $previousStatus = $exam->approval_status;
+
         if ($exam->approval_status === 'pending_dept') {
             $exam->update([
                 'approval_status' => 'pending_eval',
@@ -282,6 +288,8 @@ class ExamApprovalController extends Controller
                 'action' => 'approved',
                 'comment' => $feedback ?: 'หัวหน้าหมวดวิชาอนุมัติเรียบร้อย',
             ]);
+
+            ExamNotificationService::notifyExamApproved($exam, $user, $feedback, $previousStatus);
 
             return redirect()->route('admin.approvals.index')
                 ->with('success', 'อนุมัติข้อสอบในระดับหัวหน้าหมวดเรียบร้อยแล้ว ส่งต่อให้งานวัดผลตรวจสอบ');
@@ -301,6 +309,8 @@ class ExamApprovalController extends Controller
                 'comment' => $feedback ?: 'หัวหน้างานวัดและประเมินผลอนุมัติเรียบร้อย',
             ]);
 
+            ExamNotificationService::notifyExamApproved($exam, $user, $feedback, $previousStatus);
+
             return redirect()->route('admin.approvals.index')
                 ->with('success', 'อนุมัติข้อสอบในระดับงานวัดและประเมินผลเรียบร้อยแล้ว ส่งต่อให้รองฝ่ายวิชาการพิจารณา');
         } elseif ($exam->approval_status === 'pending_academic') {
@@ -319,6 +329,8 @@ class ExamApprovalController extends Controller
                 'action' => 'approved',
                 'comment' => $feedback ?: 'รองผู้อำนวยการฝ่ายวิชาการอนุมัติขั้นสุดท้ายเรียบร้อย',
             ]);
+
+            ExamNotificationService::notifyExamApproved($exam, $user, $feedback, $previousStatus);
 
             return redirect()->route('admin.approvals.index')
                 ->with('success', 'อนุมัติข้อสอบขั้นสุดท้ายเรียบร้อยแล้ว! ข้อสอบพร้อมเปิดให้นักเรียนเข้าทำตามกำหนดเวลา');
@@ -369,6 +381,8 @@ class ExamApprovalController extends Controller
             'action' => 'rejected',
             'comment' => $reason,
         ]);
+
+        ExamNotificationService::notifyExamRejected($exam, $user, $reason);
 
         return redirect()->route('admin.approvals.index')
             ->with('success', 'ส่งกลับข้อสอบเพื่อให้ครูผู้สอนแก้ไขเรียบร้อยแล้ว');

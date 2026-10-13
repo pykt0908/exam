@@ -380,7 +380,8 @@
                             <div class="col-12 mb-2">
                                 <div class="input-group input-group-sm">
                                     <div class="input-group-prepend">
-                                        <span class="input-group-text bg-light font-weight-bold"><i class="fas fa-search mr-1"></i>ค้นหา</span>
+                                        <span class="input-group-text bg-light font-weight-bold"><i
+                                                class="fas fa-search mr-1"></i>ค้นหา</span>
                                     </div>
                                     <input type="text" id="modal_cr_search" class="form-control"
                                         placeholder="พิมพ์ชื่อกลุ่มเรียน หรือสาขาวิชาเพื่อค้นหา...">
@@ -398,10 +399,13 @@
                         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
                             <div class="text-dark">
                                 <strong>เลือกแล้ว:</strong>
-                                <span id="modal_cr_selected_count" class="badge badge-success px-2 py-1 font-weight-bold ml-1"
+                                <span id="modal_cr_selected_count"
+                                    class="badge badge-success px-2 py-1 font-weight-bold ml-1"
                                     style="font-size: 0.95rem;">0</span> กลุ่มเรียน
-                                <span class="text-muted ml-1">(รวมนักศึกษา <strong id="modal_cr_student_sum" class="text-success">0</strong> คน)</span>
-                                <span class="text-muted ml-2">| แสดงอยู่: <span id="modal_cr_visible_count" class="font-weight-bold text-dark">{{ $allClassrooms->count() }}</span> ห้อง</span>
+                                <span class="text-muted ml-1">(รวมนักศึกษา <strong id="modal_cr_student_sum"
+                                        class="text-success">0</strong> คน)</span>
+                                <span class="text-muted ml-2">| แสดงอยู่: <span id="modal_cr_visible_count"
+                                        class="font-weight-bold text-dark">{{ $allClassrooms->count() }}</span> ห้อง</span>
                             </div>
                             <div>
                                 <button type="button" class="btn btn-xs btn-outline-danger font-weight-bold"
@@ -437,16 +441,12 @@
                                             $isEnrolled = in_array($room->id, $enrolledIds);
                                             $roomShift = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
                                         @endphp
-                                        <tr class="modal-cr-row"
-                                            data-shift="{{ $roomShift }}"
-                                            data-level="{{ $room->level }}"
-                                            data-year="{{ $room->year }}"
-                                            data-name="{{ mb_strtolower($room->name) }}"
+                                        <tr class="modal-cr-row" data-shift="{{ $roomShift }}" data-level="{{ $room->level }}"
+                                            data-year="{{ $room->year }}" data-name="{{ mb_strtolower($room->name) }}"
                                             data-enrolled="{{ $isEnrolled ? '1' : '0' }}">
                                             <td class="text-center align-middle">
                                                 <input type="checkbox" name="classroom_ids[]" value="{{ $room->id }}"
-                                                    class="modal-cr-check"
-                                                    data-count="{{ $room->users_count }}">
+                                                    class="modal-cr-check" data-count="{{ $room->users_count }}">
                                             </td>
                                             <td class="text-center align-middle text-muted modal-cr-row-num">
                                                 {{ $index + 1 }}
@@ -462,12 +462,12 @@
                                             </td>
                                             <td class="text-center align-middle">
                                                 @if($isEnrolled)
-                                                    <span class="badge badge-success px-2 py-1">
-                                                        <i class="fas fa-check-circle mr-1"></i>อยู่ในวิชาแล้ว
+                                                    <span class="text-success">
+                                                        <i class="fas fa-check-circle mr-1"></i>เพิ่มแล้ว
                                                     </span>
                                                 @else
-                                                    <span class="badge badge-light border text-muted px-2 py-1">
-                                                        ยังไม่เข้าร่วม
+                                                    <span class="text-muted">
+                                                        ----
                                                     </span>
                                                 @endif
                                             </td>
@@ -498,7 +498,8 @@
                         <button type="button" class="btn btn-secondary font-weight-bold"
                             data-dismiss="modal">ยกเลิก</button>
                         <button type="submit" class="btn btn-success font-weight-bold shadow-sm" id="btn-submit-add-rooms">
-                            <i class="fas fa-plus mr-1"></i>เพิ่มกลุ่มเรียนเข้ารายวิชา (<span id="modal_cr_submit_count">0</span>)
+                            <i class="fas fa-plus mr-1"></i>เพิ่มกลุ่มเรียนเข้ารายวิชา (<span
+                                id="modal_cr_submit_count">0</span>)
                         </button>
                     </div>
                 </form>
@@ -561,13 +562,15 @@
                             <label class="font-weight-bold mb-1">
                                 กลุ่มเรียน / ห้องเรียน
                             </label>
-                            <select id="modal_classroom_filter" class="form-control form-control-sm select2" style="width: 100%;">
+                            <select id="modal_classroom_filter" class="form-control form-control-sm select2"
+                                style="width: 100%;">
                                 <option value="">-- ทุกกลุ่มเรียน --</option>
                                 @foreach($allClassrooms as $room)
                                     @php
                                         $roomShift = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
                                     @endphp
-                                    <option value="{{ $room->id }}" data-shift="{{ $roomShift }}" data-level="{{ $room->level }}" data-year="{{ $room->year }}" {{ (isset($selectedClassroom) && $selectedClassroom->id == $room->id) ? 'selected' : '' }}>
+                                    <option value="{{ $room->id }}" data-shift="{{ $roomShift }}"
+                                        data-level="{{ $room->level }}" data-year="{{ $room->year }}" {{ (isset($selectedClassroom) && $selectedClassroom->id == $room->id) ? 'selected' : '' }}>
                                         {{ $room->name }}
                                     </option>
                                 @endforeach
@@ -640,8 +643,7 @@
                                     @endphp
                                     <tr class="modal-student-row"
                                         data-classroom-id="{{ $student->classroom_id ?? 'unassigned' }}"
-                                        data-shift="{{ $studShift }}"
-                                        data-level="{{ $student->classroom?->level ?? '' }}"
+                                        data-shift="{{ $studShift }}" data-level="{{ $student->classroom?->level ?? '' }}"
                                         data-year="{{ $student->classroom?->year ?? '' }}"
                                         data-search="{{ mb_strtolower($student->student_code . ' ' . $student->name . ' ' . ($student->classroom ? $student->classroom->name : 'ไม่มีกลุ่มเรียน')) }}">
                                         <td class="text-center align-middle" style="width: 45px;">
@@ -658,7 +660,8 @@
                                         </td>
                                         <td class="text-center align-middle">
                                             @if($student->classroom)
-                                                <span class="text-dark font-weight-bold">{{ $student->classroom->shift_text }}</span>
+                                                <span
+                                                    class="text-dark font-weight-bold">{{ $student->classroom->shift_text }}</span>
                                             @else
                                                 <span class="text-muted">-</span>
                                             @endif

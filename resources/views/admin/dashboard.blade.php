@@ -69,6 +69,46 @@
         </div>
     </div>
 
+    @if(Auth::user()->isStaff() && !Auth::user()->hasConfiguredEmail())
+        {{-- Quick Email Notification Setup Banner --}}
+        <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; border-left: 5px solid #ffc107 !important; background: #fffcf0;">
+            <div class="card-body p-4">
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+                    <div class="mb-3 mb-md-0 pr-md-4">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="badge badge-warning text-dark font-weight-bold px-2 py-1 mr-2">
+                                <i class="fas fa-bell mr-1"></i> แจ้งเตือนสำคัญ
+                            </span>
+                            <h5 class="font-weight-bold text-dark mb-0">คุณยังไม่ได้ระบุอีเมลสำหรับรับการแจ้งเตือนข้อสอบ</h5>
+                        </div>
+                        <p class="text-muted mb-0 small" style="font-size: 0.95rem;">
+                            เพื่อให้ระบบสามารถส่งผลการอนุมัติ หรือแจ้งเตือนเมื่อข้อสอบถูกส่งกลับแก้ไข กรุณากรอกอีเมลที่เปิดใช้งานเป็นประจำ (เช่น Gmail หรือเมลวิทยาลัย)
+                        </p>
+                    </div>
+                    <form action="{{ route('profile.update') }}" method="POST" class="form-inline flex-nowrap">
+                        @csrf
+                        @method('PUT')
+                        <input type="hidden" name="name" value="{{ Auth::user()->name }}">
+                        <input type="hidden" name="notify_email_approval" value="1">
+                        <div class="input-group shadow-sm">
+                            <input type="email" 
+                                   name="notification_email" 
+                                   class="form-control" 
+                                   placeholder="ใส่อีเมลของคุณที่นี่..." 
+                                   required 
+                                   style="min-width: 260px; border-radius: 6px 0 0 6px;">
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-primary font-weight-bold px-3" style="border-radius: 0 6px 6px 0;">
+                                    <i class="fas fa-save mr-1"></i> บันทึกอีเมล
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Empty Content Card --}}
     <div class="row">
         <div class="col-12 mb-4">

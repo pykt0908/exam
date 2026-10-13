@@ -56,6 +56,18 @@ class AppServiceProvider extends ServiceProvider
                     'onclick' => "var i=this.querySelector('i');if(i){i.classList.add('fa-spin');}window.location.reload();return false;",
                 ]);
 
+                // แจ้งเตือนหากครู/เจ้าหน้าที่ยังไม่ได้ระบุอีเมลสำหรับรับการแจ้งเตือน
+                if ($user->isStaff() && method_exists($user, 'hasConfiguredEmail') && !$user->hasConfiguredEmail()) {
+                    $event->menu->add([
+                        'text' => 'ยังไม่ตั้งค่าอีเมลแจ้งเตือน',
+                        'topnav_right' => true,
+                        'icon' => 'fas fa-exclamation-triangle text-warning',
+                        'route' => 'profile.index',
+                        'classes' => 'badge badge-warning text-dark py-2 px-3 mr-2 my-auto font-weight-bold',
+                        'title' => 'คลิกที่นี่เพื่อตั้งค่าอีเมลสำหรับรับการแจ้งเตือนผลการอนุมัติข้อสอบ',
+                    ]);
+                }
+
                 if ($user->isStaff()) {
                     $event->menu->add([
                         'text' => 'หน้าหลัก',
@@ -208,6 +220,12 @@ class AppServiceProvider extends ServiceProvider
                     'url' => '#',
                     'id' => 'sidebar-user-item',
                     'submenu' => [
+                        [
+                            'text' => 'ข้อมูลส่วนตัว / แจ้งเตือน',
+                            'icon' => 'fas fa-user-edit text-info',
+                            'route' => 'profile.index',
+                            'active' => ['profile*'],
+                        ],
                         [
                             'text' => 'ออกจากระบบ',
                             'icon' => 'fas fa-sign-out-alt text-danger',

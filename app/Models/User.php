@@ -11,7 +11,8 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     protected $fillable = [
-        'name', 'email', 'password', 'student_code', 'teacher_code', 'role', 
+        'name', 'email', 'notification_email', 'phone', 'notify_email_approval',
+        'password', 'student_code', 'teacher_code', 'role', 
         'academic_role', 'department_id', 'classroom_id', 'citizen_id', 'photo', 
         'is_exam_eligible', 'ineligible_reason',
         'username', 'level_no', 'depart_no', 'year', 'room', 'mis_synced_at',
@@ -32,8 +33,44 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_exam_eligible' => 'boolean',
             'mis_synced_at' => 'datetime',
+            'notify_email_approval' => 'boolean',
         ];
     }
+
+    /**
+     * ดึงอีเมลที่ใช้รับการแจ้งเตือนจริง (ตัด @exam.local ออก)
+     */
+    public function getEffectiveNotificationEmail(): ?string
+    {
+        $custom = trim($this->notification_email ?? '');
+        if (!empty($custom) && filter_var($custom, FILTER_VALIDATE_EMAIL)) {
+            return $custom;
+        }
+
+        $email = trim($this->email ?? '');
+        if (!empty($email) && !str_ends_with(strtolower($email), '@exam.local') && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
+
+        return null;
+    }
+
+    /**
+     * ตรวจสอบว่าผู้ใช้มีอีเมลจริงสำหรับรับการแจ้งเตือนหรือไม่
+     */
+    public function hasConfiguredEmail(): bool
+    {
+        return $this->getEffectiveNotificationEmail() !== null;
+    }
+
+    /**
+     * ตรวจสอบว่าผู้ใช้ต้องการรับอีเมลแจ้งเตือนการอนุมัติข้อสอบหรือไม่
+     */
+    public function wantsApprovalNotifications(): bool
+    {
+        return ($this->notify_email_approval ?? true) && $this->hasConfiguredEmail();
+    }
+
 
     public function examAttempts()
     {

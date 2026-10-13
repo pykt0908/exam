@@ -40,6 +40,11 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+    // Profile & Notification Settings
+    Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'index'])->name('profile.index');
+    Route::put('/profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/test-email', [\App\Http\Controllers\ProfileController::class, 'sendTestEmail'])->name('profile.test-email');
+
     // Admin/Teacher Group
     Route::prefix('admin')->name('admin.')->middleware('role:admin,teacher')->group(function () {
         Route::get('/dashboard', [AdminDashboard::class, 'index'])->name('dashboard');
