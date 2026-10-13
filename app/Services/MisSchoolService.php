@@ -205,6 +205,91 @@ class MisSchoolService
     // Sync Helpers
     // =========================================================================
 
+    /**
+     * ค้นหาห้องเรียนที่ตรงกันอย่างแม่นยำ (จับคู่ระดับชั้น, ห้องเรียน, และแผนกวิชา)
+     */
+    public function matchClassroom(?string $levelNo, ?string $departNo, ?string $year, ?string $room): ?Classroom
+    {
+        if (empty($year) || empty($room) || $year === '-' || $room === '-') {
+            return null;
+        }
+
+        $paddedDept = str_pad((string)$departNo, 2, '0', STR_PAD_LEFT);
+        $deptKeywords = [
+            '01' => ['บัญชี', 'AC'],
+            '02' => ['การตลาด', 'MK'],
+            '04' => ['เครื่องกล', 'ช่างกล', 'MT'],
+            '05' => ['ไฟฟ้า', 'ET'],
+            '13' => ['เทคโนโลยีธุรกิจดิจิทัล', 'ดิจิทัล', 'คอมพิวเตอร์', 'TBD'],
+            '14' => ['โลจิสติกส์', 'LTS', 'LT'],
+            '03' => ['เลขา', 'ค้าปลีก'],
+        ];
+        $keywords = $deptKeywords[$paddedDept] ?? [];
+        $targetRoom = "{$year}/{$room}";
+
+        $query = Classroom::query();
+
+        // 1. กรองตามระดับชั้น
+        if ((string)$levelNo === '3') {
+            $query->where('name', 'LIKE', "ปวส. พิเศษ{$targetRoom}%");
+        } elseif ((string)$levelNo === '2') {
+            $query->where('name', 'LIKE', "ปวส.{$targetRoom}%")
+                  ->where('name', 'NOT LIKE', 'ปวส. พิเศษ%');
+        } else {
+            $query->where('name', 'LIKE', "ปวช.{$targetRoom}%");
+        }
+
+        // 2. กรองตามแผนกวิชาเพื่อป้องกันการสับสนระหว่างสาขาที่มีห้องซ้ำกัน
+        if (!empty($keywords)) {
+            $query->where(function ($q) use ($keywords) {
+                foreach ($keywords as $kw) {
+                    $q->orWhere('name', 'LIKE', "%{$kw}%");
+                }
+            });
+        }
+
+        $matched = $query->first();
+
+        // Fallback: หากไม่พบตามแผนก ให้ค้นหาตามระดับชั้นและห้องเรียน
+        if (!$matched) {
+            $prefix = ((string)$levelNo === '2' || (string)$levelNo === '3') ? 'ปวส.' : 'ปวช.';
+            $matched = Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%")->first();
+        }
+
+        return $matched;
+    }
+
+    /**
+     * ค้นหาแผนกวิชาตามรหัสแผนกของ MisSchool
+     */
+    public function matchDepartment(?string $departNo): ?Department
+    {
+        if (empty($departNo)) {
+            return null;
+        }
+
+        $paddedDept = str_pad((string)$departNo, 2, '0', STR_PAD_LEFT);
+        $deptIdMap = [
+            '01' => 2, // การบัญชี
+            '02' => 4, // การตลาด
+            '04' => 7, // เทคนิคเครื่องกล
+            '05' => 6, // ไฟฟ้า
+            '13' => 3, // เทคโนโลยีธุรกิจดิจิทัล
+            '14' => 5, // การจัดการโลจิสติกส์และซัพพลายเชน
+        ];
+
+        if (isset($deptIdMap[$paddedDept])) {
+            $dept = Department::find($deptIdMap[$paddedDept]);
+            if ($dept) {
+                return $dept;
+            }
+        }
+
+        return Department::where('id', $departNo)
+            ->orWhere('name', 'LIKE', "%{$departNo}%")
+            ->first();
+    }
+
     public function syncStudentUser(array $data, string $password): User
     {
         $stdNo = trim($data['std_no'] ?? '');
@@ -216,31 +301,12 @@ class MisSchoolService
         $room = $data['room'] ?? null;
         $citizenId = !empty($data['citizen_id']) ? trim($data['citizen_id']) : $password;
 
-        // ค้นหาห้องเรียนที่ตรงกัน (เช่น "1/1", "2/1")
-        $classroomId = null;
-        if (!empty($year) && !empty($room) && $year !== '-' && $room !== '-') {
-            $levelPrefix = ($levelNo == '2' || $levelNo == '3') ? 'ปวส.' : 'ปวช.';
-            $targetRoom = "{$year}/{$room}";
+        // ค้นหาห้องเรียนและแผนกวิชาที่ตรงกัน
+        $classroom = $this->matchClassroom($levelNo, $departNo, $year, $room);
+        $classroomId = $classroom?->id;
 
-            $classroom = Classroom::where('name', 'LIKE', "%{$levelPrefix}{$targetRoom}%")
-                ->orWhere('name', 'LIKE', "%{$targetRoom}%")
-                ->first();
-
-            if ($classroom) {
-                $classroomId = $classroom->id;
-            }
-        }
-
-        // ค้นหาแผนกวิชา
-        $departmentId = null;
-        if (!empty($departNo)) {
-            $department = Department::where('id', $departNo)
-                ->orWhere('name', 'LIKE', "%{$departNo}%")
-                ->first();
-            if ($department) {
-                $departmentId = $department->id;
-            }
-        }
+        $department = $this->matchDepartment($departNo);
+        $departmentId = $department?->id;
 
         // ค้นหา User เดิมโดยใช้ citizen_id ก่อนเป็นอันดับแรก (เพราะ citizen_id unique และแน่นอนที่สุด)
         $user = null;

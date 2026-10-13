@@ -200,6 +200,32 @@ Route::match(['get', 'post'], '/system/deploy-helper', function (\Illuminate\Htt
         $output .= "=== OPTIMIZE:CLEAR OUTPUT ===\n" . \Illuminate\Support\Facades\Artisan::output() . "\n";
     }
 
+    if ($action === 'remap-classrooms' || $action === 'remap' || $action === 'all') {
+        $misService = app(\App\Services\MisSchoolService::class);
+        $students = \App\Models\User::where('role', 'student')
+            ->whereNotNull('level_no')
+            ->whereNotNull('year')
+            ->whereNotNull('room')
+            ->get();
+        $remapped = 0;
+        foreach ($students as $s) {
+            $matched = $misService->matchClassroom($s->level_no, $s->depart_no, $s->year, $s->room);
+            $dept = $misService->matchDepartment($s->depart_no);
+            $updates = [];
+            if ($matched && $s->classroom_id !== $matched->id) {
+                $updates['classroom_id'] = $matched->id;
+            }
+            if ($dept && $s->department_id !== $dept->id) {
+                $updates['department_id'] = $dept->id;
+            }
+            if (!empty($updates)) {
+                $s->update($updates);
+                $remapped++;
+            }
+        }
+        $output .= "=== REMAP CLASSROOMS OUTPUT ===\nRemapped {$remapped} students to exact classrooms & departments.\n";
+    }
+
     if ($action === 'cleanup-students' || $action === 'clean-old-students') {
         $deleted = \App\Models\User::where('role', 'student')
             ->whereNotNull('mis_synced_at')
