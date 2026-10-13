@@ -29,7 +29,7 @@ class ExamApprovalNotificationTest extends TestCase
 
         $response = $this->actingAs($teacher)->get('/profile');
         $response->assertStatus(200);
-        $response->assertSee('ข้อมูลส่วนตัวและการตั้งค่าการแจ้งเตือน');
+        $response->assertSee('ข้อมูลส่วนตัวและการแจ้งเตือน');
 
         // Update notification email
         $updateResponse = $this->actingAs($teacher)->put('/profile', [
