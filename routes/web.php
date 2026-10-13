@@ -175,3 +175,29 @@ Route::middleware('auth')->group(function () {
         Route::get('/exam/attempt/{attempt}/result', [StudentExamController::class, 'result'])->name('exam.result');
     });
 });
+
+// Shared Hosting Deploy Helper (Run migrate & cache clear via browser without SSH)
+Route::match(['get', 'post'], '/system/deploy-helper', function (\Illuminate\Http\Request $request) {
+    $secret = env('DEPLOY_SECRET', 'technosri_deploy_2026');
+    $token = $request->query('token', $request->input('token'));
+
+    $isAuthorized = ($token && hash_equals($secret, (string) $token)) || (auth()->check() && auth()->user()->isAdmin());
+    if (!$isAuthorized) {
+        abort(403, 'Unauthorized deploy helper access.');
+    }
+
+    $action = $request->query('action', 'all');
+    $output = '';
+
+    if ($action === 'migrate' || $action === 'all') {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $output .= "=== MIGRATE OUTPUT ===\n" . \Illuminate\Support\Facades\Artisan::output() . "\n";
+    }
+
+    if ($action === 'clear' || $action === 'all') {
+        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+        $output .= "=== OPTIMIZE:CLEAR OUTPUT ===\n" . \Illuminate\Support\Facades\Artisan::output() . "\n";
+    }
+
+    return response('<pre style="background:#111827; color:#10b981; padding:24px; font-family:monospace; border-radius:8px; line-height:1.5;">' . htmlspecialchars($output) . '</pre>');
+})->name('system.deploy-helper');
