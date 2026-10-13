@@ -1,6 +1,7 @@
 @extends('adminlte::page')
 
 @section('title', 'ข้อมูลส่วนตัว')
+@section('plugins.Sweetalert2', true)
 
 @section('content_header')
     <div class="d-flex justify-content-between align-items-center">
@@ -13,36 +14,6 @@
 @stop
 
 @section('content')
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-            {{ session('success') }}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-            {{ session('error') }}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-    @endif
-
-    @if($errors->any())
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-            <ul class="mb-0 pl-3">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-    @endif
 
     @if(!$user->hasConfiguredEmail() && $user->isStaff())
         <div class="alert alert-warning alert-dismissible fade show shadow-sm" role="alert">
@@ -118,7 +89,7 @@
                 <div class="card-header py-2">
                     <h5 class="card-title font-weight-bold mb-0 text-dark">ข้อมูลส่วนตัวและการแจ้งเตือน</h5>
                 </div>
-                <form action="{{ route('profile.update') }}" method="POST">
+                <form id="profile-form" action="{{ route('profile.update') }}" method="POST">
                     @csrf
                     @method('PUT')
                     <div class="card-body">
@@ -195,7 +166,7 @@
                 <div class="card-header py-2 bg-light">
                     <h6 class="font-weight-bold mb-0 text-muted">ทดสอบส่งอีเมล</h6>
                 </div>
-                <form action="{{ route('profile.test-email') }}" method="POST">
+                <form id="test-email-form" action="{{ route('profile.test-email') }}" method="POST">
                     @csrf
                     <div class="card-body py-3">
                         <div class="form-group mb-0">
@@ -219,4 +190,96 @@
             </div>
         </div>
     </div>
+@stop
+
+@section('js')
+<script>
+$(function() {
+    // SweetAlert ยืนยันก่อนบันทึกข้อมูลส่วนตัว
+    $('#profile-form').on('submit', function(e) {
+        if ($(this).data('confirmed')) {
+            return true;
+        }
+
+        if (!this.checkValidity()) {
+            return true;
+        }
+
+        e.preventDefault();
+        const form = this;
+
+        Swal.fire({
+            title: 'ยืนยันการบันทึกข้อมูล?',
+            text: 'คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลใช่หรือไม่',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#007bff',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'บันทึกข้อมูล',
+            cancelButtonText: 'ยกเลิก',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'กำลังบันทึกข้อมูล...',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                $(form).data('confirmed', true).submit();
+            }
+        });
+    });
+
+    // SweetAlert แจ้งสถานะขณะส่งอีเมลทดสอบ
+    $('#test-email-form').on('submit', function(e) {
+        if (!this.checkValidity()) {
+            return true;
+        }
+        Swal.fire({
+            title: 'กำลังส่งอีเมลทดสอบ...',
+            text: 'กรุณารอสักครู่ ระบบกำลังทดสอบส่งอีเมลไปยังปลายทาง',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+    });
+
+    @if(session('success'))
+        Swal.fire({
+            icon: 'success',
+            title: 'สำเร็จ!',
+            text: {!! json_encode(session('success')) !!},
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#007bff',
+            timer: 3000,
+            timerProgressBar: true
+        });
+    @endif
+
+    @if(session('error'))
+        Swal.fire({
+            icon: 'error',
+            title: 'เกิดข้อผิดพลาด!',
+            text: {!! json_encode(session('error')) !!},
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#dc3545'
+        });
+    @endif
+
+    @if($errors->any())
+        Swal.fire({
+            icon: 'error',
+            title: 'ข้อมูลไม่ถูกต้อง',
+            html: {!! json_encode(implode("<br>", $errors->all())) !!},
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#dc3545'
+        });
+    @endif
+});
+</script>
 @stop
