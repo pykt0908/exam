@@ -56,8 +56,6 @@ class AppServiceProvider extends ServiceProvider
                     'onclick' => "var i=this.querySelector('i');if(i){i.classList.add('fa-spin');}window.location.reload();return false;",
                 ]);
 
-
-
                 if ($user->isStaff()) {
                     $event->menu->add([
                         'text' => 'หน้าหลัก',
