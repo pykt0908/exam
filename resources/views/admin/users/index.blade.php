@@ -42,7 +42,10 @@
                         <i class="fas fa-chalkboard-teacher mr-2 text-info"></i>ซิงค์อาจารย์จาก MisSchool
                     </a>
                     <a class="dropdown-item" href="javascript:void(0)" onclick="triggerSyncStudents()">
-                        <i class="fas fa-user-graduate mr-2 text-success"></i>ซิงค์นักศึกษาจาก MisSchool
+                        <i class="fas fa-user-graduate mr-2 text-success"></i>ซิงค์นักศึกษาปัจจุบันจาก MisSchool
+                    </a>
+                    <a class="dropdown-item" href="javascript:void(0)" onclick="triggerCleanupStudents()">
+                        <i class="fas fa-user-minus mr-2 text-warning"></i>ล้างนักศึกษาเก่าที่ไม่มีห้องเรียน
                     </a>
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item" href="javascript:void(0)" onclick="triggerCheckHealth()">
@@ -1009,8 +1012,53 @@
                 });
             }
 
+            function triggerCleanupStudents() {
+                Swal.fire({
+                    title: 'ยืนยันการล้างข้อมูล?',
+                    text: 'ระบบจะลบเฉพาะนักศึกษาที่ไม่มีห้องเรียน (ศิษย์เก่า) ที่ซิงค์เข้ามาโดยไม่มีประวัติการสอบ',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e3342f',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-trash-alt mr-1"></i> ยืนยันล้างข้อมูล',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'กำลังล้างข้อมูล...',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        $.ajax({
+                            url: '{{ route("admin.misschool.cleanup-students") }}',
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}'
+                            },
+                            success: function(res) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'สำเร็จ',
+                                    text: res.message,
+                                    confirmButtonText: 'ตกลง'
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            },
+                            error: function(xhr) {
+                                Swal.fire('เกิดข้อผิดพลาด', xhr.responseJSON?.message || 'ไม่สามารถล้างข้อมูลได้', 'error');
+                            }
+                        });
+                    }
+                });
+            }
+
             window.triggerSyncTeachers = triggerSyncTeachers;
             window.triggerSyncStudents = triggerSyncStudents;
+            window.triggerCleanupStudents = triggerCleanupStudents;
             window.triggerCheckHealth = triggerCheckHealth;
         });
     </script>

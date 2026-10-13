@@ -163,4 +163,39 @@ class MisSchoolSyncController extends Controller
             return back()->with('error', 'เกิดข้อผิดพลาดในการซิงค์ข้อมูลนักศึกษา: ' . $e->getMessage());
         }
     }
+
+    /**
+     * ล้างข้อมูลนักศึกษาเก่าที่ไม่มีห้องเรียน และไม่เคยมีประวัติการสอบ
+     */
+    public function cleanupInactiveStudents(Request $request)
+    {
+        if (auth()->user()->isTeacher()) {
+            abort(403, 'คุณไม่มีสิทธิ์เข้าถึงส่วนนี้');
+        }
+
+        try {
+            $deleted = $this->misSchool->cleanupInactiveStudents();
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "ล้างข้อมูลนักศึกษาเก่าที่ไม่มีห้องเรียนเรียบร้อยแล้ว ({$deleted} คน)",
+                    'deleted' => $deleted,
+                ]);
+            }
+
+            return back()->with('success', "ล้างข้อมูลนักศึกษาเก่าที่ไม่มีห้องเรียนเรียบร้อยแล้ว ({$deleted} คน)");
+        } catch (\Throwable $e) {
+            \Log::error('MisSchool cleanupInactiveStudents error: ' . $e->getMessage());
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'เกิดข้อผิดพลาดในการล้างข้อมูล: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return back()->with('error', 'เกิดข้อผิดพลาดในการล้างข้อมูล: ' . $e->getMessage());
+        }
+    }
 }

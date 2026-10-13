@@ -118,6 +118,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/misschool/sync-teachers', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'syncTeachers'])->name('misschool.sync-teachers');
             Route::post('/misschool/sync-classrooms', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'syncClassrooms'])->name('misschool.sync-classrooms');
             Route::post('/misschool/sync-students', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'syncStudents'])->name('misschool.sync-students');
+            Route::post('/misschool/cleanup-students', [\App\Http\Controllers\Admin\MisSchoolSyncController::class, 'cleanupInactiveStudents'])->name('misschool.cleanup-students');
 
             // Users
             Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -194,9 +195,24 @@ Route::match(['get', 'post'], '/system/deploy-helper', function (\Illuminate\Htt
         $output .= "=== MIGRATE OUTPUT ===\n" . \Illuminate\Support\Facades\Artisan::output() . "\n";
     }
 
-    if ($action === 'clear' || $action === 'all') {
+    if ($action === 'clear' || $action === 'cache' || $action === 'all') {
         \Illuminate\Support\Facades\Artisan::call('optimize:clear');
         $output .= "=== OPTIMIZE:CLEAR OUTPUT ===\n" . \Illuminate\Support\Facades\Artisan::output() . "\n";
+    }
+
+    if ($action === 'cleanup-students' || $action === 'clean-old-students') {
+        $deleted = \App\Models\User::where('role', 'student')
+            ->whereNotNull('mis_synced_at')
+            ->where(function ($q) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('year', '-')
+                  ->orWhere('room', '-')
+                  ->orWhereNull('year')
+                  ->orWhereNull('room');
+            })
+            ->whereDoesntHave('examAttempts')
+            ->delete();
+        $output .= "=== CLEANUP INACTIVE STUDENTS OUTPUT ===\nDeleted {$deleted} historical/inactive students with no classroom.\n";
     }
 
     return response('<pre style="background:#111827; color:#10b981; padding:24px; font-family:monospace; border-radius:8px; line-height:1.5;">' . htmlspecialchars($output) . '</pre>');

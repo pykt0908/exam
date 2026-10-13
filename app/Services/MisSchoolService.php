@@ -619,7 +619,8 @@ class MisSchoolService
     public function syncAllStudents(array $options = []): array
     {
         $students = [];
-        $limit = $options['limit'] ?? 1000;
+        $limit = $options['limit'] ?? 5000;
+        $onlyActive = $options['only_active'] ?? true;
 
         // 1. ลองผ่าน Bridge API
         try {
@@ -663,11 +664,21 @@ class MisSchoolService
         $createdCount = 0;
         $updatedCount = 0;
         $failedCount = 0;
+        $skippedInactiveCount = 0;
 
         foreach ($students as $st) {
             $stdNo = trim($st['std_no'] ?? '');
             $citizenId = trim($st['citizen_id'] ?? '');
+            $year = trim((string)($st['year'] ?? ''));
+            $room = trim((string)($st['room'] ?? ''));
+
             if (!$stdNo || !$citizenId) {
+                continue;
+            }
+
+            // กรองเอาเฉพาะนักศึกษาปัจจุบันที่มีห้องเรียนจริง (ข้ามศิษย์เก่าที่ไม่มีห้องเรียน / year หรือ room เป็น '-')
+            if ($onlyActive && ($year === '-' || $room === '-' || empty($year) || empty($room))) {
+                $skippedInactiveCount++;
                 continue;
             }
 
@@ -689,7 +700,10 @@ class MisSchoolService
             }
         }
 
-        $msg = "ซิงค์ข้อมูลนักศึกษาจาก MisSchool สำเร็จ (ทั้งหมด " . count($students) . " คน: เพิ่มใหม่ {$createdCount} คน, อัปเดต {$updatedCount} คน)";
+        $msg = "ซิงค์ข้อมูลนักศึกษาปัจจุบันจาก MisSchool สำเร็จ (เพิ่มใหม่ {$createdCount} คน, อัปเดต {$updatedCount} คน)";
+        if ($skippedInactiveCount > 0) {
+            $msg .= " [กรองข้ามศิษย์เก่า/ไม่มีห้องเรียน {$skippedInactiveCount} คน]";
+        }
         if ($failedCount > 0) {
             $msg .= " (ข้าม {$failedCount} คนที่ข้อมูลไม่สมบูรณ์)";
         }
@@ -700,8 +714,27 @@ class MisSchoolService
             'total' => count($students),
             'created' => $createdCount,
             'updated' => $updatedCount,
+            'skipped_inactive' => $skippedInactiveCount,
             'failed' => $failedCount,
         ];
+    }
+
+    /**
+     * ล้างข้อมูลนักศึกษาเก่าที่ไม่มีห้องเรียน และไม่เคยมีประวัติการสอบ
+     */
+    public function cleanupInactiveStudents(): int
+    {
+        return User::where('role', 'student')
+            ->whereNotNull('mis_synced_at')
+            ->where(function ($q) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('year', '-')
+                  ->orWhere('room', '-')
+                  ->orWhereNull('year')
+                  ->orWhereNull('room');
+            })
+            ->whereDoesntHave('examAttempts')
+            ->delete();
     }
 
     // =========================================================================
@@ -1005,16 +1038,19 @@ class MisSchoolService
         return [];
     }
 
-    protected function fetchStudentsDirect(int $limit = 500, array $options = []): array
+    protected function fetchStudentsDirect(int $limit = 5000, array $options = []): array
     {
         if ($this->isTsqlAvailable()) {
-            $sql = "SELECT TOP {$limit}
+            $topClause = ($limit > 0) ? "TOP {$limit}" : "";
+            $sql = "SELECT {$topClause}
                         sn.StdNo, s.IdNo, s.PreFixNo, s.Fname, s.Lname, s.Email,
                         r.LavelNo, r.DepartNo, r.Year, r.Room
                     FROM Tabain.dbo.tblStudentNumber sn
                     INNER JOIN Tabain.dbo.tblStudent s ON sn.StdNoRef = s.StdNoRef
-                    LEFT JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
-                    WHERE s.IsUse = '1'";
+                    INNER JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
+                    WHERE s.IsUse = '1'
+                      AND r.Year <> '-' AND r.Room <> '-'
+                      AND r.Year IS NOT NULL AND r.Room IS NOT NULL";
 
             if (!empty($options['year'])) {
                 $sql .= " AND r.Year = '" . addslashes($options['year']) . "'";
@@ -1023,7 +1059,7 @@ class MisSchoolService
                 $sql .= " AND r.Room = '" . addslashes($options['room']) . "'";
             }
 
-            $sql .= " ORDER BY sn.StdNo ASC;";
+            $sql .= " ORDER BY r.Year ASC, r.Room ASC, sn.StdNo ASC;";
 
             $rows = $this->executeTsql('Tabain', $sql);
             return array_map(function($r) {

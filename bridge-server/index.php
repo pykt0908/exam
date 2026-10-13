@@ -285,26 +285,32 @@ if ($action === 'sync-classrooms') {
 if ($action === 'sync-students') {
     $year = $input['year'] ?? $_GET['year'] ?? null;
     $room = $input['room'] ?? $_GET['room'] ?? null;
-    $limit = (int)($input['limit'] ?? $_GET['limit'] ?? 500);
+    $limit = (int)($input['limit'] ?? $_GET['limit'] ?? 5000);
+    $onlyActive = !isset($_GET['all']) && !isset($input['all']);
 
     try {
         $conn = getDbConnection('Tabain', $dbHost, $dbUser, $dbPass);
-        $sql = "SELECT TOP {$limit}
+        $topClause = ($limit > 0) ? "TOP {$limit}" : "";
+        $sql = "SELECT {$topClause}
                     sn.StdNo, s.IdNo, s.PreFixNo, s.Fname, s.Lname, s.Email,
                     r.LavelNo, r.DepartNo, r.Year, r.Room
                 FROM Tabain.dbo.tblStudentNumber sn
                 INNER JOIN Tabain.dbo.tblStudent s ON sn.StdNoRef = s.StdNoRef
-                LEFT JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
+                INNER JOIN Tabain.dbo.tblStudentRoom r ON sn.StdNo = r.StdNo
                 WHERE s.IsUse = '1'";
 
-        if ($year !== null && $year !== '') {
+        if ($onlyActive) {
+            $sql .= " AND r.Year <> '-' AND r.Room <> '-' AND r.Year IS NOT NULL AND r.Room IS NOT NULL";
+        }
+
+        if ($year !== null && $year !== '' && $year !== 'all') {
             $sql .= " AND r.Year = " . $conn->quote($year);
         }
-        if ($room !== null && $room !== '') {
+        if ($room !== null && $room !== '' && $room !== 'all') {
             $sql .= " AND r.Room = " . $conn->quote($room);
         }
 
-        $sql .= " ORDER BY sn.StdNo ASC";
+        $sql .= " ORDER BY r.Year ASC, r.Room ASC, sn.StdNo ASC";
 
         $stmt = $conn->query($sql);
         $students = $stmt->fetchAll(PDO::FETCH_ASSOC);

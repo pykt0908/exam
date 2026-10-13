@@ -178,4 +178,38 @@ class MisSchoolSyncTest extends TestCase
         $this->assertEquals('0008852', $syncedUser->student_code);
         $this->assertEquals('3480100490060', $syncedUser->citizen_id);
     }
+
+    public function test_admin_can_cleanup_inactive_students(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        // Inactive historical student with no classroom
+        $inactiveStudent = User::factory()->create([
+            'role' => 'student',
+            'classroom_id' => null,
+            'year' => '-',
+            'room' => '-',
+            'mis_synced_at' => now(),
+        ]);
+
+        // Active student with classroom
+        $classroom = Classroom::create(['name' => 'ปวช.1/1 การบัญชี เช้า']);
+        $activeStudent = User::factory()->create([
+            'role' => 'student',
+            'classroom_id' => $classroom->id,
+            'year' => '1',
+            'room' => '1',
+            'mis_synced_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->postJson(route('admin.misschool.cleanup-students'));
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('deleted', 1);
+
+        $this->assertDatabaseMissing('users', ['id' => $inactiveStudent->id]);
+        $this->assertDatabaseHas('users', ['id' => $activeStudent->id]);
+    }
 }
