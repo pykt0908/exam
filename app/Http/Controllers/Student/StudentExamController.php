@@ -36,6 +36,46 @@ class StudentExamController extends Controller
             ->orderBy('completed_at', 'desc')
             ->get();
 
+        // ซ่อนข้อสอบที่เข้าข่ายสถานะ "หมดเวลาสอบแล้ว" สำหรับนักเรียน
+        $exams = $exams->reject(function ($exam) use ($student, $attempts) {
+            if (!$exam->isExpired()) {
+                return false;
+            }
+
+            $eligibility = $student->getExamEligibility($exam);
+            if (!$eligibility['eligible']) {
+                return true;
+            }
+
+            $hasInProgress = $attempts->where('exam_id', $exam->id)->where('status', 'in_progress')->first();
+            if ($hasInProgress) {
+                return false;
+            }
+
+            $completedAttempts = $attempts->where('exam_id', $exam->id)->where('status', 'completed');
+            $latestCompleted = $completedAttempts->first();
+            if ($latestCompleted && $latestCompleted->isPendingGrading()) {
+                return false;
+            }
+
+            $hasPassed = $completedAttempts->where('is_passed', true)->isNotEmpty();
+            $allowedAttempts = $exam->getAllowedAttemptsForUser($student->id);
+            $extraAttempts = $exam->getExtraAttemptsForUser($student->id);
+            $completedAttemptsCount = $completedAttempts->count();
+            $canRetake = ($completedAttemptsCount < $allowedAttempts) && (($completedAttemptsCount > 0 && !$hasPassed) || ($extraAttempts > 0));
+
+            if ($canRetake) {
+                return false;
+            }
+
+            if ($hasPassed && $extraAttempts === 0) {
+                return false;
+            }
+
+            // หมดเวลาสอบแล้ว และไม่มีสิทธิ์สอบซ่อม/ทำต่อ -> ปิดการแสดงผล
+            return true;
+        })->values();
+
         return view('student.dashboard', compact('exams', 'attempts'));
     }
 

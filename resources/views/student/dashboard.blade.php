@@ -139,7 +139,11 @@
                                         $isPendingGrading = $latestCompleted && $latestCompleted->isPendingGrading();
                                         $dayName = $exam->starts_at ? ($thaiDays[$exam->starts_at->format('l')] ?? '-') : '-';
                                         $canRetake = ($completedAttemptsCount < $allowedAttempts) && (($completedAttemptsCount > 0 && !$hasPassed) || ($extraAttempts > 0));
+                                        $isExpiredStatus = $exam->isExpired() && !$hasInProgress && !$isPendingGrading && !($hasPassed && $extraAttempts === 0) && !$canRetake;
                                     @endphp
+                                    @if($isExpiredStatus)
+                                        @continue
+                                    @endif
                                     <tr>
                                         <td class="text-center align-middle">{{ $index + 1 }}</td>
                                         <td class="text-center align-middle font-weight-bold text-dark">
@@ -295,7 +299,11 @@
                                 $isPendingGrading = $latestCompleted && $latestCompleted->isPendingGrading();
                                 $dayNameMobile = $exam->starts_at ? ($thaiDaysMobile[$exam->starts_at->format('l')] ?? '-') : '-';
                                 $canRetake = ($completedAttemptsCount < $allowedAttempts) && (($completedAttemptsCount > 0 && !$hasPassed) || ($extraAttempts > 0));
+                                $isExpiredStatus = $exam->isExpired() && !$hasInProgress && !$isPendingGrading && !($hasPassed && $extraAttempts === 0) && !$canRetake;
                             @endphp
+                            @if($isExpiredStatus)
+                                @continue
+                            @endif
                             <div class="p-3 border-bottom {{ $loop->even ? 'bg-light' : 'bg-white' }}">
                                 <div class="text-xs text-muted mb-1">
                                     ลำดับที่ {{ $index + 1 }}
