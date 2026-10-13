@@ -324,6 +324,7 @@ if ($action === 'sync-students') {
                 'depart_no' => $st['DepartNo'],
                 'year' => $st['Year'],
                 'room' => $st['Room'],
+                'shift' => $st['Shift'] ?? $st['รอบ'] ?? ($st['LavelNo'] == '3' ? 'บ่าย' : 'เช้า'),
                 'email' => $st['Email'] ?? null,
             ];
         }, $students);

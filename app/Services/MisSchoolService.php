@@ -206,9 +206,9 @@ class MisSchoolService
     // =========================================================================
 
     /**
-     * ค้นหาห้องเรียนที่ตรงกันอย่างแม่นยำ (จับคู่ระดับชั้น, ห้องเรียน, และแผนกวิชา)
+     * ค้นหาห้องเรียนที่ตรงกันอย่างแม่นยำ (จับคู่ระดับชั้น, ห้องเรียน, แผนกวิชา, และรอบเช้า/บ่าย)
      */
-    public function matchClassroom(?string $levelNo, ?string $departNo, ?string $year, ?string $room): ?Classroom
+    public function matchClassroom(?string $levelNo, ?string $departNo, ?string $year, ?string $room, ?string $shift = null): ?Classroom
     {
         if (empty($year) || empty($room) || $year === '-' || $room === '-') {
             return null;
@@ -227,6 +227,19 @@ class MisSchoolService
         $keywords = $deptKeywords[$paddedDept] ?? [];
         $targetRoom = "{$year}/{$room}";
 
+        // แยกและแปลงรอบ (Shift): รอบ 1 = เช้า (morning), รอบ 6/7 = บ่าย (afternoon)
+        $normalizedShift = null;
+        if (!empty($shift)) {
+            $s = (string)$shift;
+            if ($s === '1' || str_contains($s, 'เช้า') || $s === 'morning') {
+                $normalizedShift = 'morning';
+            } elseif ($s === '6' || $s === '7' || str_contains($s, 'บ่าย') || $s === 'afternoon') {
+                $normalizedShift = 'afternoon';
+            }
+        } elseif ((string)$levelNo === '3') {
+            $normalizedShift = 'afternoon';
+        }
+
         $query = Classroom::query();
 
         // 1. กรองตามระดับชั้น
@@ -239,7 +252,12 @@ class MisSchoolService
             $query->where('name', 'LIKE', "ปวช.{$targetRoom}%");
         }
 
-        // 2. กรองตามแผนกวิชาเพื่อป้องกันการสับสนระหว่างสาขาที่มีห้องซ้ำกัน
+        // 2. กรองตามรอบ (เช้า / บ่าย) หากมีการระบุ
+        if ($normalizedShift) {
+            $query->where('shift', $normalizedShift);
+        }
+
+        // 3. กรองตามแผนกวิชาเพื่อป้องกันการสับสนระหว่างสาขาที่มีห้องซ้ำกัน
         if (!empty($keywords)) {
             $query->where(function ($q) use ($keywords) {
                 foreach ($keywords as $kw) {
@@ -253,7 +271,11 @@ class MisSchoolService
         // Fallback: หากไม่พบตามแผนก ให้ค้นหาตามระดับชั้นและห้องเรียน
         if (!$matched) {
             $prefix = ((string)$levelNo === '2' || (string)$levelNo === '3') ? 'ปวส.' : 'ปวช.';
-            $matched = Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%")->first();
+            $fallback = Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%");
+            if ($normalizedShift) {
+                $fallback->where('shift', $normalizedShift);
+            }
+            $matched = $fallback->first() ?? Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%")->first();
         }
 
         return $matched;
@@ -302,7 +324,8 @@ class MisSchoolService
         $citizenId = !empty($data['citizen_id']) ? trim($data['citizen_id']) : $password;
 
         // ค้นหาห้องเรียนและแผนกวิชาที่ตรงกัน
-        $classroom = $this->matchClassroom($levelNo, $departNo, $year, $room);
+        $shift = $data['shift'] ?? $data['รอบ'] ?? null;
+        $classroom = $this->matchClassroom($levelNo, $departNo, $year, $room, $shift);
         $classroomId = $classroom?->id;
 
         $department = $this->matchDepartment($departNo);
