@@ -446,7 +446,7 @@ return [
                 [
                     'type' => 'js',
                     'asset' => true,
-                    'location' => 'js/exam-math.js?v=2.5',
+                    'location' => 'js/exam-math.js?v=2.6',
                 ],
                 [
                     'type' => 'js',

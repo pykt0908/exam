@@ -533,9 +533,82 @@
         return str;
     };
 
+    // ทำความสะอาดและลบ delimiter \( และ \) ที่ซ้อนกัน หรือหลุดเข้าไปอยู่ในกลุ่มปีกกา {...}
+    function cleanNestedMathDelimiters(str) {
+        if (!str || typeof str !== 'string') return str;
+
+        // 1. ลบ \( และ \) ที่อยู่ภายในวงเล็บปีกกา {...} ทั้งหมด เช่น ^{\(\sin2x\)} -> ^{\sin2x}
+        var loopCount = 0;
+        while (/\{[^{}]*\\(?:\(|\))[^{}]*\}/.test(str) && loopCount < 10) {
+            str = str.replace(/\{([^{}]*)\}/g, function (m, inner) {
+                return '{' + inner.replace(/\\\(|\\\)/g, '') + '}';
+            });
+            loopCount++;
+        }
+
+        // 2. ลบ \( และ \) ที่อยู่ติดกับ ^{ หรือ _{ เช่น ^\(\sin2x\) หรือ _\(\sin2x\)
+        str = str.replace(/\^\\\(+([\s\S]*?)\\\)+/g, '^{$1}');
+        str = str.replace(/_\\\(+([\s\S]*?)\\\)+/g, '_{$1}');
+
+        // 3. จัดการ \( ... \) ที่ซ้อนกันโดยใช้ depth counter
+        var result = '';
+        var depth = 0;
+        var i = 0;
+        while (i < str.length) {
+            if (str.substr(i, 2) === '\\(') {
+                if (depth === 0) {
+                    result += '\\(';
+                } else {
+                    result += ' '; // ข้างในสูตรอยู่แล้ว ไม่ใส่ \( ซ้อน
+                }
+                depth++;
+                i += 2;
+            } else if (str.substr(i, 2) === '\\)') {
+                if (depth > 0) {
+                    depth--;
+                    if (depth === 0) {
+                        result += '\\)';
+                    } else {
+                        result += ' '; // ปิดวงเล็บข้างใน ไม่ใส่ \) ซ้อน
+                    }
+                } else {
+                    // orphan \) อยู่นอกสูตร ให้ตัดทิ้ง
+                    result += ' ';
+                }
+                i += 2;
+            } else {
+                result += str[i];
+                i++;
+            }
+        }
+
+        // ถ้ามี \( ค้างที่ยังไม่ได้ปิด ให้ปิดท้ายข้อความ
+        while (depth > 0) {
+            result += '\\)';
+            depth--;
+        }
+
+        // ลบสูตรว่างเปล่า เช่น \(\) หรือ \(   \)
+        result = result.replace(/\\\(\s*\\\)/g, ' ');
+
+        // ยุบช่องว่างซ้ำซ้อนภายในสูตร \( ... \)
+        result = result.replace(/\\\(([\s\S]*?)\\\)/g, function (m, inner) {
+            return '\\(' + inner.replace(/\s{2,}/g, ' ').trim() + '\\)';
+        });
+
+        return result;
+    }
+    window.cleanNestedMathDelimiters = cleanNestedMathDelimiters;
+
     // ตรวจจับคำสั่ง LaTeX โดดๆ ที่อยู่ในข้อความ แล้วครอบด้วย \(...\) เพื่อให้คงวรรคตอนข้อความรอบข้างไว้
     window.autoWrapLatexInText = function (str) {
         if (!str || typeof str !== 'string') return str;
+
+        // 0. ลบ \( และ \) ที่อยู่ภายใน ^{...} หรือ _{...} ก่อนเริ่มประมวลผล
+        str = str.replace(/\^\{\s*\\\(+([\s\S]*?)\\\)+\s*\}/g, '^{$1}');
+        str = str.replace(/_\{\s*\\\(+([\s\S]*?)\\\)+\s*\}/g, '_{$1}');
+        str = str.replace(/\^\\\(+([\s\S]*?)\\\)+/g, '^{$1}');
+        str = str.replace(/_\\\(+([\s\S]*?)\\\)+/g, '_{$1}');
 
         // 1. แปลง unicode superscript เป็น ^{...} เช่น 3x² -> 3x^{2}
         var supMap = { '⁰': '^0', '¹': '^1', '²': '^2', '³': '^3', '⁴': '^4', '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9' };
@@ -556,6 +629,9 @@
             }
             return base + '_{' + res + '}';
         });
+
+        // 1.2 แปลงฟังก์ชันตรีโกณ/แคลคูลัสที่เขียนติดกับตัวแปรเดี่ยว เช่น sinx -> \sin x, cosx -> \cos x, tanx -> \tan x
+        str = str.replace(/(^|[^\\a-zA-Z])(sin|cos|tan|cot|sec|csc|log|ln)([xyzuvtABCXYZ])(?![a-zA-Z])/g, '$1\\$2 $3');
 
         // 2. แปลงฟังก์ชันตรีโกณ/แคลคูลัสที่ไม่มี backslash ให้นำหน้าด้วย \
         var mathFuncs = "(?:sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|lim|exp|det|deg|gcd)";
@@ -586,8 +662,8 @@
             return '\\(' + cmd + '\\)';
         });
 
-        // 5. ครอบเลขยกกำลัง เช่น 3x^2 หรือ x^{2}
-        var expPattern = /([a-zA-Z0-9]+(?:\^[0-9a-zA-Z]+|\^\{[^{}]+\}))/g;
+        // 5. ครอบเลขยกกำลังและตัวห้อย เช่น 3x^2 หรือ x^{2} หรือ e^{\sin2x} หรือ e_{sinx}
+        var expPattern = /([a-zA-Z0-9]+(?:[\^_][0-9a-zA-Z]+|[\^_]\{[^{}]+\}))/g;
         str = str.replace(expPattern, function (match, exp, offset, full) {
             var before = full.substring(0, offset);
             var dollarCount = (before.match(/\$/g) || []).length;
@@ -608,14 +684,22 @@
         // 8. ดูดตัวแปรนำหน้าและเครื่องหมายเท่ากับ เข้ามาไว้ในสูตร เช่น y = \(... หรือ f(x) = \(...
         str = str.replace(/([a-zA-Z](?:\([a-zA-Z0-9]+\))?\s*=\s*)\\\(/g, '\\($1');
 
+        // 8.1 ดูดสัมประสิทธิ์ตัวเลขนำหน้าสูตร เช่น "2 \cos(2x)" -> "\(2 \cos(2x)\)"
+        str = str.replace(/(^|[^ก-๙\w\.\)])([0-9]+(?:\.[0-9]+)?\s*)\\\((?=\s*\\(?:sin|cos|tan|cot|sec|csc|log|ln|lim|exp|det|sqrt|frac|pi|theta|alpha|beta))/g, '$1\\($2');
+
         // 9. ดูดเครื่องหมายหน้าสูตร เช่น -\( ... \) หรือ +\( ... \) เข้าไปในสูตร
         str = str.replace(/([+\-−±×÷=])\s*\\\(/g, '\\($1 ');
 
         // 10. ผสานสูตรสองตัวที่เชื่อมด้วยเครื่องหมาย เช่น \(a\) + \(b\) -> \(a + b\)
         str = str.replace(/\\\)\s*([+\-−±×÷=])\s*\\\(/g, ' $1 ');
 
-        // 11. ผสานสูตรที่วางติดกัน เช่น \(\sin\)\(\sqrt{x}\) -> \(\sin \sqrt{x}\)
+        // 11. ผสานสูตรที่วางติดกัน เช่น \(\sin\)\(\sqrt{x}\) -> \(\sin \sqrt{x}\) หรือ \(\cos(2x)\) \(e^{\sin2x}\)
         str = str.replace(/\\\)\s*\\\(/g, ' ');
+
+        // 12. ล้าง delimiter ซ้อนทับกันทั้งหมด
+        if (window.cleanNestedMathDelimiters) {
+            str = window.cleanNestedMathDelimiters(str);
+        }
 
         return str;
     };
@@ -755,8 +839,22 @@
         // แปลงเลขไทยเป็นเลขอารบิก
         html = window.thaiToArabicDigits(html);
 
+        // แปลงตัวยก/ตัวห้อยของตัวแปรหรือสูตรเป็น LaTeX เช่น e<sup>\sin 2x</sup> -> \(e^{\sin 2x}\)
+        html = html.replace(/([a-zA-Z0-9\)])\s*<sup\b[^>]*>([\s\S]*?)<\/sup>/gi, function (m, base, supContent) {
+            var cleanSup = supContent.replace(/<[^>]+>/g, '').replace(/\\\(|\\\)/g, '').trim();
+            return ' \\(' + base + '^{' + cleanSup + '}\\) ';
+        });
+        html = html.replace(/([a-zA-Z0-9\)])\s*<sub\b[^>]*>([\s\S]*?)<\/sub>/gi, function (m, base, subContent) {
+            var cleanSub = subContent.replace(/<[^>]+>/g, '').replace(/\\\(|\\\)/g, '').trim();
+            return ' \\(' + base + '_{' + cleanSub + '}\\) ';
+        });
+
         // ดักจับคำสั่ง LaTeX ที่ยังไม่ครอบ \(...\) เพื่อให้ตัวหนังสือไทยรอบๆ ไม่โดนดูดเป็นสูตร
         html = window.autoWrapLatexInText(html);
+
+        if (window.cleanNestedMathDelimiters) {
+            html = window.cleanNestedMathDelimiters(html);
+        }
 
         // ลบคอมเมนต์ mso อื่นๆ ที่เหลือ
         html = html.replace(/<!--\[if\b[\s\S]*?<!\[endif\]-->/gi, '');
@@ -945,16 +1043,16 @@
                 var tempDiv = document.createElement('div');
                 tempDiv.innerHTML = html;
 
-                // แปลงตัวยกเป็น ^ และตัวห้อยเป็น _
+                // แปลงตัวยกเป็น ^ และตัวห้อยเป็น _ (ลบ \( และ \) ที่อาจติดมาในตัวยก/ตัวห้อย)
                 var sups = tempDiv.querySelectorAll('sup, span[style*="vertical-align:super"], span[style*="vertical-align: super"]');
                 sups.forEach(function (el) {
-                    var t = el.textContent.trim();
+                    var t = el.textContent.replace(/\\\(|\\\)/g, '').trim();
                     if (t) el.textContent = '^' + (t.length > 1 ? '{' + t + '}' : t);
                 });
 
                 var subs = tempDiv.querySelectorAll('sub, span[style*="vertical-align:sub"], span[style*="vertical-align: sub"]');
                 subs.forEach(function (el) {
-                    var t = el.textContent.trim();
+                    var t = el.textContent.replace(/\\\(|\\\)/g, '').trim();
                     if (t) el.textContent = '_' + (t.length > 1 ? '{' + t + '}' : t);
                 });
 
@@ -986,12 +1084,20 @@
             // ดูดตัวแปรนำหน้าและเครื่องหมายเท่ากับ เข้ามาไว้ในสูตร เช่น y = \(... หรือ f(x) = \(...
             textToInsert = textToInsert.replace(/([a-zA-Z](?:\([a-zA-Z0-9]+\))?\s*=\s*)\\\(/g, '\\($1');
 
+            // ดูดสัมประสิทธิ์ตัวเลขนำหน้าสูตร เช่น "2 \cos(2x)" -> "\(2 \cos(2x)\)"
+            textToInsert = textToInsert.replace(/(^|[^ก-๙\w\.\)])([0-9]+(?:\.[0-9]+)?\s*)\\\((?=\s*\\(?:sin|cos|tan|cot|sec|csc|log|ln|lim|exp|det|sqrt|frac|pi|theta|alpha|beta))/g, '$1\\($2');
+
             // ดูดเครื่องหมายหน้าสูตร เช่น -\( ... \) ให้เข้าไปอยู่ในสูตร และรวมบล็อกสูตรที่เชื่อมกัน
             textToInsert = textToInsert.replace(/([+\-−±×÷=])\s*\\\(/g, '\\($1 ');
             textToInsert = textToInsert.replace(/\\\)\s*([+\-−±×÷=])\s*\\\(/g, ' $1 ');
 
             // รวมบล็อกสูตร \(...\) ที่อยู่ติดกันให้เป็นสูตรเดียวต่อเนื่อง เช่น \(\cos\)\(\sqrt{x}\) -> \(\cos \sqrt{x}\)
             textToInsert = textToInsert.replace(/\\\)\s*\\\(/g, ' ');
+
+            // ล้าง delimiter ซ้อนทับกันทั้งหมด
+            if (window.cleanNestedMathDelimiters) {
+                textToInsert = window.cleanNestedMathDelimiters(textToInsert);
+            }
 
             // จัดให้อยู่บรรทัดเดียวกันต่อเนื่องอัตโนมัติ (ยุบบรรทัดที่แตกย่อยจากตาราง Word)
             textToInsert = textToInsert.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
@@ -1055,7 +1161,11 @@
                 }
             }
             walk(previewEl);
-            return result.replace(/\u00A0/g, ' ').replace(/\s{2,}/g, ' ').trim();
+            var res = result.replace(/\u00A0/g, ' ').replace(/\s{2,}/g, ' ').trim();
+            if (window.cleanNestedMathDelimiters) {
+                res = window.cleanNestedMathDelimiters(res);
+            }
+            return res;
         }
 
         // Event: แก้ไขคำหรือลบข้อความได้โดยตรงจากกล่องตัวอย่างการแสดงผลจริง (Live Preview Direct Editing)
@@ -1098,12 +1208,18 @@
                     var converted = window.autoWrapLatexInText ? window.autoWrapLatexInText(contentToInsert) : contentToInsert;
                     converted = window.thaiToArabicDigits ? window.thaiToArabicDigits(converted) : converted;
                     converted = converted.replace(/[\r\n]+/g, ' ').trim();
+                    if (window.cleanNestedMathDelimiters) {
+                        converted = window.cleanNestedMathDelimiters(converted);
+                    }
                     converted = converted.replace(/\\\(([\s\S]*?)\\\)/g, function (match, inner) {
                         return '<span class="exam-math-formula" contenteditable="false" data-latex="' + inner.replace(/"/g, '&quot;') + '">\\(' + inner + '\\)</span>';
                     });
                     formulaHtml = converted;
                 } else {
                     var formatted = window.formatMathSpacing ? window.formatMathSpacing(contentToInsert) : contentToInsert;
+                    if (window.cleanNestedMathDelimiters) {
+                        formatted = window.cleanNestedMathDelimiters(formatted);
+                    }
                     formulaHtml = '<span class="exam-math-formula" contenteditable="false" data-latex="' + formatted.replace(/"/g, '&quot;') + '">\\(' + formatted + '\\)</span>';
                 }
                 currentMathContext.invoke('editor.pasteHTML', formulaHtml);
@@ -1134,13 +1250,22 @@
                 $preview.html('<span class="text-muted">ตัวอย่างสูตรจะแสดงที่นี่...</span>');
                 return;
             }
+            if (window.cleanNestedMathDelimiters) {
+                latex = window.cleanNestedMathDelimiters(latex);
+            }
             var hasDelimiters = /\\\(|\\\[|\$\$|\$|\\begin\{/.test(latex);
             if (hasDelimiters || /[\u0E00-\u0E7F]/.test(latex) || latex.indexOf('\n') !== -1) {
                 var converted = window.autoWrapLatexInText ? window.autoWrapLatexInText(latex) : latex;
                 converted = window.thaiToArabicDigits ? window.thaiToArabicDigits(converted) : converted;
+                if (window.cleanNestedMathDelimiters) {
+                    converted = window.cleanNestedMathDelimiters(converted);
+                }
                 $preview.html(converted);
             } else {
                 var formatted = window.formatMathSpacing ? window.formatMathSpacing(latex) : latex;
+                if (window.cleanNestedMathDelimiters) {
+                    formatted = window.cleanNestedMathDelimiters(formatted);
+                }
                 $preview.html('$$\n' + formatted + '\n$$');
             }
             window.renderMath($preview[0]).then(function () {
