@@ -116,6 +116,28 @@
         return results;
     }
 
+    // ฟังก์ชันค้นหา oMath Node ใน XML Document อย่างปลอดภัย ไม่พังจาก namespace querySelector
+    function findOMathNode(xmlDoc) {
+        if (!xmlDoc) return null;
+        var mathNS = 'http://schemas.openxmlformats.org/officeDocument/2006/math';
+        if (xmlDoc.getElementsByTagNameNS) {
+            var n2 = xmlDoc.getElementsByTagNameNS(mathNS, 'oMathPara');
+            if (n2 && n2.length > 0) return n2[0];
+            var n1 = xmlDoc.getElementsByTagNameNS(mathNS, 'oMath');
+            if (n1 && n1.length > 0) return n1[0];
+        }
+        var all = xmlDoc.getElementsByTagName ? xmlDoc.getElementsByTagName('*') : [];
+        for (var i = 0; i < all.length; i++) {
+            var ln = (all[i].localName || all[i].nodeName || '').replace(/^.*:/, '').toLowerCase();
+            if (ln === 'omathpara') return all[i];
+        }
+        for (var j = 0; j < all.length; j++) {
+            var ln2 = (all[j].localName || all[j].nodeName || '').replace(/^.*:/, '').toLowerCase();
+            if (ln2 === 'omath') return all[j];
+        }
+        return null;
+    }
+
     function createMrow(ommlChildNode) {
         var mrow = document.createElementNS('http://www.w3.org/1998/Math/MathML', 'mrow');
         if (ommlChildNode) {
@@ -204,9 +226,7 @@
                     var dh = findDirectChild(radPr, 'degHide');
                     if (dh) {
                         var val = dh.getAttribute('m:val') || dh.getAttribute('val');
-                        if (val === '1' || val === 'on' || val === 'true') {
-                            degHide = true;
-                        }
+                        degHide = (val !== '0' && val !== 'off' && val !== 'false');
                     }
                 }
                 var degNode = findDirectChild(node, 'deg');
@@ -531,42 +551,119 @@
         return str;
     };
 
+    // แปลงข้อความ OMML XML เป็นโค้ด LaTeX
+    function convertOmmlStringToLatex(ommlContent) {
+        if (!ommlContent) return '';
+        try {
+            var parser = new DOMParser();
+            var wrappedXml = '<root xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">' + ommlContent + '</root>';
+            var doc = parser.parseFromString(wrappedXml, 'application/xml');
+            if (doc.getElementsByTagName('parsererror').length > 0) {
+                return '';
+            }
+            var oMathNode = findOMathNode(doc);
+            if (!oMathNode) return '';
+            var mathmlElement = convertOmmlNodeToMathML(oMathNode);
+            if (mathmlElement && window.convertMathMLToLatex) {
+                var latex = window.convertMathMLToLatex(mathmlElement);
+                if (latex) return latex.trim();
+            }
+        } catch (e) {
+            console.warn('OMML to LaTeX error:', e);
+        }
+        return '';
+    }
+
+    // แปลงข้อความ MathML XML เป็นโค้ด LaTeX
+    function convertMathMLStringToLatex(mathStr) {
+        if (!mathStr) return '';
+        try {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(mathStr, 'application/xml');
+            var mathEl = doc.getElementsByTagName ? (doc.getElementsByTagName('math')[0] || doc.documentElement) : null;
+            if (mathEl && window.convertMathMLToLatex) {
+                var latex = window.convertMathMLToLatex(mathEl);
+                if (latex) return latex.trim();
+            }
+        } catch (e) {
+            console.warn('MathML to LaTeX error:', e);
+        }
+        return '';
+    }
+
+    // ฟังก์ชันแกนหลัก: แปลงสมการทั้งหมดจาก Word (OMML ใน conditional comments และ MathML) เป็น LaTeX
+    window.convertWordHtmlMathToLatex = function (html, wrapInSpan) {
+        if (!html || typeof html !== 'string') return html;
+
+        // 1. ลบ fallback comments ของ msEquation / non-mso ที่มักมีรูปหลอกหรือสเปซเปล่า
+        html = html.replace(/<!--\[if\s+!msEquation\]>[\s\S]*?<!\[endif\]-->/gi, '');
+        html = html.replace(/<!\[if\s+!msEquation\]>[\s\S]*?<!\[endif\]>/gi, '');
+        html = html.replace(/<!--\[if\s+!mso\]>[\s\S]*?<!\[endif\]-->/gi, '');
+        html = html.replace(/<!\[if\s+!mso\]>[\s\S]*?<!\[endif\]>/gi, '');
+        html = html.replace(/<img[^>]+src=["']file:\/\/[^"']*["'][^>]*>/gi, '');
+
+        function formatLatexReplacement(latex) {
+            if (!latex || !latex.trim()) return '';
+            latex = latex.trim();
+            if (wrapInSpan) {
+                return '<span class="exam-math-formula" contenteditable="false" data-latex="' + latex.replace(/"/g, '&quot;') + '">\\(' + latex + '\\)</span>';
+            } else {
+                return ' \\(' + latex + '\\) ';
+            }
+        }
+
+        // 2. แปลง conditional comment ใดๆ ของ Word ที่มี oMath หรือ oMathPara
+        // จับทั้งบล็อก <!--[if ... <![endif]--> เพื่อแทนที่ทั้งคอมเมนต์ ไม่ให้หลงเหลือ comment wrapper ที่เบราว์เซอร์จะโยนทิ้ง
+        var commentWithOMathPattern = /<!--\[if\b[\s\S]*?<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<!\[endif\]-->/gi;
+        html = html.replace(commentWithOMathPattern, function (fullComment) {
+            var innerMathPattern = /<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>/gi;
+            var matches = fullComment.match(innerMathPattern);
+            if (!matches || !matches.length) return '';
+            var res = '';
+            for (var i = 0; i < matches.length; i++) {
+                var ltx = convertOmmlStringToLatex(matches[i]);
+                if (ltx) res += formatLatexReplacement(ltx);
+            }
+            return res;
+        });
+
+        // 3. แปลง conditional comment ใดๆ ที่มี <math> MathML
+        var commentWithMathMLPattern = /<!--\[if\b[\s\S]*?<math\b[\s\S]*?<!\[endif\]-->/gi;
+        html = html.replace(commentWithMathMLPattern, function (fullComment) {
+            var innerMathMLPattern = /<math\b[\s\S]*?<\/math>/gi;
+            var matches = fullComment.match(innerMathMLPattern);
+            if (!matches || !matches.length) return '';
+            var res = '';
+            for (var i = 0; i < matches.length; i++) {
+                var ltx = convertMathMLStringToLatex(matches[i]);
+                if (ltx) res += formatLatexReplacement(ltx);
+            }
+            return res;
+        });
+
+        // 4. แปลง oMath / oMathPara ที่อยู่นอกคอมเมนต์
+        var nakedOMathPattern = /<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>/gi;
+        html = html.replace(nakedOMathPattern, function (omml) {
+            var ltx = convertOmmlStringToLatex(omml);
+            return ltx ? formatLatexReplacement(ltx) : '';
+        });
+
+        // 5. แปลง <math> MathML ที่อยู่นอกคอมเมนต์
+        var nakedMathMLPattern = /<math\b[\s\S]*?<\/math>/gi;
+        html = html.replace(nakedMathMLPattern, function (mathStr) {
+            var ltx = convertMathMLStringToLatex(mathStr);
+            return ltx ? formatLatexReplacement(ltx) : mathStr;
+        });
+
+        return html;
+    };
+
     // 4. ทำความสะอาดและแปลง HTML จาก Word Clipboard
     window.cleanWordMathHtml = function (html) {
         if (!html || typeof html !== 'string') return html;
 
-        // ลบรูปภาพ fallback ที่อ้างอิง file:/// ซึ่ง Word ชอบใส่มาแล้วพัง
-        html = html.replace(/<img[^>]+src=["']file:\/\/[^"']*["'][^>]*>/gi, '');
-
-        // ค้นหา OMML ทั้งที่อยู่ใน <!--[if gte mso 9]><xml>... และที่อยู่นอกคอมเมนต์
-        var ommlPattern = /(?:<!--\[if gte mso 9\]><xml>)?\s*(<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>)\s*(?:<\/xml><!\[endif\]-->)?/gi;
-
-        if (ommlPattern.test(html)) {
-            var parser = new DOMParser();
-
-            html = html.replace(ommlPattern, function (match, ommlContent) {
-                try {
-                    var wrappedXml = '<root xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">' + ommlContent + '</root>';
-                    var doc = parser.parseFromString(wrappedXml, 'application/xml');
-                    if (doc.getElementsByTagName('parsererror').length > 0) {
-                        return match;
-                    }
-                    var oMathNode = doc.querySelector('oMath, oMathPara, *|oMath, *|oMathPara');
-                    if (!oMathNode) return match;
-
-                    var mathmlElement = convertOmmlNodeToMathML(oMathNode);
-                    if (mathmlElement && window.convertMathMLToLatex) {
-                        var latex = window.convertMathMLToLatex(mathmlElement);
-                        if (latex && latex.trim()) {
-                            return '<span class="exam-math-formula" contenteditable="false" data-latex="' + latex.replace(/"/g, '&quot;') + '">\\(' + latex + '\\)</span>';
-                        }
-                    }
-                } catch (e) {
-                    console.warn('OMML to MathML conversion failed:', e);
-                }
-                return match;
-            });
-        }
+        // แปลงสมการทั้งหมดจาก Word (OMML/MathML) ให้เป็น LaTeX ที่หุ้มด้วย span.exam-math-formula
+        html = window.convertWordHtmlMathToLatex(html, true);
 
         // แปลง vertical-align:super ของ Word เป็น <sup> และ vertical-align:sub เป็น <sub>
         html = html.replace(/<span[^>]*style=["'][^"']*vertical-align:\s*super[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi, '<sup>$1</sup>');
@@ -583,8 +680,8 @@
         html = window.autoWrapLatexInText(html);
 
         // ลบคอมเมนต์ mso อื่นๆ ที่เหลือ
-        html = html.replace(/<!--\[if gte mso [\s\S]*?<!\[endif\]-->/gi, '');
-        html = html.replace(/<!\[if !mso\]>[\s\S]*?<!\[endif\]>/gi, '');
+        html = html.replace(/<!--\[if\b[\s\S]*?<!\[endif\]-->/gi, '');
+        html = html.replace(/<!\[if\b[\s\S]*?<!\[endif\]>/gi, '');
 
         return html;
     };
@@ -761,51 +858,11 @@
             var html = clipboardData.getData('text/html');
             var text = clipboardData.getData('text/plain');
 
-            // 0. แปลง OMML จาก Word (ใน HTML) ให้กลายเป็น LaTeX ก่อนดึงข้อความ ไม่ให้สูตรหาย
-            var ommlPattern = /(?:<!--\[if gte mso 9\]><xml>)?\s*(<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>)\s*(?:<\/xml><!\[endif\]-->)?/gi;
-            if (html && ommlPattern.test(html)) {
-                var parser = new DOMParser();
-                html = html.replace(ommlPattern, function (match, ommlContent) {
-                    try {
-                        var wrappedXml = '<root xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">' + ommlContent + '</root>';
-                        var doc = parser.parseFromString(wrappedXml, 'application/xml');
-                        var oMathNode = doc.querySelector('oMath, oMathPara, *|oMath, *|oMathPara');
-                        if (oMathNode) {
-                            var mathml = convertOmmlNodeToMathML(oMathNode);
-                            if (mathml && window.convertMathMLToLatex) {
-                                var latex = window.convertMathMLToLatex(mathml);
-                                if (latex && latex.trim()) {
-                                    return ' \\(' + latex.trim() + '\\) ';
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('OMML to LaTeX error:', e);
-                    }
-                    return match;
-                });
-            }
-
-            // 0.1 แปลง MathML ที่อาจมีอยู่ใน HTML ให้กลายเป็น LaTeX
-            if (html && /<math[\s\S]*?<\/math>/i.test(html)) {
-                var parser2 = new DOMParser();
-                html = html.replace(/<math[\s\S]*?<\/math>/gi, function(mathStr) {
-                    try {
-                        var doc2 = parser2.parseFromString(mathStr, 'application/xml');
-                        var mathEl = doc2.querySelector('math');
-                        if (mathEl && window.convertMathMLToLatex) {
-                            var ltx = window.convertMathMLToLatex(mathEl);
-                            if (ltx && ltx.trim()) {
-                                return ' \\(' + ltx.trim() + '\\) ';
-                            }
-                        }
-                    } catch(e) {}
-                    return mathStr;
-                });
-            }
-
             var textToInsert = '';
             if (html) {
+                // แปลงสมการ OMML / MathML ใน HTML ให้เป็น \(...\) ก่อน parse DOM ไม่ให้สูตรถูกโยนทิ้ง
+                html = window.convertWordHtmlMathToLatex(html, false);
+
                 var tempDiv = document.createElement('div');
                 tempDiv.innerHTML = html;
 
@@ -839,6 +896,9 @@
             if (window.autoWrapLatexInText) {
                 textToInsert = window.autoWrapLatexInText(textToInsert);
             }
+
+            // รวมบล็อกสูตร \(...\) ที่อยู่ติดกันให้เป็นสูตรเดียวต่อเนื่อง เช่น \(\cos\)\(\sqrt{x}\) -> \(\cos \sqrt{x}\)
+            textToInsert = textToInsert.replace(/\\\)\s*\\\(/g, ' ');
 
             // จัดให้อยู่บรรทัดเดียวกันต่อเนื่องอัตโนมัติ (ยุบบรรทัดที่แตกย่อยจากตาราง Word)
             textToInsert = textToInsert.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
