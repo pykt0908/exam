@@ -46,11 +46,48 @@
                     elements = [target];
                 }
             }
-            return window.MathJax.typesetPromise(elements).catch(function (err) {
+            return window.MathJax.typesetPromise(elements).then(function () {
+                var roots = elements || [document.body];
+                roots.forEach(function (root) {
+                    if (root && root.querySelectorAll) {
+                        var containers = root.querySelectorAll('mjx-container');
+                        containers.forEach(function (c) {
+                            c.setAttribute('contenteditable', 'false');
+                        });
+                    }
+                });
+            }).catch(function (err) {
                 console.warn('MathJax render error:', err);
             });
         }
         return Promise.resolve();
+    };
+
+    // ถอดรหัสสูตรคณิตศาสตร์กลับเป็นข้อความสะอาด (LaTeX \(...\) หรือ MathML) ก่อนส่งบันทึกลงฐานข้อมูล
+    window.serializeMathHtmlForSave = function (html) {
+        if (!html || typeof html !== 'string') return html || '';
+
+        // 1. ถ้ามี span.exam-math-formula ที่มี data-latex
+        html = html.replace(/<span[^>]*class=["']?[^"']*exam-math-formula[^"']*["']?[^>]*data-latex=["']([^"']*)["'][^>]*>[\s\S]*?<\/span>/gi, function (match, latex) {
+            var decoded = latex.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+            return '\\(' + decoded.trim() + '\\)';
+        });
+
+        // 2. ถ้ามี mjx-container ที่มี data-latex
+        html = html.replace(/<mjx-container[^>]*data-latex=["']([^"']*)["'][^>]*>[\s\S]*?<\/mjx-container>/gi, function (match, latex) {
+            var decoded = latex.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+            return '\\(' + decoded.trim() + '\\)';
+        });
+
+        // 3. ถ้ามี mjx-container ที่มี MathML ภายใน
+        html = html.replace(/<mjx-container[^>]*>[\s\S]*?(<math[\s\S]*?<\/math>)[\s\S]*?<\/mjx-container>/gi, function (match, mathml) {
+            return mathml;
+        });
+
+        // 4. ลบแท็ก mjx-* ใดๆ ที่อาจตกค้าง
+        html = html.replace(/<mjx-[^>]+>/gi, '').replace(/<\/mjx-[^>]+>/gi, '');
+
+        return html;
     };
 
     // 3. ตัวแปลง OMML (Microsoft Word Equation) -> MathML
@@ -781,10 +818,13 @@
                     var converted = window.autoWrapLatexInText ? window.autoWrapLatexInText(contentToInsert) : contentToInsert;
                     converted = window.thaiToArabicDigits ? window.thaiToArabicDigits(converted) : converted;
                     converted = converted.replace(/[\r\n]+/g, ' ').trim();
+                    converted = converted.replace(/\\\(([\s\S]*?)\\\)/g, function (match, inner) {
+                        return '<span class="exam-math-formula" contenteditable="false" data-latex="' + inner.replace(/"/g, '&quot;') + '">\\(' + inner + '\\)</span>';
+                    });
                     formulaHtml = converted;
                 } else {
                     var formatted = window.formatMathSpacing ? window.formatMathSpacing(contentToInsert) : contentToInsert;
-                    formulaHtml = '\\(' + formatted + '\\)';
+                    formulaHtml = '<span class="exam-math-formula" contenteditable="false" data-latex="' + formatted.replace(/"/g, '&quot;') + '">\\(' + formatted + '\\)</span>';
                 }
                 currentMathContext.invoke('editor.pasteHTML', formulaHtml);
                 var $container = currentMathContext.layoutInfo.editor;

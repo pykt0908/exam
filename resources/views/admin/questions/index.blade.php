@@ -811,6 +811,15 @@
                     fontNamesIgnoreCheck: customFontNamesIgnoreCheck,
                     fontSizes: customFontSizes,
                     callbacks: {
+                        onInit: function() {
+                            var ed = this;
+                            setTimeout(function() {
+                                var $note = $(ed).next('.note-editor');
+                                if (window.renderMath && $note.length) {
+                                    window.renderMath($note[0]);
+                                }
+                            }, 200);
+                        },
                         onImageUpload: function(files) {
                             uploadSummernoteImage(files[0], this);
                         },
@@ -846,6 +855,15 @@
                     fontNamesIgnoreCheck: customFontNamesIgnoreCheck,
                     fontSizes: customFontSizes,
                     callbacks: {
+                        onInit: function() {
+                            var ed = this;
+                            setTimeout(function() {
+                                var $note = $(ed).next('.note-editor');
+                                if (window.renderMath && $note.length) {
+                                    window.renderMath($note[0]);
+                                }
+                            }, 200);
+                        },
                         onImageUpload: function(files) {
                             uploadSummernoteImage(files[0], this);
                         },
@@ -865,17 +883,22 @@
 
             // Helper to get clean choice editor value
             function getChoiceEditorValue(editor) {
+                var code = '';
                 if (editor.data('summernote')) {
                     if (editor.summernote('isEmpty')) {
                         return '';
                     }
-                    var code = editor.summernote('code');
+                    code = editor.summernote('code');
                     if (code === '<p><br></p>' || code === '<br>' || code.trim() === '') {
                         return '';
                     }
-                    return code;
+                } else {
+                    code = (editor.val() || '').trim();
                 }
-                return (editor.val() || '').trim();
+                if (window.serializeMathHtmlForSave) {
+                    code = window.serializeMathHtmlForSave(code);
+                }
+                return code;
             }
 
             function uploadSummernoteImage(file, editor) {
@@ -1240,7 +1263,10 @@
                 var isNew = id.toString().indexOf('temp-') !== -1;
                 
                 var type = card.find('.question-type-select').val() || 'choice';
-                var questionText = card.find('.question-text-input').val();
+                var rawQ = card.find('.question-text-input').data('summernote') ?
+                    card.find('.question-text-input').summernote('code') :
+                    card.find('.question-text-input').val();
+                var questionText = window.serializeMathHtmlForSave ? window.serializeMathHtmlForSave(rawQ) : rawQ;
                 var score = card.find('.score-input').val();
                 var examSectionId = card.find('.question-section-id-input').val();
                 
@@ -1372,6 +1398,12 @@
                                 });
                             }
 
+                            setTimeout(function() {
+                                if (window.renderMath) {
+                                    window.renderMath(card[0]);
+                                }
+                            }, 200);
+
                             // If the section ID was changed, move card in DOM to target section's questions container
                             var targetSectionContainer = $('#section-card-' + examSectionId).find('.section-questions-container');
                             if (card.parent()[0] !== targetSectionContainer[0]) {
@@ -1476,7 +1508,10 @@
                     var id = card.attr('data-id');
                     var isNew = id.toString().indexOf('temp-') !== -1;
                     
-                    var questionText = card.find('.question-text-input').val();
+                    var rawQAll = card.find('.question-text-input').data('summernote') ?
+                        card.find('.question-text-input').summernote('code') :
+                        card.find('.question-text-input').val();
+                    var questionText = window.serializeMathHtmlForSave ? window.serializeMathHtmlForSave(rawQAll) : rawQAll;
                     var score = card.find('.score-input').val();
                     var type = card.find('.question-type-select').val() || 'choice';
                     var examSectionId = card.find('.question-section-id-input').val();

@@ -248,6 +248,15 @@
                 fontNamesIgnoreCheck: customFontNamesIgnoreCheck,
                 fontSizes: customFontSizes,
                 callbacks: {
+                    onInit: function() {
+                        var ed = this;
+                        setTimeout(function() {
+                            var $note = $(ed).next('.note-editor');
+                            if (window.renderMath && $note.length) {
+                                window.renderMath($note[0]);
+                            }
+                        }, 200);
+                    },
                     onImageUpload: function(files) {
                         uploadSummernoteImage(files[0], this);
                     },
@@ -280,6 +289,15 @@
                     fontNamesIgnoreCheck: customFontNamesIgnoreCheck,
                     fontSizes: customFontSizes,
                     callbacks: {
+                        onInit: function() {
+                            var ed = this;
+                            setTimeout(function() {
+                                var $note = $(ed).next('.note-editor');
+                                if (window.renderMath && $note.length) {
+                                    window.renderMath($note[0]);
+                                }
+                            }, 200);
+                        },
                         onImageUpload: function(files) {
                             uploadSummernoteImage(files[0], this);
                         },
@@ -293,6 +311,16 @@
                         }
                     }
                 });
+            });
+
+            // Clean math before form submission
+            $('form').on('submit', function() {
+                if (window.serializeMathHtmlForSave) {
+                    $('.question-summernote, .choice-summernote').each(function() {
+                        var code = $(this).summernote('code');
+                        $(this).val(window.serializeMathHtmlForSave(code));
+                    });
+                }
             });
 
             // Handle radio button selection change

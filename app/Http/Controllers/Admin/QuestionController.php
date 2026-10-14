@@ -89,7 +89,7 @@ class QuestionController extends Controller
                 'exam_id' => $exam->id,
                 'exam_section_id' => $request->exam_section_id,
                 'type' => $type,
-                'question_text' => $request->question_text,
+                'question_text' => $this->cleanMathContent($request->question_text),
                 'score' => $request->score,
                 'sort_order' => $maxSort + 1,
                 'essay_answer' => $type === 'essay' ? $request->essay_answer : null,
@@ -107,7 +107,7 @@ class QuestionController extends Controller
 
                     Choice::create([
                         'question_id' => $newQuestion->id,
-                        'choice_text' => $choiceText,
+                        'choice_text' => $this->cleanMathContent($choiceText),
                         'choice_image' => $choiceImage ?: null,
                         'is_correct' => ($index == $request->correct_choice),
                     ]);
@@ -167,7 +167,7 @@ class QuestionController extends Controller
             $question->update([
                 'exam_section_id' => $request->exam_section_id,
                 'type' => $type,
-                'question_text' => $request->question_text,
+                'question_text' => $this->cleanMathContent($request->question_text),
                 'score' => $request->score,
                 'essay_answer' => $type === 'essay' ? $request->essay_answer : null,
             ]);
@@ -187,7 +187,7 @@ class QuestionController extends Controller
 
                     Choice::create([
                         'question_id' => $question->id,
-                        'choice_text' => $choiceText,
+                        'choice_text' => $this->cleanMathContent($choiceText),
                         'choice_image' => $choiceImage ?: null,
                         'is_correct' => ($index == $request->correct_choice),
                     ]);
@@ -452,5 +452,39 @@ class QuestionController extends Controller
         if (!$exam->canBeEdited()) {
             abort(403, 'ข้อสอบนี้อยู่ระหว่างรอการอนุมัติหรือได้รับการอนุมัติแล้ว ไม่สามารถแก้ไขได้ หากต้องการแก้ไขกรุณาดึงข้อสอบกลับมาเป็นฉบับร่างก่อน');
         }
+    }
+
+    /**
+     * ทำความสะอาดข้อความสูตรคณิตศาสตร์ ป้องกัน MathJax CHTML DOM (mjx-container) หลุดเข้ามาบันทึกในฐานข้อมูล
+     */
+    protected function cleanMathContent(?string $content): ?string
+    {
+        if (empty($content) || !str_contains($content, '<mjx-container')) {
+            return $content;
+        }
+
+        // ค้นหาและดึง MathML ออกจาก mjx-container หรือแกะเอาสูตรออกมา
+        $content = preg_replace_callback('/<mjx-container[^>]*>(.*?)<\/mjx-container>/si', function ($matches) {
+            $inner = $matches[1];
+            // ถ้ามี MathML ภายใน ให้ดึง MathML ออกมา
+            if (preg_match('/<math[^>]*>.*?<\/math>/si', $inner, $mathMatch)) {
+                return $mathMatch[0];
+            }
+            // ถ้ามี data-latex attribute
+            if (preg_match('/data-latex=["\']([^"\']*)["\']/si', $matches[0], $latexMatch)) {
+                return '\(' . html_entity_decode($latexMatch[1], ENT_QUOTES | ENT_HTML5, 'UTF-8') . '\)';
+            }
+            // ถ้ามี aria-label
+            if (preg_match('/aria-label=["\']([^"\']*)["\']/si', $matches[0], $labelMatch)) {
+                return '\(' . html_entity_decode($labelMatch[1], ENT_QUOTES | ENT_HTML5, 'UTF-8') . '\)';
+            }
+            return '';
+        }, $content);
+
+        // ตัดแท็ก mjx-* อื่นๆ ที่อาจหลงเหลือ
+        $content = preg_replace('/<mjx-[^>]+>/i', '', $content);
+        $content = preg_replace('/<\/mjx-[^>]+>/i', '', $content);
+
+        return $content;
     }
 }
