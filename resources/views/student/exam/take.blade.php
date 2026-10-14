@@ -576,6 +576,10 @@
                 if (typeof updateActiveQuestionNav === 'function') {
                     updateActiveQuestionNav();
                 }
+
+                if (window.renderMath) {
+                    window.renderMath($targetPanel[0]);
+                }
             }
 
             // "ส่วนถัดไป" button click - immediately advance to next section without score modal

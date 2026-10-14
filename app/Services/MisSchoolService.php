@@ -359,6 +359,43 @@ class MisSchoolService
             ->first();
     }
 
+    /**
+     * ค้นหาแผนกวิชาของอาจารย์ตามรหัสหมวด/ฝ่ายในตาราง tblDepartTeacher ของ MisSchool
+     */
+    public function matchTeacherDepartment(?string $departNo): ?Department
+    {
+        if (empty($departNo)) {
+            return null;
+        }
+
+        $padded = str_pad(trim((string)$departNo), 2, '0', STR_PAD_LEFT);
+
+        // แผนที่รหัสหมวดวิชา (tblDepartTeacher ใน Personal db ของ MisSchool) กับตาราง departments ในระบบสอบ
+        // 09: หมวดการบัญชี -> 2 (สาขาวิชาการบัญชี)
+        // 10: หมวดการตลาด -> 4 (สาขาวิชาการตลาด)
+        // 11: หมวดการจัดการโลจิสติกส์ -> 5 (สาขาวิชาการจัดการโลจิสติกส์และซัพพลายเชน)
+        // 12: หมวดสามัญ -> 1 (สาขาวิชาสามัญ)
+        // 14: หมวดคอมพิวเตอร์ธุรกิจ -> 3 (สาขาเทคโนโลยีธุรกิจดิจิทัล)
+        $deptIdMap = [
+            '09' => 2,
+            '10' => 4,
+            '11' => 5,
+            '12' => 1,
+            '14' => 3,
+        ];
+
+        if (isset($deptIdMap[$padded])) {
+            $dept = Department::find($deptIdMap[$padded]);
+            if ($dept) {
+                return $dept;
+            }
+        }
+
+        // รหัสฝ่ายบริหารอื่นๆ เช่น 01 (บริหารทั่วไป), 02 (กิจการ นร.), 07 (ทะเบียนและธุรการ), 08 (การเงิน), 16 (จนท.)
+        // ไม่ใช่แผนกวิชาการสอน จึงไม่จับคู่อัตโนมัติ (ป้องกันการแปลง 07 เป็น ID 7 เทคนิคเครื่องกล)
+        return null;
+    }
+
     public function syncStudentUser(array $data, string $password): User
     {
         $stdNo = trim($data['std_no'] ?? '');
@@ -499,22 +536,22 @@ class MisSchoolService
         $departNo = $data['depart_no'] ?? null;
         $isAdmin = !empty($data['is_admin']);
 
-        // ค้นหาแผนกวิชา
-        $departmentId = null;
-        if (!empty($departNo)) {
-            $department = Department::where('id', $departNo)
-                ->orWhere('name', 'LIKE', "%{$departNo}%")
-                ->first();
-            if ($department) {
-                $departmentId = $department->id;
-            }
-        }
-
         $user = User::where('teacher_code', $teacherNo)
             ->orWhere('username', $username)
             ->orWhereRaw('LOWER(teacher_code) = ?', [strtolower($teacherNo)])
             ->orWhereRaw('LOWER(username) = ?', [strtolower($username)])
             ->first();
+
+        // ค้นหาแผนกวิชา:
+        // 1. หากอาจารย์มีแผนกวิชาในระบบสอบอยู่แล้ว ให้คงเดิมไว้เสมอ (ไม่เขียนทับจากการล็อกอิน)
+        // 2. หากยังไม่มีแผนกวิชา จึงค่อยค้นหาจากรหัสหมวดวิชาของ MisSchool
+        $departmentId = $user?->department_id;
+        if (!$departmentId && !empty($departNo)) {
+            $department = $this->matchTeacherDepartment($departNo);
+            if ($department) {
+                $departmentId = $department->id;
+            }
+        }
 
         static $teacherColumns = null;
         if ($teacherColumns === null) {

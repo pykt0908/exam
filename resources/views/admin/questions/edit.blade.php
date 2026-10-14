@@ -241,7 +241,7 @@
                     ['color', ['color']],
                     ['para', ['ul', 'ol', 'paragraph']],
                     ['table', ['table']],
-                    ['insert', ['link', 'picture', 'video', 'hr']],
+                    ['insert', ['link', 'picture', 'video', 'hr', 'math']],
                     ['view', ['fullscreen', 'codeview']]
                 ],
                 fontNames: customFontNames,
@@ -250,6 +250,11 @@
                 callbacks: {
                     onImageUpload: function(files) {
                         uploadSummernoteImage(files[0], this);
+                    },
+                    onPaste: function(e) {
+                        if (window.handleSummernotePaste) {
+                            window.handleSummernotePaste(e, this);
+                        }
                     },
                     onChange: function(contents, $editable) {
                         $(this).val(contents);
@@ -268,7 +273,7 @@
                         ['font', ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', 'clear']],
                         ['color', ['color']],
                         ['para', ['ul', 'ol', 'paragraph']],
-                        ['insert', ['picture', 'link', 'table', 'hr']],
+                        ['insert', ['picture', 'link', 'table', 'hr', 'math']],
                         ['view', ['codeview']]
                     ],
                     fontNames: customFontNames,
@@ -277,6 +282,11 @@
                     callbacks: {
                         onImageUpload: function(files) {
                             uploadSummernoteImage(files[0], this);
+                        },
+                        onPaste: function(e) {
+                            if (window.handleSummernotePaste) {
+                                window.handleSummernotePaste(e, this);
+                            }
                         },
                         onChange: function(contents, $editable) {
                             $(this).val(contents);

@@ -1,0 +1,52 @@
+/**
+ * Exam Math Styling
+ * ปรับแต่งการแสดงผลสูตรคณิตศาสตร์ MathJax, MathML, และ LaTeX ให้คมชัดและจัดตำแหน่งสวยงาม
+ */
+
+mjx-container,
+math {
+    display: inline-block !important;
+    vertical-align: middle !important;
+    font-size: 110% !important;
+    outline: none !important;
+}
+
+mjx-container[display="true"],
+math[display="block"] {
+    display: block !important;
+    text-align: center !important;
+    margin: 0.5rem 0 !important;
+}
+
+#exam-math-modal-preview {
+    max-height: 250px;
+    overflow-y: auto;
+    white-space: normal;
+}
+
+/* Ensure fractions, roots, and superscripts don't overflow or clip */
+.question-card,
+.choice-box,
+.note-editable,
+.exam-textarea {
+    overflow-x: auto;
+}
+
+/* Button & Tooltip in Summernote */
+.note-btn.btn-math {
+    color: #007bff;
+    font-weight: 600;
+}
+
+/* Quick Math Buttons in Modal */
+.math-insert-btn {
+    border-radius: 6px;
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    transition: all 0.15s ease-in-out;
+}
+
+.math-insert-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

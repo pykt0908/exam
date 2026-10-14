@@ -435,6 +435,26 @@ return [
                 ],
             ],
         ],
+        'ExamMath' => [
+            'active' => true,
+            'files' => [
+                [
+                    'type' => 'css',
+                    'asset' => true,
+                    'location' => 'css/exam-math.css?v=1.6',
+                ],
+                [
+                    'type' => 'js',
+                    'asset' => true,
+                    'location' => 'js/exam-math.js?v=1.8',
+                ],
+                [
+                    'type' => 'js',
+                    'asset' => false,
+                    'location' => '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js',
+                ],
+            ],
+        ],
     ],
 
     /*

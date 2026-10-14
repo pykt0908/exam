@@ -804,7 +804,7 @@
                         ['color', ['color']],
                         ['para', ['ul', 'ol', 'paragraph']],
                         ['table', ['table']],
-                        ['insert', ['link', 'picture', 'video', 'hr']],
+                        ['insert', ['link', 'picture', 'math', 'video', 'hr']],
                         ['view', ['fullscreen', 'codeview']]
                     ],
                     fontNames: customFontNames,
@@ -813,6 +813,11 @@
                     callbacks: {
                         onImageUpload: function(files) {
                             uploadSummernoteImage(files[0], this);
+                        },
+                        onPaste: function(e) {
+                            if (window.handleSummernotePaste) {
+                                window.handleSummernotePaste(e, this);
+                            }
                         },
                         onChange: function(contents, $editable) {
                             var textarea = $(this);
@@ -834,7 +839,7 @@
                         ['font', ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', 'clear']],
                         ['color', ['color']],
                         ['para', ['ul', 'ol', 'paragraph']],
-                        ['insert', ['picture', 'link', 'table', 'hr']],
+                        ['insert', ['picture', 'math', 'link', 'table', 'hr']],
                         ['view', ['codeview']]
                     ],
                     fontNames: customFontNames,
@@ -843,6 +848,11 @@
                     callbacks: {
                         onImageUpload: function(files) {
                             uploadSummernoteImage(files[0], this);
+                        },
+                        onPaste: function(e) {
+                            if (window.handleSummernotePaste) {
+                                window.handleSummernotePaste(e, this);
+                            }
                         },
                         onChange: function(contents, $editable) {
                             var textarea = $(this);

@@ -162,4 +162,48 @@ class MisSchoolAuthTest extends TestCase
         $response->assertSessionHasErrors('login_identifier');
         $this->assertGuest();
     }
+
+    public function test_teacher_login_preserves_existing_department_and_does_not_misassign_admin_depart_no(): void
+    {
+        $logisticsDept = Department::create(['name' => 'สาขาวิชาการจัดการโลจิสติกส์และซัพพลายเชน']);
+        $mechanicDept = Department::create(['name' => 'สาขาอุตสาหกรรมเทคนิคเครื่องกล']);
+
+        $teacher = User::create([
+            'name' => 'โสภณัฐ ราชมี',
+            'teacher_code' => 'T56005',
+            'username' => 'T56005',
+            'email' => 'T56005@exam.local',
+            'password' => Hash::make('password123'),
+            'role' => 'teacher',
+            'department_id' => $logisticsDept->id,
+        ]);
+
+        Http::fake([
+            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-student' => Http::response([
+                'success' => false,
+            ], 200),
+            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-teacher' => Http::response([
+                'success' => true,
+                'data' => [
+                    'teacher_no' => 'T56005',
+                    'username' => 'T56005',
+                    'full_name' => 'โสภณัฐ ราชมี',
+                    'depart_no' => '07', // ใน MisSchool 07 คือฝ่ายทะเบียนและธุรการ
+                    'is_admin' => false,
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->post('/login', [
+            'login_identifier' => 'T56005',
+            'password' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('admin.dashboard'));
+        $this->assertAuthenticated();
+
+        $teacher->refresh();
+        // ต้องคงเดิมเป็นโลจิสติกส์ ไม่ถูกเขียนทับเป็นเครื่องกล (id 7)
+        $this->assertEquals($logisticsDept->id, $teacher->department_id);
+    }
 }
