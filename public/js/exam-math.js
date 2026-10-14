@@ -116,6 +116,32 @@
         return results;
     }
 
+    // ฟังก์ชันดึงค่า val / m:val จาก Element ของ OMML อย่างแม่นยำ ไม่ว่าจะอยู่ใน XML namespace หรือ HTML
+    function getNodeVal(el) {
+        if (!el) return null;
+        var mathNS = 'http://schemas.openxmlformats.org/officeDocument/2006/math';
+        if (el.getAttributeNS) {
+            var v = el.getAttributeNS(mathNS, 'val');
+            if (v !== null && v !== undefined && v !== '') return v;
+        }
+        if (el.getAttribute) {
+            var v1 = el.getAttribute('m:val');
+            if (v1 !== null && v1 !== undefined && v1 !== '') return v1;
+            var v2 = el.getAttribute('val');
+            if (v2 !== null && v2 !== undefined && v2 !== '') return v2;
+        }
+        if (el.attributes) {
+            for (var i = 0; i < el.attributes.length; i++) {
+                var attr = el.attributes[i];
+                var aName = (attr.localName || attr.name || '').replace(/^.*:/, '');
+                if (aName === 'val' && attr.value) return attr.value;
+            }
+        }
+        var txt = (el.textContent || '').trim();
+        if (txt) return txt;
+        return null;
+    }
+
     // ฟังก์ชันค้นหา oMath Node ใน XML Document อย่างปลอดภัย ไม่พังจาก namespace querySelector
     function findOMathNode(xmlDoc) {
         if (!xmlDoc) return null;
@@ -236,7 +262,7 @@
                 if (radPr) {
                     var dh = findDirectChild(radPr, 'degHide');
                     if (dh) {
-                        var val = dh.getAttribute('m:val') || dh.getAttribute('val');
+                        var val = getNodeVal(dh);
                         degHide = (val !== '0' && val !== 'off' && val !== 'false');
                     }
                 }
@@ -282,9 +308,9 @@
                     var b = findDirectChild(dPr, 'begChr');
                     var e = findDirectChild(dPr, 'endChr');
                     var s = findDirectChild(dPr, 'sepChr');
-                    if (b) begChr = b.getAttribute('m:val') || b.getAttribute('val') || begChr;
-                    if (e) endChr = e.getAttribute('m:val') || e.getAttribute('val') || endChr;
-                    if (s) sepChr = s.getAttribute('m:val') || s.getAttribute('val');
+                    if (b) { var vb = getNodeVal(b); if (vb !== null) begChr = vb; }
+                    if (e) { var ve = getNodeVal(e); if (ve !== null) endChr = ve; }
+                    if (s) { var vs = getNodeVal(s); if (vs !== null) sepChr = vs; }
                 }
                 if (begChr) {
                     var moOpen = document.createElementNS('http://www.w3.org/1998/Math/MathML', 'mo');
@@ -341,10 +367,13 @@
             }
             case 'nary': { // Integral, Summation, Product
                 var naryPr = findDirectChild(node, 'naryPr');
-                var chr = '∑';
+                var chr = '∫'; // ตามมาตรฐาน ECMA-376 / ISO/IEC 29500 ค่า default ของ naryPr คือเครื่องหมายอินทิกรัล ∫ (U+222B)
                 if (naryPr) {
                     var chrNode = findDirectChild(naryPr, 'chr');
-                    if (chrNode) chr = chrNode.getAttribute('m:val') || chrNode.getAttribute('val') || chr;
+                    if (chrNode) {
+                        var v = getNodeVal(chrNode);
+                        if (v) chr = v;
+                    }
                 }
                 var subNode = findDirectChild(node, 'sub');
                 var supNode = findDirectChild(node, 'sup');
@@ -487,7 +516,65 @@
                 var ssSup = subSupChildren[2] ? getChildrenLatex(subSupChildren[2]) : '';
                 return ssBase + '_{' + ssSub + '}^{' + ssSup + '}';
             }
-            case 'mo':
+            case 'munderover': {
+                var mbChildren = getDirectChildElements(node);
+                var op = mbChildren[0] ? window.convertMathMLToLatex(mbChildren[0]) : '';
+                var sub = mbChildren[1] ? getChildrenLatex(mbChildren[1]) : '';
+                var sup = mbChildren[2] ? getChildrenLatex(mbChildren[2]) : '';
+                op = op.trim();
+                return op + '_{' + sub + '}^{' + sup + '} ';
+            }
+            case 'munder': {
+                var muChildren = getDirectChildElements(node);
+                var opU = muChildren[0] ? window.convertMathMLToLatex(muChildren[0]) : '';
+                var subU = muChildren[1] ? getChildrenLatex(muChildren[1]) : '';
+                opU = opU.trim();
+                return opU + '_{' + subU + '} ';
+            }
+            case 'mover': {
+                var moChildren = getDirectChildElements(node);
+                var opO = moChildren[0] ? window.convertMathMLToLatex(moChildren[0]) : '';
+                var supO = moChildren[1] ? getChildrenLatex(moChildren[1]) : '';
+                opO = opO.trim();
+                return opO + '^{' + supO + '} ';
+            }
+            case 'mo': {
+                var text = (node.textContent || '').trim();
+                var opMap = {
+                    '∫': '\\int ',
+                    '∬': '\\iint ',
+                    '∭': '\\iiint ',
+                    '∮': '\\oint ',
+                    '∑': '\\sum ',
+                    '∏': '\\prod ',
+                    '⋃': '\\bigcup ',
+                    '⋂': '\\bigcap ',
+                    '±': '\\pm ',
+                    '∓': '\\mp ',
+                    '×': '\\times ',
+                    '÷': '\\div ',
+                    '≤': '\\le ',
+                    '≥': '\\ge ',
+                    '≠': '\\ne ',
+                    '≈': '\\approx ',
+                    '∞': '\\infty ',
+                    '∂': '\\partial ',
+                    '∇': '\\nabla ',
+                    '→': '\\rightarrow ',
+                    '←': '\\leftarrow ',
+                    '↔': '\\leftrightarrow ',
+                    '⇒': '\\Rightarrow ',
+                    '∈': '\\in ',
+                    '∉': '\\notin ',
+                    '⊂': '\\subset ',
+                    '⊆': '\\subseteq ',
+                    '∪': '\\cup ',
+                    '∩': '\\cap ',
+                    '∀': '\\forall ',
+                    '∃': '\\exists '
+                };
+                return opMap[text] !== undefined ? opMap[text] : (node.textContent || '');
+            }
             case 'mi':
             case 'mn':
             case 'mtext':
@@ -508,6 +595,14 @@
     // จัดระยะเคาะวรรค (Spaces) และฟังก์ชันตรีโกณ/แคลคูลัส (sin, cos, log) ให้แสดงผลตรงตามที่พิมพ์จริง
     window.formatMathSpacing = function (str) {
         if (!str || typeof str !== 'string') return str;
+
+        // 0. แปลงสัญลักษณ์ Unicode ทางคณิตศาสตร์ เช่น ∫ -> \int, ∑ -> \sum
+        str = str.replace(/∫\s*/g, '\\int ');
+        str = str.replace(/∬\s*/g, '\\iint ');
+        str = str.replace(/∭\s*/g, '\\iiint ');
+        str = str.replace(/∮\s*/g, '\\oint ');
+        str = str.replace(/∑\s*/g, '\\sum ');
+        str = str.replace(/∏\s*/g, '\\prod ');
 
         // 1. แปลงชื่อฟังก์ชันคณิตศาสตร์ที่ไม่มี backslash ให้นำหน้าด้วย \ (เช่น cos -> \cos, sin -> \sin)
         var mathFuncs = "(?:sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|lim|exp|det|deg|gcd|min|max)";
@@ -610,6 +705,14 @@
         str = str.replace(/\^\\\(+([\s\S]*?)\\\)+/g, '^{$1}');
         str = str.replace(/_\\\(+([\s\S]*?)\\\)+/g, '_{$1}');
 
+        // 0.1 แปลงสัญลักษณ์คณิตศาสตร์สากล Unicode เป็นคำสั่ง LaTeX
+        str = str.replace(/∫\s*/g, '\\int ');
+        str = str.replace(/∬\s*/g, '\\iint ');
+        str = str.replace(/∭\s*/g, '\\iiint ');
+        str = str.replace(/∮\s*/g, '\\oint ');
+        str = str.replace(/∑\s*/g, '\\sum ');
+        str = str.replace(/∏\s*/g, '\\prod ');
+
         // 1. แปลง unicode superscript เป็น ^{...} เช่น 3x² -> 3x^{2}
         var supMap = { '⁰': '^0', '¹': '^1', '²': '^2', '³': '^3', '⁴': '^4', '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9' };
         str = str.replace(/([a-zA-Z0-9\)])([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, function (m, base, sups) {
@@ -650,8 +753,8 @@
             return '\\(' + cmd + '\\)';
         });
 
-        // 4. ครอบคำสั่ง LaTeX มาตรฐานอื่นๆ เช่น \frac, \sqrt, \pm ฯลฯ
-        var latexPattern = /(\\(?:frac\s*\{[^{}]*\}\s*\{[^{}]*\}|sqrt(?:\s*\[[^{}]*\])?\s*\{[^{}]*\}|pm|times|div|le|ge|ne|approx|sum(?:_[^{}\s]+)?(?:\^[^{}\s]+)?|int(?:_[^{}\s]+)?(?:\^[^{}\s]+)?|infty|pi|theta|alpha|beta|Delta|vec\{[^{}]*\}|begin\{[a-z]+\}[\s\S]*?end\{[a-z]+\}))/g;
+        // 4. ครอบคำสั่ง LaTeX มาตรฐานอื่นๆ เช่น \frac, \sqrt, \pm, \int, \sum ฯลฯ
+        var latexPattern = /(\\(?:frac\s*\{[^{}]*\}\s*\{[^{}]*\}|sqrt(?:\s*\[[^{}]*\])?\s*\{[^{}]*\}|pm|times|div|le|ge|ne|approx|(?:sum|int|iint|iiint|oint|prod)(?:_\{[^{}]*\}|_[0-9a-zA-Z]+)?(?:\^\{[^{}]*\}|\^[0-9a-zA-Z]+)?|infty|pi|theta|alpha|beta|Delta|vec\{[^{}]*\}|begin\{[a-z]+\}[\s\S]*?end\{[a-z]+\}))/g;
         str = str.replace(latexPattern, function (match, cmd, offset, full) {
             var before = full.substring(0, offset);
             var dollarCount = (before.match(/\$/g) || []).length;
