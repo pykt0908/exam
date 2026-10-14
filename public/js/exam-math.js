@@ -142,8 +142,19 @@
         var mrow = document.createElementNS('http://www.w3.org/1998/Math/MathML', 'mrow');
         if (ommlChildNode) {
             for (var i = 0; i < ommlChildNode.childNodes.length; i++) {
-                var converted = convertOmmlNodeToMathML(ommlChildNode.childNodes[i]);
-                if (converted) mrow.appendChild(converted);
+                var cNode = ommlChildNode.childNodes[i];
+                if (cNode.nodeType === 3) { // ข้อความ TextNode โดดๆ ในแท็ก
+                    if (cNode.nodeValue && cNode.nodeValue.trim()) {
+                        appendParsedMathText(mrow, cNode.nodeValue.trim());
+                    }
+                } else {
+                    var converted = convertOmmlNodeToMathML(cNode);
+                    if (converted) mrow.appendChild(converted);
+                }
+            }
+            // Fallback: ถ้ายังไม่มีลูกถูกแปลง แต่ ommlChildNode มีข้อความอยู่
+            if (mrow.childNodes.length === 0 && ommlChildNode.textContent && ommlChildNode.textContent.trim()) {
+                appendParsedMathText(mrow, ommlChildNode.textContent.trim());
             }
         }
         return mrow;
@@ -296,11 +307,20 @@
                 }
                 return mrowD;
             }
+            case 't': { // Text node โดยตรงใน OMML
+                var mrowT = document.createElementNS('http://www.w3.org/1998/Math/MathML', 'mrow');
+                appendParsedMathText(mrowT, node.textContent || '');
+                return mrowT;
+            }
             case 'r': { // Run / Text
                 var mrowR = document.createElementNS('http://www.w3.org/1998/Math/MathML', 'mrow');
                 var tNodes = findDirectChildren(node, 't');
-                for (var t = 0; t < tNodes.length; t++) {
-                    appendParsedMathText(mrowR, tNodes[t].textContent);
+                if (tNodes && tNodes.length > 0) {
+                    for (var t = 0; t < tNodes.length; t++) {
+                        appendParsedMathText(mrowR, tNodes[t].textContent);
+                    }
+                } else if (node.textContent && node.textContent.trim()) {
+                    appendParsedMathText(mrowR, node.textContent.trim());
                 }
                 return mrowR;
             }
@@ -404,9 +424,13 @@
         }
 
         function getChildrenLatex(parent) {
+            if (!parent) return '';
             var str = '';
             for (var i = 0; i < parent.childNodes.length; i++) {
                 str += window.convertMathMLToLatex(parent.childNodes[i]);
+            }
+            if (!str && parent.textContent && parent.textContent.trim()) {
+                str = parent.textContent.trim();
             }
             return str;
         }
@@ -425,8 +449,11 @@
             case 'math':
             case 'mrow':
                 return getChildrenLatex(node);
-            case 'msqrt':
-                return '\\sqrt{' + getChildrenLatex(node) + '}';
+            case 'msqrt': {
+                var inner = getChildrenLatex(node);
+                if (!inner && node.textContent && node.textContent.trim()) inner = node.textContent.trim();
+                return '\\sqrt{' + inner + '}';
+            }
             case 'mroot': {
                 var children = getDirectChildElements(node);
                 var base = children[0] ? getChildrenLatex(children[0]) : '';
@@ -437,6 +464,8 @@
                 var fChildren = getDirectChildElements(node);
                 var num = fChildren[0] ? getChildrenLatex(fChildren[0]) : '';
                 var den = fChildren[1] ? getChildrenLatex(fChildren[1]) : '';
+                if (!num && fChildren[0] && fChildren[0].textContent) num = fChildren[0].textContent.trim();
+                if (!den && fChildren[1] && fChildren[1].textContent) den = fChildren[1].textContent.trim();
                 return '\\frac{' + num + '}{' + den + '}';
             }
             case 'msup': {
