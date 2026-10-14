@@ -577,6 +577,15 @@
             return '\\(' + exp + '\\)';
         });
 
+        // 3. ดูดเครื่องหมายหน้าสูตร เช่น -\( ... \) หรือ +\( ... \) เข้าไปในสูตร
+        str = str.replace(/([+\-−±×÷=])\s*\\\(/g, '\\($1 ');
+
+        // 4. ผสานสูตรสองตัวที่เชื่อมด้วยเครื่องหมาย เช่น \(a\) + \(b\) -> \(a + b\)
+        str = str.replace(/\\\)\s*([+\-−±×÷=])\s*\\\(/g, ' $1 ');
+
+        // 5. ผสานสูตรที่วางติดกัน เช่น \(\sin\)\(\sqrt{x}\) -> \(\sin \sqrt{x}\)
+        str = str.replace(/\\\)\s*\\\(/g, ' ');
+
         return str;
     };
 
@@ -936,6 +945,10 @@
                 textToInsert = window.autoWrapLatexInText(textToInsert);
             }
 
+            // ดูดเครื่องหมายหน้าสูตร เช่น -\( ... \) ให้เข้าไปอยู่ในสูตร และรวมบล็อกสูตรที่เชื่อมกัน
+            textToInsert = textToInsert.replace(/([+\-−±×÷=])\s*\\\(/g, '\\($1 ');
+            textToInsert = textToInsert.replace(/\\\)\s*([+\-−±×÷=])\s*\\\(/g, ' $1 ');
+
             // รวมบล็อกสูตร \(...\) ที่อยู่ติดกันให้เป็นสูตรเดียวต่อเนื่อง เช่น \(\cos\)\(\sqrt{x}\) -> \(\cos \sqrt{x}\)
             textToInsert = textToInsert.replace(/\\\)\s*\\\(/g, ' ');
 
@@ -1080,7 +1093,8 @@
                 $preview.html('<span class="text-muted">ตัวอย่างสูตรจะแสดงที่นี่...</span>');
                 return;
             }
-            if (/[\u0E00-\u0E7F]/.test(latex) || latex.indexOf('\n') !== -1) {
+            var hasDelimiters = /\\\(|\\\[|\$\$|\$|\\begin\{/.test(latex);
+            if (hasDelimiters || /[\u0E00-\u0E7F]/.test(latex) || latex.indexOf('\n') !== -1) {
                 var converted = window.autoWrapLatexInText ? window.autoWrapLatexInText(latex) : latex;
                 converted = window.thaiToArabicDigits ? window.thaiToArabicDigits(converted) : converted;
                 $preview.html(converted);
