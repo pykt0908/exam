@@ -371,6 +371,83 @@
         }
     }
 
+    // แปลง MathML Element เป็น LaTeX String (สำหรับแปลงสูตร Word OMML -> LaTeX)
+    window.convertMathMLToLatex = function (node) {
+        if (!node) return '';
+        var name = (node.localName || node.nodeName || '').replace(/^.*:/, '').toLowerCase();
+
+        if (node.nodeType === 3) {
+            return node.nodeValue || '';
+        }
+        if (node.nodeType !== 1) {
+            return '';
+        }
+
+        function getChildrenLatex(parent) {
+            var str = '';
+            for (var i = 0; i < parent.childNodes.length; i++) {
+                str += window.convertMathMLToLatex(parent.childNodes[i]);
+            }
+            return str;
+        }
+
+        function getDirectChildElements(parent) {
+            var els = [];
+            for (var i = 0; i < parent.childNodes.length; i++) {
+                if (parent.childNodes[i].nodeType === 1) {
+                    els.push(parent.childNodes[i]);
+                }
+            }
+            return els;
+        }
+
+        switch (name) {
+            case 'math':
+            case 'mrow':
+                return getChildrenLatex(node);
+            case 'msqrt':
+                return '\\sqrt{' + getChildrenLatex(node) + '}';
+            case 'mroot': {
+                var children = getDirectChildElements(node);
+                var base = children[0] ? getChildrenLatex(children[0]) : '';
+                var deg = children[1] ? getChildrenLatex(children[1]) : '';
+                return '\\sqrt[' + deg + ']{' + base + '}';
+            }
+            case 'mfrac': {
+                var fChildren = getDirectChildElements(node);
+                var num = fChildren[0] ? getChildrenLatex(fChildren[0]) : '';
+                var den = fChildren[1] ? getChildrenLatex(fChildren[1]) : '';
+                return '\\frac{' + num + '}{' + den + '}';
+            }
+            case 'msup': {
+                var supChildren = getDirectChildElements(node);
+                var sBase = supChildren[0] ? window.convertMathMLToLatex(supChildren[0]) : '';
+                var sExp = supChildren[1] ? getChildrenLatex(supChildren[1]) : '';
+                return sBase + '^{' + sExp + '}';
+            }
+            case 'msub': {
+                var subChildren = getDirectChildElements(node);
+                var sbBase = subChildren[0] ? window.convertMathMLToLatex(subChildren[0]) : '';
+                var sbExp = subChildren[1] ? getChildrenLatex(subChildren[1]) : '';
+                return sbBase + '_{' + sbExp + '}';
+            }
+            case 'msubsup': {
+                var subSupChildren = getDirectChildElements(node);
+                var ssBase = subSupChildren[0] ? window.convertMathMLToLatex(subSupChildren[0]) : '';
+                var ssSub = subSupChildren[1] ? getChildrenLatex(subSupChildren[1]) : '';
+                var ssSup = subSupChildren[2] ? getChildrenLatex(subSupChildren[2]) : '';
+                return ssBase + '_{' + ssSub + '}^{' + ssSup + '}';
+            }
+            case 'mo':
+            case 'mi':
+            case 'mn':
+            case 'mtext':
+                return node.textContent || '';
+            default:
+                return getChildrenLatex(node);
+        }
+    };
+
     // แปลงตัวเลขไทย (๐-๙) เป็นตัวเลขอารบิก (0-9)
     window.thaiToArabicDigits = function (str) {
         if (!str || typeof str !== 'string') return str;
@@ -462,11 +539,10 @@
         html = html.replace(/<img[^>]+src=["']file:\/\/[^"']*["'][^>]*>/gi, '');
 
         // ค้นหา OMML ทั้งที่อยู่ใน <!--[if gte mso 9]><xml>... และที่อยู่นอกคอมเมนต์
-        var ommlPattern = /(?:<!--\[if gte mso 9\]><xml>)?\s*(<m:(?:oMathPara|oMath)[\s\S]*?<\/m:(?:oMathPara|oMath)>)\s*(?:<\/xml><!\[endif\]-->)?/gi;
+        var ommlPattern = /(?:<!--\[if gte mso 9\]><xml>)?\s*(<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>)\s*(?:<\/xml><!\[endif\]-->)?/gi;
 
         if (ommlPattern.test(html)) {
             var parser = new DOMParser();
-            var serializer = new XMLSerializer();
 
             html = html.replace(ommlPattern, function (match, ommlContent) {
                 try {
@@ -479,8 +555,11 @@
                     if (!oMathNode) return match;
 
                     var mathmlElement = convertOmmlNodeToMathML(oMathNode);
-                    if (mathmlElement) {
-                        return serializer.serializeToString(mathmlElement);
+                    if (mathmlElement && window.convertMathMLToLatex) {
+                        var latex = window.convertMathMLToLatex(mathmlElement);
+                        if (latex && latex.trim()) {
+                            return '<span class="exam-math-formula" contenteditable="false" data-latex="' + latex.replace(/"/g, '&quot;') + '">\\(' + latex + '\\)</span>';
+                        }
                     }
                 } catch (e) {
                     console.warn('OMML to MathML conversion failed:', e);
@@ -677,10 +756,53 @@
             $('#exam-math-modal-preview').html('<span class="text-muted">ตัวอย่างสูตรจะแสดงที่นี่...</span>');
         });
 
-        // ฟังก์ชันช่วยทำความสะอาดข้อความจาก Clipboard (ลอกคราบ CSS, แปลงเลขยกกำลัง, แปลงเลขไทย, จัดบรรทัดเดียว)
+        // ฟังก์ชันช่วยทำความสะอาดข้อความจาก Clipboard (ลอกคราบ CSS, แปลงสูตร Word OMML/MathML เป็น LaTeX, จัดบรรทัดเดียว)
         function cleanPastedWordMathContent(clipboardData) {
             var html = clipboardData.getData('text/html');
             var text = clipboardData.getData('text/plain');
+
+            // 0. แปลง OMML จาก Word (ใน HTML) ให้กลายเป็น LaTeX ก่อนดึงข้อความ ไม่ให้สูตรหาย
+            var ommlPattern = /(?:<!--\[if gte mso 9\]><xml>)?\s*(<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>)\s*(?:<\/xml><!\[endif\]-->)?/gi;
+            if (html && ommlPattern.test(html)) {
+                var parser = new DOMParser();
+                html = html.replace(ommlPattern, function (match, ommlContent) {
+                    try {
+                        var wrappedXml = '<root xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">' + ommlContent + '</root>';
+                        var doc = parser.parseFromString(wrappedXml, 'application/xml');
+                        var oMathNode = doc.querySelector('oMath, oMathPara, *|oMath, *|oMathPara');
+                        if (oMathNode) {
+                            var mathml = convertOmmlNodeToMathML(oMathNode);
+                            if (mathml && window.convertMathMLToLatex) {
+                                var latex = window.convertMathMLToLatex(mathml);
+                                if (latex && latex.trim()) {
+                                    return ' \\(' + latex.trim() + '\\) ';
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('OMML to LaTeX error:', e);
+                    }
+                    return match;
+                });
+            }
+
+            // 0.1 แปลง MathML ที่อาจมีอยู่ใน HTML ให้กลายเป็น LaTeX
+            if (html && /<math[\s\S]*?<\/math>/i.test(html)) {
+                var parser2 = new DOMParser();
+                html = html.replace(/<math[\s\S]*?<\/math>/gi, function(mathStr) {
+                    try {
+                        var doc2 = parser2.parseFromString(mathStr, 'application/xml');
+                        var mathEl = doc2.querySelector('math');
+                        if (mathEl && window.convertMathMLToLatex) {
+                            var ltx = window.convertMathMLToLatex(mathEl);
+                            if (ltx && ltx.trim()) {
+                                return ' \\(' + ltx.trim() + '\\) ';
+                            }
+                        }
+                    } catch(e) {}
+                    return mathStr;
+                });
+            }
 
             var textToInsert = '';
             if (html) {
@@ -711,6 +833,11 @@
             // แปลงเลขไทยเป็นเลขอารบิก
             if (window.thaiToArabicDigits) {
                 textToInsert = window.thaiToArabicDigits(textToInsert);
+            }
+
+            // ดักจับคำสั่ง LaTeX โดดๆ ที่อยู่ในข้อความ
+            if (window.autoWrapLatexInText) {
+                textToInsert = window.autoWrapLatexInText(textToInsert);
             }
 
             // จัดให้อยู่บรรทัดเดียวกันต่อเนื่องอัตโนมัติ (ยุบบรรทัดที่แตกย่อยจากตาราง Word)
