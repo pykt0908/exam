@@ -537,7 +537,7 @@
     window.autoWrapLatexInText = function (str) {
         if (!str || typeof str !== 'string') return str;
 
-        // แปลง unicode superscript เป็น ^{...} เช่น 3x² -> 3x^{2}
+        // 1. แปลง unicode superscript เป็น ^{...} เช่น 3x² -> 3x^{2}
         var supMap = { '⁰': '^0', '¹': '^1', '²': '^2', '³': '^3', '⁴': '^4', '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9' };
         str = str.replace(/([a-zA-Z0-9\)])([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, function (m, base, sups) {
             var res = '';
@@ -547,25 +547,46 @@
             return base + '^{' + res + '}';
         });
 
-        // แปลงฟังก์ชันตรีโกณ/แคลคูลัส
+        // 1.1 แปลง unicode subscript เป็น _{...} เช่น x₁ -> x_{1}
+        var subMap = { '₀': '_0', '₁': '_1', '₂': '_2', '₃': '_3', '₄': '_4', '₅': '_5', '₆': '_6', '₇': '_7', '₈': '_8', '₉': '_9' };
+        str = str.replace(/([a-zA-Z0-9\)])([₀₁₂₃₄₅₆₇₈₉]+)/g, function (m, base, subs) {
+            var res = '';
+            for (var i = 0; i < subs.length; i++) {
+                res += (subMap[subs[i]] || '').replace('_', '');
+            }
+            return base + '_{' + res + '}';
+        });
+
+        // 2. แปลงฟังก์ชันตรีโกณ/แคลคูลัสที่ไม่มี backslash ให้นำหน้าด้วย \
         var mathFuncs = "(?:sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|lim|exp|det|deg|gcd)";
         var rFunc = new RegExp("(^|[^\\\\a-zA-Z])(" + mathFuncs + ")(?![a-zA-Z])", "g");
         str = str.replace(rFunc, "$1\\$2");
 
-        // 1. ครอบคำสั่ง LaTeX มาตรฐาน เช่น \frac, \sqrt, \sin, \cos, \pm ฯลฯ
-        var latexPattern = /(\\(?:frac\s*\{[^{}]*\}\s*\{[^{}]*\}|sqrt(?:\s*\[[^{}]*\])?\s*\{[^{}]*\}|sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|lim|exp|det|deg|gcd|pm|times|div|le|ge|ne|approx|sum(?:_[^{}\s]+)?(?:\^[^{}\s]+)?|int(?:_[^{}\s]+)?(?:\^[^{}\s]+)?|infty|pi|theta|alpha|beta|Delta|vec\{[^{}]*\}|begin\{[a-z]+\}[\s\S]*?end\{[a-z]+\}))/g;
-
-        str = str.replace(latexPattern, function (match, cmd, offset, full) {
+        // 3. ครอบฟังก์ชันคณิตศาสตร์พร้อมเลขยกกำลังและตัวแปรในวงเล็บ เช่น \tan^2 (2X) หรือ \sin(3x+1)
+        var funcFullPattern = /(\\(?:sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|lim|exp|det)(?:\^[0-9a-zA-Z]+|\^\{[^{}]+\})?(?:\s*(?:\([^\(\)\r\n]+\)|\\(?:sqrt|frac)(?:\{[^{}]*\})+|\\(?:theta|alpha|beta|pi|mu|lambda)|[a-zA-Z0-9]+))?)/g;
+        str = str.replace(funcFullPattern, function (match, cmd, offset, full) {
             var before = full.substring(0, offset);
             var dollarCount = (before.match(/\$/g) || []).length;
-            if (dollarCount % 2 === 1) return match; // อยู่ใน $...$ อยู่แล้ว
+            if (dollarCount % 2 === 1) return match;
             var openParen = before.lastIndexOf('\\(');
             var closeParen = before.lastIndexOf('\\)');
-            if (openParen > closeParen) return match; // อยู่ใน \(...\) อยู่แล้ว
+            if (openParen > closeParen) return match;
             return '\\(' + cmd + '\\)';
         });
 
-        // 2. ครอบเลขยกกำลัง เช่น 3x^2 หรือ x^{2}
+        // 4. ครอบคำสั่ง LaTeX มาตรฐานอื่นๆ เช่น \frac, \sqrt, \pm ฯลฯ
+        var latexPattern = /(\\(?:frac\s*\{[^{}]*\}\s*\{[^{}]*\}|sqrt(?:\s*\[[^{}]*\])?\s*\{[^{}]*\}|pm|times|div|le|ge|ne|approx|sum(?:_[^{}\s]+)?(?:\^[^{}\s]+)?|int(?:_[^{}\s]+)?(?:\^[^{}\s]+)?|infty|pi|theta|alpha|beta|Delta|vec\{[^{}]*\}|begin\{[a-z]+\}[\s\S]*?end\{[a-z]+\}))/g;
+        str = str.replace(latexPattern, function (match, cmd, offset, full) {
+            var before = full.substring(0, offset);
+            var dollarCount = (before.match(/\$/g) || []).length;
+            if (dollarCount % 2 === 1) return match;
+            var openParen = before.lastIndexOf('\\(');
+            var closeParen = before.lastIndexOf('\\)');
+            if (openParen > closeParen) return match;
+            return '\\(' + cmd + '\\)';
+        });
+
+        // 5. ครอบเลขยกกำลัง เช่น 3x^2 หรือ x^{2}
         var expPattern = /([a-zA-Z0-9]+(?:\^[0-9a-zA-Z]+|\^\{[^{}]+\}))/g;
         str = str.replace(expPattern, function (match, exp, offset, full) {
             var before = full.substring(0, offset);
@@ -577,13 +598,23 @@
             return '\\(' + exp + '\\)';
         });
 
-        // 3. ดูดเครื่องหมายหน้าสูตร เช่น -\( ... \) หรือ +\( ... \) เข้าไปในสูตร
+        // 6. ดูดเลขยกกำลังและตัวห้อยที่หลุดอยู่นอกวงเล็บสูตร เข้ามาไว้ในสูตร เช่น \(\tan\)^2 -> \(\tan^2\)
+        str = str.replace(/\\\(([\s\S]*?)\\\)\s*(\^[0-9a-zA-Z]+|\^\{[^{}]+\})/g, '\\($1$2\\)');
+        str = str.replace(/\\\(([\s\S]*?)\\\)\s*(_[0-9a-zA-Z]+|_{[^{}]+\})/g, '\\($1$2\\)');
+
+        // 7. ดูดตัวแปรในวงเล็บที่ตามหลังฟังก์ชัน เข้ามาไว้ในสูตร เช่น \(\tan^2\) (2X) -> \(\tan^2 (2X)\)
+        str = str.replace(/\\\(([\s\S]*?\\(?:sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|lim|exp|det)(?:\^[^{}\s]+|\^\{[^{}]+\})?)\\\)\s*(\([^\(\)\r\n]+\))/g, '\\($1 $2\\)');
+
+        // 8. ดูดตัวแปรนำหน้าและเครื่องหมายเท่ากับ เข้ามาไว้ในสูตร เช่น y = \(... หรือ f(x) = \(...
+        str = str.replace(/([a-zA-Z](?:\([a-zA-Z0-9]+\))?\s*=\s*)\\\(/g, '\\($1');
+
+        // 9. ดูดเครื่องหมายหน้าสูตร เช่น -\( ... \) หรือ +\( ... \) เข้าไปในสูตร
         str = str.replace(/([+\-−±×÷=])\s*\\\(/g, '\\($1 ');
 
-        // 4. ผสานสูตรสองตัวที่เชื่อมด้วยเครื่องหมาย เช่น \(a\) + \(b\) -> \(a + b\)
+        // 10. ผสานสูตรสองตัวที่เชื่อมด้วยเครื่องหมาย เช่น \(a\) + \(b\) -> \(a + b\)
         str = str.replace(/\\\)\s*([+\-−±×÷=])\s*\\\(/g, ' $1 ');
 
-        // 5. ผสานสูตรที่วางติดกัน เช่น \(\sin\)\(\sqrt{x}\) -> \(\sin \sqrt{x}\)
+        // 11. ผสานสูตรที่วางติดกัน เช่น \(\sin\)\(\sqrt{x}\) -> \(\sin \sqrt{x}\)
         str = str.replace(/\\\)\s*\\\(/g, ' ');
 
         return str;
@@ -944,6 +975,16 @@
             if (window.autoWrapLatexInText) {
                 textToInsert = window.autoWrapLatexInText(textToInsert);
             }
+
+            // ดึงเลขยกกำลังและตัวห้อยที่หลุดอยู่นอกวงเล็บสูตร เข้ามาไว้ในสูตร เช่น \(\tan\)^2 -> \(\tan^2\)
+            textToInsert = textToInsert.replace(/\\\(([\s\S]*?)\\\)\s*(\^[0-9a-zA-Z]+|\^\{[^{}]+\})/g, '\\($1$2\\)');
+            textToInsert = textToInsert.replace(/\\\(([\s\S]*?)\\\)\s*(_[0-9a-zA-Z]+|_{[^{}]+\})/g, '\\($1$2\\)');
+
+            // ดึงตัวแปรในวงเล็บที่ตามหลังฟังก์ชัน เข้ามาไว้ในสูตร เช่น \(\tan^2\) (2X) -> \(\tan^2 (2X)\)
+            textToInsert = textToInsert.replace(/\\\(([\s\S]*?\\(?:sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|lim|exp|det)(?:\^[^{}\s]+|\^\{[^{}]+\})?)\\\)\s*(\([^\(\)\r\n]+\))/g, '\\($1 $2\\)');
+
+            // ดูดตัวแปรนำหน้าและเครื่องหมายเท่ากับ เข้ามาไว้ในสูตร เช่น y = \(... หรือ f(x) = \(...
+            textToInsert = textToInsert.replace(/([a-zA-Z](?:\([a-zA-Z0-9]+\))?\s*=\s*)\\\(/g, '\\($1');
 
             // ดูดเครื่องหมายหน้าสูตร เช่น -\( ... \) ให้เข้าไปอยู่ในสูตร และรวมบล็อกสูตรที่เชื่อมกัน
             textToInsert = textToInsert.replace(/([+\-−±×÷=])\s*\\\(/g, '\\($1 ');
