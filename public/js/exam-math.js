@@ -556,11 +556,21 @@
         if (!ommlContent) return '';
         try {
             var parser = new DOMParser();
-            var wrappedXml = '<root xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">' + ommlContent + '</root>';
+            // ประกาศ namespaces ที่ Word ใช้งานบ่อยเพื่อไม่ให้ XML parsererror
+            var wrappedXml = '<root xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' + ommlContent + '</root>';
             var doc = parser.parseFromString(wrappedXml, 'application/xml');
+
+            // หากยังมี parsererror ให้ลองตัดแท็ก formatting ที่ไม่ใช่ m: ออก แล้ว parse ใหม่
             if (doc.getElementsByTagName('parsererror').length > 0) {
-                return '';
+                var cleanXml = ommlContent.replace(/<(?:\/?)[\w-]+:(?!oMath|r|t|rad|f|num|den|e|deg|degHide|sSup|sSub|sSubSup|sup|sub|d|dPr|begChr|endChr|sepChr|m|mr|mtd|mtr|nary|naryPr|chr)[^>]*>/gi, '');
+                doc = parser.parseFromString('<root xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">' + cleanXml + '</root>', 'application/xml');
             }
+
+            // ถ้า XML ยังมี error อยู่ ให้ fallback ใช้ text/html ซึ่งไม่มีวัน error จาก namespace
+            if (doc.getElementsByTagName('parsererror').length > 0) {
+                doc = parser.parseFromString(ommlContent, 'text/html');
+            }
+
             var oMathNode = findOMathNode(doc);
             if (!oMathNode) return '';
             var mathmlElement = convertOmmlNodeToMathML(oMathNode);
@@ -580,6 +590,9 @@
         try {
             var parser = new DOMParser();
             var doc = parser.parseFromString(mathStr, 'application/xml');
+            if (doc.getElementsByTagName('parsererror').length > 0) {
+                doc = parser.parseFromString(mathStr, 'text/html');
+            }
             var mathEl = doc.getElementsByTagName ? (doc.getElementsByTagName('math')[0] || doc.documentElement) : null;
             if (mathEl && window.convertMathMLToLatex) {
                 var latex = window.convertMathMLToLatex(mathEl);
@@ -612,34 +625,31 @@
             }
         }
 
-        // 2. แปลง conditional comment ใดๆ ของ Word ที่มี oMath หรือ oMathPara
-        // จับทั้งบล็อก <!--[if ... <![endif]--> เพื่อแทนที่ทั้งคอมเมนต์ ไม่ให้หลงเหลือ comment wrapper ที่เบราว์เซอร์จะโยนทิ้ง
-        var commentWithOMathPattern = /<!--\[if\b[\s\S]*?<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<!\[endif\]-->/gi;
-        html = html.replace(commentWithOMathPattern, function (fullComment) {
-            var innerMathPattern = /<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>/gi;
-            var matches = fullComment.match(innerMathPattern);
-            if (!matches || !matches.length) return '';
+        // 2. แปลง conditional comment แต่ละอันของ Word ทีละคอมเมนต์ (ไม่ข้ามคอมเมนต์อื่น ไม่กลืนข้อความระหว่างคอมเมนต์)
+        html = html.replace(/<!--\[if\b[\s\S]*?<!\[endif\]-->/gi, function (comment) {
             var res = '';
-            for (var i = 0; i < matches.length; i++) {
-                var ltx = convertOmmlStringToLatex(matches[i]);
-                if (ltx) res += formatLatexReplacement(ltx);
+            // ตรวจสอบว่าในคอมเมนต์เดี่ยวนี้มี oMath หรือไม่
+            var innerMathMatches = comment.match(/<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>/gi);
+            if (innerMathMatches && innerMathMatches.length > 0) {
+                for (var i = 0; i < innerMathMatches.length; i++) {
+                    var ltx = convertOmmlStringToLatex(innerMathMatches[i]);
+                    if (ltx) res += formatLatexReplacement(ltx);
+                }
             }
+            // ตรวจสอบว่าในคอมเมนต์เดี่ยวนี้มี MathML หรือไม่
+            var innerMathMLMatches = comment.match(/<math\b[\s\S]*?<\/math>/gi);
+            if (innerMathMLMatches && innerMathMLMatches.length > 0) {
+                for (var j = 0; j < innerMathMLMatches.length; j++) {
+                    var ltx2 = convertMathMLStringToLatex(innerMathMLMatches[j]);
+                    if (ltx2) res += formatLatexReplacement(ltx2);
+                }
+            }
+            // ถ้าเป็นคอมเมนต์สูตร จะแทนที่ด้วย LaTeX; ถ้าเป็นคอมเมนต์ metadata Word จะถูกลบออกโดยไม่กระทบข้อความข้างนอก
             return res;
         });
 
-        // 3. แปลง conditional comment ใดๆ ที่มี <math> MathML
-        var commentWithMathMLPattern = /<!--\[if\b[\s\S]*?<math\b[\s\S]*?<!\[endif\]-->/gi;
-        html = html.replace(commentWithMathMLPattern, function (fullComment) {
-            var innerMathMLPattern = /<math\b[\s\S]*?<\/math>/gi;
-            var matches = fullComment.match(innerMathMLPattern);
-            if (!matches || !matches.length) return '';
-            var res = '';
-            for (var i = 0; i < matches.length; i++) {
-                var ltx = convertMathMLStringToLatex(matches[i]);
-                if (ltx) res += formatLatexReplacement(ltx);
-            }
-            return res;
-        });
+        // 3. ลบคอมเมนต์ <![if ...]> ที่ไม่ใช่สูตร
+        html = html.replace(/<!\[if\b[\s\S]*?<!\[endif\]>/gi, '');
 
         // 4. แปลง oMath / oMathPara ที่อยู่นอกคอมเมนต์
         var nakedOMathPattern = /<(?:m:)?(?:oMathPara|oMath)\b[\s\S]*?<\/(?:m:)?(?:oMathPara|oMath)>/gi;
