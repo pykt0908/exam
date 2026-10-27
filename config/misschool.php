@@ -28,8 +28,8 @@ return [
     | ข้อมูลการเชื่อมต่อไปยัง Bridge Server ตัวกลาง
     */
     'bridge' => [
-        'url' => env('MIS_BRIDGE_URL', 'https://bridge-technosrc-api.offriend.net'),
-        'key' => env('MIS_BRIDGE_KEY', 'technosri_secret_key_2026'),
+        'url' => env('MIS_BRIDGE_URL', ''),
+        'key' => env('MIS_BRIDGE_KEY', ''),
         'timeout' => env('MIS_BRIDGE_TIMEOUT', 10),
     ],
 
@@ -40,12 +40,12 @@ return [
     | ข้อมูลการเชื่อมต่อไปยัง Microsoft SQL Server ของวิทยาลัยโดยตรง
     */
     'sqlsrv' => [
-        'host' => env('DB_MISSCHOOL_HOST', 'stech.misschool.info'),
-        'port' => env('DB_MISSCHOOL_PORT', '24252'),
+        'host' => env('DB_MISSCHOOL_HOST', '127.0.0.1'),
+        'port' => env('DB_MISSCHOOL_PORT', '1433'),
         'database_student' => env('DB_MISSCHOOL_DATABASE_STUDENT', 'Tabain'),
         'database_teacher' => env('DB_MISSCHOOL_DATABASE_TEACHER', 'Personal'),
-        'username' => env('DB_MISSCHOOL_USERNAME', 'misadmin'),
-        'password' => env('DB_MISSCHOOL_PASSWORD', 'meng@2520'),
+        'username' => env('DB_MISSCHOOL_USERNAME', ''),
+        'password' => env('DB_MISSCHOOL_PASSWORD', ''),
         'encrypt' => env('DB_MISSCHOOL_ENCRYPT', 'no'),
         'trust_server_certificate' => env('DB_MISSCHOOL_TRUST_SERVER_CERTIFICATE', 'true'),
     ],

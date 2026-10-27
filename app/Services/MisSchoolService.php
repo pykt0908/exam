@@ -247,20 +247,26 @@ class MisSchoolService
             } elseif ($s === '6' || str_contains($s, 'บ่าย') || $s === 'afternoon') {
                 $normalizedShift = 'afternoon';
             }
-        } elseif ((string)$levelNo === '3') {
-            $normalizedShift = 'afternoon';
         }
 
         $query = Classroom::query();
 
-        // 1. กรองตามระดับชั้น
+        // 1. กรองตามระดับชั้น และเลขห้อง โดยต้องมีช่องว่างหรือจบท้าย เพื่อป้องกัน 2/1 ไปจับคู่กับ 2/10 หรือ 2/11
         if ((string)$levelNo === '3') {
-            $query->where('name', 'LIKE', "ปวส. พิเศษ{$targetRoom}%");
+            $query->where(function ($q) use ($targetRoom) {
+                $q->where('name', 'LIKE', "ปวส. พิเศษ{$targetRoom} %")
+                  ->orWhere('name', '=', "ปวส. พิเศษ{$targetRoom}");
+            });
         } elseif ((string)$levelNo === '2') {
-            $query->where('name', 'LIKE', "ปวส.{$targetRoom}%")
-                  ->where('name', 'NOT LIKE', 'ปวส. พิเศษ%');
+            $query->where(function ($q) use ($targetRoom) {
+                $q->where('name', 'LIKE', "ปวส.{$targetRoom} %")
+                  ->orWhere('name', '=', "ปวส.{$targetRoom}");
+            })->where('name', 'NOT LIKE', 'ปวส. พิเศษ%');
         } else {
-            $query->where('name', 'LIKE', "ปวช.{$targetRoom}%");
+            $query->where(function ($q) use ($targetRoom) {
+                $q->where('name', 'LIKE', "ปวช.{$targetRoom} %")
+                  ->orWhere('name', '=', "ปวช.{$targetRoom}");
+            });
         }
 
         // 2. กรองตามรอบ (เช้า / บ่าย) หากมีการระบุ
@@ -282,7 +288,10 @@ class MisSchoolService
         // Fallback 1: หากยังไม่พบและมีแผนกวิชา ให้ค้นหาตามแผนกเดิมโดยปลดล็อครอบ เพื่อป้องกันการข้ามไปแผนกอื่น
         if (!$matched && !empty($keywords)) {
             $prefix = ((string)$levelNo === '3') ? 'ปวส. พิเศษ' : (((string)$levelNo === '2') ? 'ปวส.' : 'ปวช.');
-            $matched = Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%")
+            $matched = Classroom::where(function ($q) use ($prefix, $targetRoom) {
+                    $q->where('name', 'LIKE', "%{$prefix}{$targetRoom} %")
+                      ->orWhere('name', 'LIKE', "%{$prefix}{$targetRoom}");
+                })
                 ->where(function ($q) use ($keywords) {
                     foreach ($keywords as $kw) {
                         $q->orWhere('name', 'LIKE', "%{$kw}%");
@@ -293,7 +302,10 @@ class MisSchoolService
         // Fallback 2: ตรวจสอบห้องตามระดับชั้นและเลขห้อง
         if (!$matched) {
             $prefix = ((string)$levelNo === '3') ? 'ปวส. พิเศษ' : (((string)$levelNo === '2') ? 'ปวส.' : 'ปวช.');
-            $fallbackQuery = Classroom::where('name', 'LIKE', "%{$prefix}{$targetRoom}%");
+            $fallbackQuery = Classroom::where(function ($q) use ($prefix, $targetRoom) {
+                $q->where('name', 'LIKE', "%{$prefix}{$targetRoom} %")
+                  ->orWhere('name', 'LIKE', "%{$prefix}{$targetRoom}");
+            });
             if ($normalizedShift) {
                 $fallbackQuery->where('shift', $normalizedShift);
             }
@@ -435,6 +447,19 @@ class MisSchoolService
                       ->orWhere('username', $unpadded);
                 })
                 ->first();
+        }
+
+        // หากนักศึกษามีห้องเรียนเดิมอยู่แล้ว และห้องเดิมตรงกับระดับชั้น/ปี/ห้องอยู่แล้ว
+        // ให้รักษาห้องเรียนเดิมไว้เสมอ (ป้องกันกรณี login ไม่ได้ส่ง shift แล้วไปย้ายห้องนักศึกษา)
+        if ($user && $user->classroom_id && $user->classroom) {
+            $currentClassroom = $user->classroom;
+            $targetRoom = "{$year}/{$room}";
+            $expectedPrefix = ((string)$levelNo === '3') ? 'ปวส. พิเศษ' : (((string)$levelNo === '2') ? 'ปวส.' : 'ปวช.');
+            $hasCorrectPrefix = str_contains($currentClassroom->name, $expectedPrefix);
+            $hasCorrectRoom = str_contains($currentClassroom->name, "{$targetRoom} ") || str_ends_with($currentClassroom->name, $targetRoom);
+            if ($hasCorrectPrefix && $hasCorrectRoom) {
+                $classroomId = $currentClassroom->id;
+            }
         }
 
         static $userColumns = null;
@@ -1114,10 +1139,10 @@ class MisSchoolService
             return null;
         }
 
-        $host = $this->sqlsrvConfig['host'] ?? 'stech.misschool.info';
-        $port = $this->sqlsrvConfig['port'] ?? '24252';
-        $user = $this->sqlsrvConfig['username'] ?? 'misadmin';
-        $pass = $this->sqlsrvConfig['password'] ?? 'meng@2520';
+        $host = $this->sqlsrvConfig['host'] ?? '127.0.0.1';
+        $port = $this->sqlsrvConfig['port'] ?? '1433';
+        $user = $this->sqlsrvConfig['username'] ?? '';
+        $pass = $this->sqlsrvConfig['password'] ?? '';
 
         $cmd = sprintf(
             "%s -H %s -p %s -U %s -P %s -D %s",
@@ -1369,10 +1394,10 @@ class MisSchoolService
 
     protected function getSqlSrvPdo(string $dbName): PDO
     {
-        $host = $this->sqlsrvConfig['host'] ?? 'stech.misschool.info';
-        $port = $this->sqlsrvConfig['port'] ?? '24252';
-        $user = $this->sqlsrvConfig['username'] ?? 'misadmin';
-        $pass = $this->sqlsrvConfig['password'] ?? 'meng@2520';
+        $host = $this->sqlsrvConfig['host'] ?? '127.0.0.1';
+        $port = $this->sqlsrvConfig['port'] ?? '1433';
+        $user = $this->sqlsrvConfig['username'] ?? '';
+        $pass = $this->sqlsrvConfig['password'] ?? '';
 
         $server = "{$host},{$port}";
         $dsn = "sqlsrv:Server={$server};Database={$dbName};TrustServerCertificate=true;Encrypt=false";

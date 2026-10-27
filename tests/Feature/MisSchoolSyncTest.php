@@ -25,7 +25,7 @@ class MisSchoolSyncTest extends TestCase
                 'classrooms' => 30,
                 'students' => 1200,
             ],
-            'server' => 'stech.misschool.info:24252',
+            'server' => 'sqlsrv.test:1433',
             'timestamp' => now()->toIso8601String(),
         ]);
         $this->app->instance(MisSchoolService::class, $serviceMock);

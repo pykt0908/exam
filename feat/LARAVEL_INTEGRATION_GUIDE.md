@@ -49,11 +49,11 @@
 
 ```env
 # MisSchool SQL Server Connection
-DB_MISSCHOOL_HOST=stech.misschool.info
-DB_MISSCHOOL_PORT=24252
+DB_MISSCHOOL_HOST=127.0.0.1
+DB_MISSCHOOL_PORT=1433
 DB_MISSCHOOL_DATABASE=Tabain
-DB_MISSCHOOL_USERNAME=misadmin
-DB_MISSCHOOL_PASSWORD=meng@2520
+DB_MISSCHOOL_USERNAME=your_username
+DB_MISSCHOOL_PASSWORD=your_password
 DB_MISSCHOOL_ENCRYPT=no
 DB_MISSCHOOL_TRUST_SERVER_CERTIFICATE=true
 ```
@@ -71,11 +71,11 @@ DB_MISSCHOOL_TRUST_SERVER_CERTIFICATE=true
     'misschool' => [
         'driver' => 'sqlsrv',
         'url' => env('DATABASE_URL'),
-        'host' => env('DB_MISSCHOOL_HOST', 'stech.misschool.info'),
-        'port' => env('DB_MISSCHOOL_PORT', '24252'),
+        'host' => env('DB_MISSCHOOL_HOST', '127.0.0.1'),
+        'port' => env('DB_MISSCHOOL_PORT', '1433'),
         'database' => env('DB_MISSCHOOL_DATABASE', 'Tabain'),
-        'username' => env('DB_MISSCHOOL_USERNAME', 'misadmin'),
-        'password' => env('DB_MISSCHOOL_PASSWORD', 'meng@2520'),
+        'username' => env('DB_MISSCHOOL_USERNAME', 'your_username'),
+        'password' => env('DB_MISSCHOOL_PASSWORD', 'your_password'),
         'charset' => 'utf8',
         'prefix' => '',
         'prefix_indexes' => true,
@@ -482,11 +482,11 @@ class TeacherLoginController extends Controller
 2. **Read-Only Operation:**
    - ให้ระบบสอบทำหน้าที่ **อ่านอย่างเดียว (SELECT)** เท่านั้น ไม่ควรเขียนคำสั่ง UPDATE/DELETE ใส่ตารางของ MisSchool เพื่อความปลอดภัยของข้อมูลสถานศึกษา
 3. **การเข้าถึงข้ามฐานข้อมูลใน SQL Server:**
-   - User `misadmin` มีสิทธิ์เข้าถึงทั้ง Database `Tabain` และ `Personal` สามารถเขียนคำสั่ง Join ข้ามฐานข้อมูลได้ทันที เช่น `Personal.dbo.tblTeacherHis`
+   - ผู้ใช้งานฐานข้อมูล (DB User) ควรมีสิทธิ์เข้าถึงทั้ง Database `Tabain` และ `Personal` เพื่อให้สามารถเขียนคำสั่ง Join ข้ามฐานข้อมูลได้ทันที เช่น `Personal.dbo.tblTeacherHis`
 4. **การดึงรูปภาพประจำตัว:**
    - สามารถแสดงรูปนักเรียนในหน้าระบบสอบได้โดยตรงผ่าน URL:
      ```html
-     <img src="https://misphoto.misschool.info/pic/picstudent/{{ $schoolNo }}/{{ $student->StdNo }}.webp" alt="รูปนักศึกษา" />
+     <img src="https://misphoto.example.com/pic/picstudent/{{ $schoolNo }}/{{ $student->StdNo }}.webp" alt="รูปนักศึกษา" />
      ```
 5. **Network Latency & Caching:**
    - แนะนำให้แคชข้อมูลแผนกวิชา และรายชื่อครูไว้ใน Redis/Cache ของ Laravel เพื่อความเร็วในการโหลดหน้าระบบสอบ

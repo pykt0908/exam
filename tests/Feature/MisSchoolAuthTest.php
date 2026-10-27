@@ -14,13 +14,22 @@ class MisSchoolAuthTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config([
+            'misschool.bridge.url' => 'https://bridge.test',
+            'misschool.bridge.key' => 'test-key',
+        ]);
+    }
+
     public function test_student_login_via_misschool_bridge_creates_local_user_and_authenticates(): void
     {
         // สร้างห้องเรียนรอไว้เพื่อทดสอบการจับคู่ห้องเรียนอัตโนมัติ
         $classroom = Classroom::create(['name' => 'ปวช.1/1 การบัญชี เช้า']);
 
         Http::fake([
-            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-student' => Http::response([
+            'https://bridge.test/index.php?action=verify-student' => Http::response([
                 'success' => true,
                 'data' => [
                     'std_no' => '66209010001',
@@ -56,11 +65,11 @@ class MisSchoolAuthTest extends TestCase
     public function test_teacher_login_via_misschool_bridge_creates_local_teacher_and_authenticates(): void
     {
         Http::fake([
-            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-student' => Http::response([
+            'https://bridge.test/index.php?action=verify-student' => Http::response([
                 'success' => false,
                 'message' => 'ไม่พบข้อมูลนักเรียน',
             ], 200),
-            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-teacher' => Http::response([
+            'https://bridge.test/index.php?action=verify-teacher' => Http::response([
                 'success' => true,
                 'data' => [
                     'teacher_no' => 'T2005',
@@ -91,10 +100,10 @@ class MisSchoolAuthTest extends TestCase
     public function test_admin_teacher_login_via_misschool_bridge_assigned_admin_role(): void
     {
         Http::fake([
-            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-student' => Http::response([
+            'https://bridge.test/index.php?action=verify-student' => Http::response([
                 'success' => false,
             ], 200),
-            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-teacher' => Http::response([
+            'https://bridge.test/index.php?action=verify-teacher' => Http::response([
                 'success' => true,
                 'data' => [
                     'teacher_no' => 'ADMIN01',
@@ -130,7 +139,7 @@ class MisSchoolAuthTest extends TestCase
         ]);
 
         Http::fake([
-            'https://bridge-technosrc-api.offriend.net/*' => Http::response([
+            'https://bridge.test/*' => Http::response([
                 'success' => false,
                 'message' => 'Not found in MisSchool',
             ], 200),
@@ -148,7 +157,7 @@ class MisSchoolAuthTest extends TestCase
     public function test_invalid_credentials_returns_error(): void
     {
         Http::fake([
-            'https://bridge-technosrc-api.offriend.net/*' => Http::response([
+            'https://bridge.test/*' => Http::response([
                 'success' => false,
                 'message' => 'Invalid credentials',
             ], 200),
@@ -179,10 +188,10 @@ class MisSchoolAuthTest extends TestCase
         ]);
 
         Http::fake([
-            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-student' => Http::response([
+            'https://bridge.test/index.php?action=verify-student' => Http::response([
                 'success' => false,
             ], 200),
-            'https://bridge-technosrc-api.offriend.net/index.php?action=verify-teacher' => Http::response([
+            'https://bridge.test/index.php?action=verify-teacher' => Http::response([
                 'success' => true,
                 'data' => [
                     'teacher_no' => 'T56005',

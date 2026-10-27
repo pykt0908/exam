@@ -26,3 +26,10 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 21st-cpn
+
+# Sensitive data dumps
+misschool_teachers_data.txt
+sample_students_data.txt
+sample_students_and_promotion_guide.txt
+*teachers_data*.txt
+*students_data*.txt

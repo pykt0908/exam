@@ -1,7 +1,7 @@
 # คู่มือระบบ Bridge API สำหรับเชื่อมต่อ MisSchool
 
 คู่มือนี้อธิบายสถาปัตยกรรมการทำงาน วิธีติดตั้ง และวิธีเรียกใช้งาน **Bridge API** ผ่านโดเมน:
-🌐 **`https://bridge-technosrc-api.offriend.net`**
+🌐 **`https://bridge-api.your-domain.com`**
 
 เพื่อแก้ปัญหา Shared Hosting เดิมที่ถูกบล็อกพอร์ต โดยใช้โฮสต์ตัวที่สองเป็นตัวกลางรับคำขอจากระบบสอบแล้วดึงข้อมูลจาก SQL Server ของโรงเรียน
 
@@ -9,7 +9,7 @@
 
 ## สารบัญ
 1. [ภาพรวมสถาปัตยกรรม (Architecture)](#1-ภาพรวมสถาปัตยกรรม)
-2. [ส่วนที่ 1: โค้ดฝั่ง Bridge API (วางบน bridge-technosrc-api.offriend.net)](#2-ส่วนที่-1-โค้ดฝั่ง-bridge-api)
+2. [ส่วนที่ 1: โค้ดฝั่ง Bridge API](#2-ส่วนที่-1-โค้ดฝั่ง-bridge-api)
 3. [ส่วนที่ 2: โค้ดฝั่ง Laravel ระบบสอบ (Client)](#3-ส่วนที่-2-โค้ดฝั่ง-laravel-ระบบสอบ)
 4. [Endpoints และ Format ข้อมูล](#4-endpoints-และ-format-ข้อมูล)
 5. [การทดสอบระบบ (Testing)](#5-การทดสอบระบบ)
@@ -30,14 +30,14 @@
                        ▼
 ┌──────────────────────────────────────────────┐
 │  Bridge API Server                           │
-│  https://bridge-technosrc-api.offriend.net   │
+│  https://bridge-api.your-domain.com          │
 │  (อยู่บน Shared Hosting ตัวที่ไม่บล็อก)       │
 └──────────────────────┬───────────────────────┘
-                       │ TCP Port 24252 (SQL Server)
+                       │ TCP Port 1433 / Custom Port (SQL Server)
                        ▼
 ┌──────────────────────────────────────────────┐
 │  MisSchool Database Server                   │
-│  stech.misschool.info:24252                  │
+│  your-sql-server-host:1433                   │
 │  (Database: Tabain, Personal)                │
 └──────────────────────────────────────────────┘
 ```
@@ -45,7 +45,7 @@
 ---
 
 ## 2. ส่วนที่ 1: โค้ดฝั่ง Bridge API
-*(นำไปวางที่ `public_html` ของโดเมน `bridge-technosrc-api.offriend.net`)*
+*(นำไปวางที่ `public_html` ของ Bridge API Server)*
 
 คุณสามารถสร้างไฟล์ **`index.php`** (ไฟล์เดียวจบ ไม่ต้องลงเฟรมเวิร์กเพิ่ม) เพื่อทำหน้าที่เป็น REST API ได้ทันที:
 
@@ -55,12 +55,12 @@
 header('Content-Type: application/json; charset=UTF-8');
 
 // 1. ตั้งค่าความปลอดภัย (กำหนด Secret Key เพื่อป้องกันคนนอกมายิง API เล่น)
-define('API_SECRET_KEY', 'technosri_secret_key_2026'); // เปลี่ยนเป็นคีย์ที่คุณต้องการ
+define('API_SECRET_KEY', 'your_bridge_secret_key'); // เปลี่ยนเป็นคีย์ที่คุณต้องการ
 
 // 2. ข้อมูลการเชื่อมต่อ MisSchool SQL Server
-$dbHost = 'stech.misschool.info,24252';
-$dbUser = 'misadmin';
-$dbPass = 'meng@2520';
+$dbHost = 'your-sql-server-host,1433';
+$dbUser = 'your_username';
+$dbPass = 'your_password';
 
 // 3. ตรวจสอบ API Key จาก Header (X-Bridge-Key)
 $headers = getallheaders();
@@ -209,8 +209,8 @@ echo json_encode(['success' => false, 'message' => 'Invalid action endpoint']);
 ### 3.1 ตั้งค่าใน `.env` ของ Laravel
 ```env
 # ตั้งค่า Bridge API
-MIS_BRIDGE_URL=https://bridge-technosrc-api.offriend.net
-MIS_BRIDGE_KEY=technosri_secret_key_2026
+MIS_BRIDGE_URL=https://bridge-api.your-domain.com
+MIS_BRIDGE_KEY=your_bridge_secret_key
 ```
 
 ### 3.2 ตัวอย่าง Service เชื่อมต่อ Bridge (`app/Services/MisBridgeService.php`)
@@ -328,8 +328,8 @@ class StudentLoginController extends Controller
 
 ### 1) ตรวจสอบสถานะระบบ (Health Check)
 * **Method:** `GET`
-* **URL:** `https://bridge-technosrc-api.offriend.net/index.php?action=health`
-* **Header:** `X-Bridge-Key: technosri_secret_key_2026`
+* **URL:** `https://bridge-api.your-domain.com/index.php?action=health`
+* **Header:** `X-Bridge-Key: your_bridge_secret_key`
 * **Response:**
   ```json
   {
@@ -341,8 +341,8 @@ class StudentLoginController extends Controller
 
 ### 2) ตรวจสอบนักเรียน (Verify Student)
 * **Method:** `POST`
-* **URL:** `https://bridge-technosrc-api.offriend.net/index.php?action=verify-student`
-* **Header:** `X-Bridge-Key: technosri_secret_key_2026`
+* **URL:** `https://bridge-api.your-domain.com/index.php?action=verify-student`
+* **Header:** `X-Bridge-Key: your_bridge_secret_key`
 * **Request Body:**
   ```json
   {
@@ -370,11 +370,11 @@ class StudentLoginController extends Controller
 
 ## 5. การทดสอบระบบ
 
-หลังจากอัปโหลดไฟล์ `index.php` ขึ้นโดเมน `bridge-technosrc-api.offriend.net` แล้ว สามารถทดสอบด้วยคำสั่ง cURL ได้ทันที:
+หลังจากอัปโหลดไฟล์ `index.php` ขึ้นโดเมน Bridge API แล้ว สามารถทดสอบด้วยคำสั่ง cURL ได้ทันที:
 
 ```bash
-curl -X GET "https://bridge-technosrc-api.offriend.net/index.php?action=health" \
-     -H "X-Bridge-Key: technosri_secret_key_2026"
+curl -X GET "https://bridge-api.your-domain.com/index.php?action=health" \
+     -H "X-Bridge-Key: your_bridge_secret_key"
 ```
 
 เมื่อได้รับข้อความ `success: true` แสดงว่าระบบตัวกลางเชื่อมต่อพร้อมใช้งาน 100% แล้วครับ!

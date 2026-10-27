@@ -1,18 +1,18 @@
 <?php
 /**
  * MisSchool Bridge API Server
- * สำหรับนำไปวางที่ public_html ของโดเมน bridge-technosrc-api.offriend.net
+ * สำหรับนำไปวางที่ public_html ของ Bridge API Server
  */
 
 header('Content-Type: application/json; charset=UTF-8');
 
 // 1. ตั้งค่าความปลอดภัย (API Secret Key)
-define('API_SECRET_KEY', 'technosri_secret_key_2026');
+define('API_SECRET_KEY', getenv('MIS_BRIDGE_KEY') ?: 'your_bridge_secret_key_here');
 
 // 2. ข้อมูลการเชื่อมต่อ MisSchool SQL Server
-$dbHost = 'stech.misschool.info,24252';
-$dbUser = 'misadmin';
-$dbPass = 'meng@2520';
+$dbHost = getenv('DB_MISSCHOOL_HOST') ?: 'your_sql_server_host,1433';
+$dbUser = getenv('DB_MISSCHOOL_USERNAME') ?: 'your_db_username';
+$dbPass = getenv('DB_MISSCHOOL_PASSWORD') ?: 'your_db_password';
 
 // 3. ตรวจสอบ API Key จาก Header (X-Bridge-Key)
 $headers = getallheaders();

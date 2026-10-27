@@ -116,11 +116,11 @@ return [
 
         'misschool' => [
             'driver' => 'sqlsrv',
-            'host' => env('DB_MISSCHOOL_HOST', 'stech.misschool.info'),
-            'port' => env('DB_MISSCHOOL_PORT', '24252'),
+            'host' => env('DB_MISSCHOOL_HOST', '127.0.0.1'),
+            'port' => env('DB_MISSCHOOL_PORT', '1433'),
             'database' => env('DB_MISSCHOOL_DATABASE_STUDENT', 'Tabain'),
-            'username' => env('DB_MISSCHOOL_USERNAME', 'misadmin'),
-            'password' => env('DB_MISSCHOOL_PASSWORD', 'meng@2520'),
+            'username' => env('DB_MISSCHOOL_USERNAME', ''),
+            'password' => env('DB_MISSCHOOL_PASSWORD', ''),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
@@ -130,11 +130,11 @@ return [
 
         'misschool_personal' => [
             'driver' => 'sqlsrv',
-            'host' => env('DB_MISSCHOOL_HOST', 'stech.misschool.info'),
-            'port' => env('DB_MISSCHOOL_PORT', '24252'),
+            'host' => env('DB_MISSCHOOL_HOST', '127.0.0.1'),
+            'port' => env('DB_MISSCHOOL_PORT', '1433'),
             'database' => env('DB_MISSCHOOL_DATABASE_TEACHER', 'Personal'),
-            'username' => env('DB_MISSCHOOL_USERNAME', 'misadmin'),
-            'password' => env('DB_MISSCHOOL_PASSWORD', 'meng@2520'),
+            'username' => env('DB_MISSCHOOL_USERNAME', ''),
+            'password' => env('DB_MISSCHOOL_PASSWORD', ''),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
