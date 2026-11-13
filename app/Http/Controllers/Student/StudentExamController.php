@@ -329,27 +329,28 @@ class StudentExamController extends Controller
             return response()->json(['error' => 'Unauthorized or exam already completed'], 403);
         }
 
-        // Check if student exam eligibility is revoked in real-time
-        $attempt->loadMissing('exam');
-        $student = Auth::user()->fresh();
-        $student->load('enrolledSubjects');
-        $eligibility = $student->getExamEligibility($attempt->exam);
-        if (!$eligibility['eligible']) {
+        // Fast check if student exam eligibility is revoked in real-time
+        $student = Auth::user();
+        if ($student->is_exam_eligible === false || (int)$student->is_exam_eligible === 0) {
+            $reason = $student->ineligible_reason ?: 'ระงับสิทธิ์สอบระดับผู้ใช้งาน (ติดต่อฝ่ายการเงิน/ทะเบียน)';
             return response()->json([
                 'ineligible' => true,
-                'error' => 'สิทธิ์การสอบของคุณถูกระงับ (' . ($eligibility['reason'] ?: 'ติดต่อฝ่ายการเงิน/ทะเบียน') . ')',
-                'reason' => $eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ (ติดต่อฝ่ายการเงิน/ทะเบียน)'
+                'error' => 'สิทธิ์การสอบของคุณถูกระงับ (' . $reason . ')',
+                'reason' => $reason
             ], 403);
         }
 
         $request->validate([
-            'question_id' => ['required', 'exists:questions,id'],
-            'choice_id' => ['nullable', 'exists:choices,id'],
+            'question_id' => ['required', 'integer'],
+            'choice_id' => ['nullable', 'integer'],
             'answer_text' => ['nullable', 'string'],
         ]);
 
-        $questionId = $request->question_id;
-        $question = Question::findOrFail($questionId);
+        $questionId = (int)$request->question_id;
+        $question = Question::find($questionId);
+        if (!$question || $question->exam_id !== $attempt->exam_id) {
+            return response()->json(['error' => 'Invalid question for this exam'], 422);
+        }
 
         if ($question->type === 'essay') {
             if ($request->filled('answer_text')) {
@@ -378,7 +379,7 @@ class StudentExamController extends Controller
         }
 
         // Standard choice processing
-        $choiceId = $request->choice_id;
+        $choiceId = $request->choice_id ? (int)$request->choice_id : null;
 
         // If choice_id is null, delete answer
         if (empty($choiceId)) {
@@ -398,7 +399,7 @@ class StudentExamController extends Controller
         }
 
         // Save or update answer
-        $studentAnswer = StudentAnswer::updateOrCreate(
+        StudentAnswer::updateOrCreate(
             ['exam_attempt_id' => $attempt->id, 'question_id' => $questionId],
             [
                 'choice_id' => $choice->id,
@@ -425,17 +426,47 @@ class StudentExamController extends Controller
             ]);
         }
 
-        $attempt->loadMissing('exam');
-        $student = Auth::user()->fresh();
-        $student->load('enrolledSubjects');
-        $eligibility = $student->getExamEligibility($attempt->exam);
+        $userId = Auth::id();
+        // Fast direct lookup for global eligibility
+        $studentData = \App\Models\User::where('id', $userId)
+            ->select('id', 'is_exam_eligible', 'ineligible_reason')
+            ->first();
 
-        if (!$eligibility['eligible']) {
+        if ($studentData && ($studentData->is_exam_eligible === false || (int)$studentData->is_exam_eligible === 0)) {
+            $reason = $studentData->ineligible_reason ?: 'ระงับสิทธิ์สอบระดับผู้ใช้งาน (ติดต่อฝ่ายการเงิน/ทะเบียน)';
             return response()->json([
                 'eligible' => false,
-                'reason' => $eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ (ติดต่อฝ่ายการเงิน/ทะเบียน)',
-                'message' => 'คุณถูกระงับสิทธิ์การสอบ: ' . ($eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ (ติดต่อฝ่ายการเงิน/ทะเบียน)')
+                'reason' => $reason,
+                'message' => 'คุณถูกระงับสิทธิ์การสอบ: ' . $reason
             ]);
+        }
+
+        // Fast check for subject enrollment eligibility
+        $attempt->loadMissing('exam:id,subject_id');
+        $subjectId = $attempt->exam?->subject_id;
+        if ($subjectId) {
+            $pivot = \Illuminate\Support\Facades\DB::table('subject_user')
+                ->where('user_id', $userId)
+                ->where('subject_id', $subjectId)
+                ->select('is_eligible', 'ineligible_reason')
+                ->first();
+
+            if (!$pivot) {
+                return response()->json([
+                    'eligible' => false,
+                    'reason' => 'ยังไม่ได้ลงทะเบียนในรายวิชานี้',
+                    'message' => 'คุณถูกระงับสิทธิ์การสอบ: ยังไม่ได้ลงทะเบียนในรายวิชานี้'
+                ]);
+            }
+
+            if ($pivot->is_eligible === false || (int)$pivot->is_eligible === 0) {
+                $reason = $pivot->ineligible_reason ?: 'ระงับสิทธิ์สอบในรายวิชานี้ (ติดต่ออาจารย์ผู้สอน)';
+                return response()->json([
+                    'eligible' => false,
+                    'reason' => $reason,
+                    'message' => 'คุณถูกระงับสิทธิ์การสอบ: ' . $reason
+                ]);
+            }
         }
 
         return response()->json([

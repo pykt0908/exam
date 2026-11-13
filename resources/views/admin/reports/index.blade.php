@@ -54,7 +54,7 @@
     </div>
     <div class="card-body">
         <form action="{{ route('admin.reports.index') }}" method="GET" class="row align-items-end">
-            <div class="form-group col-md-5 mb-2">
+            <div class="form-group col-md-4 mb-2">
                 <label class="font-weight-bold text-dark text-md mb-1">
                     รายวิชา
                 </label>
@@ -70,7 +70,18 @@
                 </select>
             </div>
 
-            <div class="form-group col-md-4 mb-2">
+            <div class="form-group col-md-2 mb-2">
+                <label class="font-weight-bold text-dark text-md mb-1">
+                    รอบ
+                </label>
+                <select name="shift" class="form-control font-weight-bold" onchange="this.form.submit()">
+                    <option value="">-- ทุกรอบ --</option>
+                    <option value="morning" {{ (request('shift') === 'morning' || request('shift') === 'เช้า') ? 'selected' : '' }}>เช้า</option>
+                    <option value="afternoon" {{ (request('shift') === 'afternoon' || request('shift') === 'บ่าย') ? 'selected' : '' }}>บ่าย</option>
+                </select>
+            </div>
+
+            <div class="form-group col-md-3 mb-2">
                 <label class="font-weight-bold text-dark text-md mb-1">
                     ห้องเรียน
                 </label>
@@ -78,13 +89,11 @@
                     <option value="">-- ทุกห้องเรียน (แสดงทั้งหมด) --</option>
                     @foreach($classrooms as $c)
                         <option value="{{ $c->id }}" {{ request('classroom_id') == $c->id ? 'selected' : '' }}>
-                            {{ $c->name }}
+                            {{ $c->name }} ({{ $c->shift_text }})
                         </option>
                     @endforeach
                 </select>
             </div>
-
-
 
             <div class="form-group col-md-3 mb-2">
                 <label class="font-weight-bold text-dark text-md mb-1">
@@ -101,7 +110,7 @@
                 </div>
             </div>
 
-            @if(request('subject_id') || request('classroom_id') || request('q'))
+            @if(request('subject_id') || request('classroom_id') || request('shift') || request('q'))
                 <div class="col-12 mt-1">
                     <a href="{{ route('admin.reports.index') }}" class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-times mr-1"></i>ล้างตัวกรองทั้งหมด
@@ -148,6 +157,13 @@
                     @else
                         <span class="text-dark text-md font-weight-bold">แสดงทุกห้องเรียน</span>
                     @endif
+
+                    @if(request('shift'))
+                        <span class="text-dark text-md px-1 py-1 font-weight-bold">
+                            ({{ (request('shift') === 'afternoon' || request('shift') === 'บ่าย') ? 'บ่าย' : 'เช้า' }})
+                        </span>
+                    @endif
+
                     <a href="{{ route('admin.reports.export', request()->query()) }}" class="btn btn-sm btn-success font-weight-bold ml-2 shadow-sm" title="ส่งออกผลคะแนนเป็นไฟล์ Excel (.xlsx)">
                         <i class="fas fa-file-excel mr-1"></i> ส่งออก Excel
                     </a>
@@ -163,6 +179,7 @@
                             <th style="width: 140px;" class="align-bottom text-left pb-3">รหัสนักศึกษา</th>
                             <th style="width: 180px;" class="align-bottom text-left pb-3">ชื่อ-นามสกุล</th>
                             <th style="width: 110px;" class="align-bottom pb-3">กลุ่มเรียน</th>
+                            <th style="width: 90px;" class="align-bottom pb-3">รอบ</th>
                             @forelse($subjectExams as $exam)
                                 <th class="th-exam-vertical text-center" style="min-width: 130px; width: 150px;">
                                     <div class="th-exam-vertical-content">
@@ -186,6 +203,9 @@
                                 <td class="align-middle text-left">{{ $student->student_code ?? '-' }}</td>
                                 <td class="align-middle text-left">{{ $student->name ?? '-' }}</td>
                                 <td class="align-middle text-center">{{ $student->classroom->name ?? '-' }}</td>
+                                <td class="align-middle text-center">
+                                    {{ $student->classroom ? $student->classroom->shift_text : '-' }}
+                                </td>
 
                                 @forelse($subjectExams as $exam)
                                     @php
@@ -216,12 +236,14 @@
                                                     $roundsTooltip .= 'รอบที่ ' . $r->attempt_number . ': ' . floatval($r->score) . ' (' . ($r->is_passed ? 'ผ่าน' : 'ไม่ผ่าน') . ') ';
                                                 }
                                                 $roundsTooltip .= '(ประวัติ ' . $totalRoundsCount . ' รอบ)';
+                                                $studentShift = $student->classroom ? $student->classroom->shift_text : '';
                                             @endphp
 
                                             <span class="view-rounds-btn" style="cursor: pointer;"
                                                 title="{{ $roundsTooltip }}" data-student="{{ $student->name ?? '-' }}"
                                                 data-code="{{ $student->student_code ?? '-' }}" data-student-id="{{ $student->id }}"
                                                 data-classroom="{{ $student->classroom->name ?? '-' }}"
+                                                data-shift="{{ $studentShift }}"
                                                 data-exam="{{ $exam->title ?? '-' }}" data-exam-id="{{ $exam->id }}"
                                                 data-total="{{ floatval($totalScore) }}"
                                                 data-is-passed="{{ $bestAttempt->is_passed ? '1' : '0' }}"
@@ -236,7 +258,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ 4 + $subjectExams->count() }}"
+                                <td colspan="{{ 5 + $subjectExams->count() }}"
                                     class="text-center py-4 text-muted">
                                     ไม่พบข้อมูลนักศึกษาในเงื่อนไขที่เลือก
                                 </td>
@@ -334,6 +356,7 @@
             var examId = btn.data('exam-id');
             var isPassed = btn.data('is-passed');
             var classroom = btn.data('classroom');
+            var shift = btn.data('shift');
 
             if (typeof rounds === 'string') {
                 try { rounds = JSON.parse(rounds); } catch (e) { rounds = []; }
@@ -343,7 +366,8 @@
             $('#modal-rh-code').text(code);
             $('#modal-rh-exam').text(exam);
             if (classroom && classroom !== '-') {
-                $('#modal-rh-classroom').text('ห้อง ' + classroom);
+                var shiftSuffix = shift ? ' (' + shift + ')' : '';
+                $('#modal-rh-classroom').text('ห้อง ' + classroom + shiftSuffix);
             } else {
                 $('#modal-rh-classroom').text('');
             }

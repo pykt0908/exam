@@ -19,7 +19,7 @@ class SubjectStudentController extends Controller
         $enrolledStudentIds = $subject->students()->pluck('users.id')->toArray();
         $availableStudents = User::where('role', 'student')
             ->whereNotIn('id', $enrolledStudentIds)
-            ->with('classroom:id,name')
+            ->with('classroom:id,name,shift')
             ->orderBy('student_code', 'asc')
             ->get(['id', 'name', 'student_code', 'classroom_id']);
 

@@ -314,9 +314,11 @@ class ExamGradingController extends Controller
                 if ($question->type === 'essay') {
                     // Score logic for essay
                     $maxScore = (float)$question->score;
-                    if (isset($scores[$question->id])) {
+                    if (array_key_exists($question->id, $scores) && $scores[$question->id] !== null && $scores[$question->id] !== '') {
                         $awarded = min((float)$scores[$question->id], $maxScore);
                         $awarded = max(0, $awarded);
+                    } elseif (array_key_exists($question->id, $scores)) {
+                        $awarded = 0.0;
                     } else {
                         $awarded = $answer->score_awarded ?? 0.0;
                     }
@@ -338,6 +340,7 @@ class ExamGradingController extends Controller
                 }
             }
 
+            $attempt->unsetRelation('studentAnswers');
             $attempt->grading_status = 'graded';
             $calc = $attempt->calculateFinalScore();
 

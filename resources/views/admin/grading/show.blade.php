@@ -433,12 +433,11 @@
                                                class="form-control text-center font-weight-bold score-field text-primary" 
                                                min="0" 
                                                max="{{ $maxScore }}" 
-                                               step="0.1" 
+                                               step="any" 
                                                value="{{ $currentScore }}"
                                                data-question-id="{{ $question->id }}"
                                                data-max="{{ $maxScore }}"
-                                               style="font-size: 1.35rem;"
-                                               required>
+                                               style="font-size: 1.35rem;">
                                         <div class="input-group-append">
                                             <span class="input-group-text bg-light font-weight-bold text-muted">/ {{ number_format($maxScore, 1) }}</span>
                                         </div>
@@ -925,6 +924,24 @@
                     title: 'สำเร็จ!',
                     text: {!! json_encode(session('success')) !!},
                     timer: 2500,
+                    showConfirmButton: true
+                });
+            @endif
+
+            @if(session('error'))
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาด!',
+                    text: {!! json_encode(session('error')) !!},
+                    showConfirmButton: true
+                });
+            @endif
+
+            @if($errors->any())
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อมูลไม่ถูกต้อง',
+                    html: {!! json_encode(implode('<br>', $errors->all())) !!},
                     showConfirmButton: true
                 });
             @endif

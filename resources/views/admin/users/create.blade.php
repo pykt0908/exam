@@ -98,12 +98,12 @@
                                 <div class="col-md-2">
                                     <div class="form-group">
                                         <label class="font-weight-bold">
-                                            <i class="far fa-clock text-info mr-1"></i>ภาค
+                                            <i class="far fa-clock text-info mr-1"></i>รอบ
                                         </label>
                                         <select id="filter_shift_select" class="form-control">
                                             <option value="">-- ทั้งหมด --</option>
-                                            <option value="เช้า">ภาคเช้า</option>
-                                            <option value="บ่าย">ภาคบ่าย</option>
+                                            <option value="เช้า">เช้า</option>
+                                            <option value="บ่าย">บ่าย</option>
                                         </select>
                                     </div>
                                 </div>
@@ -114,7 +114,7 @@
                                             <option value="" disabled selected>-- เลือกห้องเรียน --</option>
                                             @foreach($classrooms as $room)
                                                 @php
-                                                    $shiftType = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
+                                                    $shiftType = $room->shift_text;
                                                 @endphp
                                                 <option value="{{ $room->id }}" data-shift="{{ $shiftType }}" data-level="{{ $room->level }}" data-year="{{ $room->year }}" {{ old('classroom_id') == $room->id ? 'selected' : '' }}>
                                                     {{ $room->name }}

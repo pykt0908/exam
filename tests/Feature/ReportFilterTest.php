@@ -340,5 +340,47 @@ class ReportFilterTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_admin_can_filter_report_by_shift(): void
+    {
+        $this->classA->update(['shift' => 'morning']);
+        $this->classB->update(['shift' => 'afternoon']);
+
+        // Filter morning
+        $responseMorning = $this->actingAs($this->admin)->get(route('admin.reports.index', [
+            'subject_id' => $this->subject1->id,
+            'shift' => 'morning',
+        ]));
+
+        $responseMorning->assertStatus(200);
+        $responseMorning->assertSee('สมหมาย ห้องหนึ่ง');
+        $responseMorning->assertDontSee('สมศรี ห้องสอง');
+        $responseMorning->assertSee('เช้า');
+
+        // Filter afternoon
+        $responseAfternoon = $this->actingAs($this->admin)->get(route('admin.reports.index', [
+            'subject_id' => $this->subject1->id,
+            'shift' => 'afternoon',
+        ]));
+
+        $responseAfternoon->assertStatus(200);
+        $responseAfternoon->assertDontSee('สมหมาย ห้องหนึ่ง');
+        $responseAfternoon->assertSee('สมศรี ห้องสอง');
+        $responseAfternoon->assertSee('บ่าย');
+    }
+
+    public function test_export_report_includes_shift_in_filename(): void
+    {
+        $this->classB->update(['shift' => 'afternoon']);
+
+        $response = $this->actingAs($this->admin)->get(route('admin.reports.export', [
+            'subject_id' => $this->subject1->id,
+            'shift' => 'afternoon',
+        ]));
+
+        $response->assertStatus(200);
+        $disposition = urldecode($response->headers->get('content-disposition'));
+        $this->assertStringContainsString('บ่าย.xlsx', $disposition);
+    }
 }
 

@@ -1125,17 +1125,22 @@ class MisSchoolService
 
     public function isTsqlAvailable(): bool
     {
-        if (is_executable('/opt/homebrew/bin/tsql')) {
+        if (PHP_OS_FAMILY === 'Darwin' && @file_exists('/opt/homebrew/bin/tsql') && @is_executable('/opt/homebrew/bin/tsql')) {
             return true;
         }
-        $which = @shell_exec('which tsql');
-        return !empty(trim((string)$which));
+        if (function_exists('shell_exec')) {
+            $which = @shell_exec('which tsql 2>/dev/null');
+            return !empty(trim((string)$which));
+        }
+        return false;
     }
 
     public function executeTsql(string $db, string $sql): ?array
     {
-        $tsqlPath = is_executable('/opt/homebrew/bin/tsql') ? '/opt/homebrew/bin/tsql' : trim((string)@shell_exec('which tsql'));
-        if (!$tsqlPath || !is_executable($tsqlPath)) {
+        $tsqlPath = (PHP_OS_FAMILY === 'Darwin' && @file_exists('/opt/homebrew/bin/tsql') && @is_executable('/opt/homebrew/bin/tsql')) 
+            ? '/opt/homebrew/bin/tsql' 
+            : trim((string)@shell_exec('which tsql 2>/dev/null'));
+        if (!$tsqlPath || !@is_executable($tsqlPath)) {
             return null;
         }
 

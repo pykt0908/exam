@@ -470,6 +470,7 @@ class UserController extends Controller
 
         $selectedSubject = $data['selectedSubject'];
         $selectedClassroom = $data['selectedClassroom'];
+        $normalizedShift = $data['normalizedShift'] ?? null;
         $subjectExams = $data['subjectExams'];
         $students = $data['students'];
         $attemptsMatrix = $data['attemptsMatrix'];
@@ -489,13 +490,16 @@ class UserController extends Controller
 
         // Row 2: Classroom & Export Date
         $classroomTitle = $selectedClassroom ? 'ห้องเรียน: ' . $selectedClassroom->name : 'ทุกห้องเรียน';
+        if ($normalizedShift) {
+            $classroomTitle .= ' (' . ($normalizedShift === 'afternoon' ? 'บ่าย' : 'เช้า') . ')';
+        }
         $exportDate = 'วันที่ส่งออก: ' . now()->locale('th')->translatedFormat('d/m/Y H:i น.');
         $sheet->setCellValue('A2', $classroomTitle . ' | ' . $exportDate);
         $sheet->getStyle('A2')->getFont()->setSize(10)->getColor()->setARGB('FF6C757D');
 
         // Row 4: Header
         $row = 4;
-        $headers = ['#', 'รหัสนักศึกษา', 'ชื่อ-นามสกุล', 'ห้องเรียน'];
+        $headers = ['#', 'รหัสนักศึกษา', 'ชื่อ-นามสกุล', 'ห้องเรียน', 'รอบ'];
         foreach ($subjectExams as $exam) {
             $headers[] = $exam->title . ' (เต็ม ' . floatval($exam->total_score) . ')';
         }
@@ -533,6 +537,7 @@ class UserController extends Controller
             );
             $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIdx++) . $currentRow, $student->name ?? '-');
             $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIdx++) . $currentRow, $student->classroom->name ?? '-');
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIdx++) . $currentRow, $student->classroom ? ($student->classroom->shift === 'afternoon' ? 'บ่าย' : 'เช้า') : '-');
 
             $totalStudentScore = 0;
             foreach ($subjectExams as $exam) {
@@ -567,8 +572,9 @@ class UserController extends Controller
             $sheet->getStyle('B' . $dataStartRow . ':B' . $dataEndRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
             $sheet->getStyle('C' . $dataStartRow . ':C' . $dataEndRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
             $sheet->getStyle('D' . $dataStartRow . ':D' . $dataEndRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            if (count($headers) >= 5) {
-                $startExamCol = Coordinate::stringFromColumnIndex(5);
+            $sheet->getStyle('E' . $dataStartRow . ':E' . $dataEndRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            if (count($headers) >= 6) {
+                $startExamCol = Coordinate::stringFromColumnIndex(6);
                 $sheet->getStyle($startExamCol . $dataStartRow . ':' . $lastColLetter . $dataEndRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             }
         }
@@ -579,7 +585,7 @@ class UserController extends Controller
             $sheet->getColumnDimension($colLetter)->setAutoSize(true);
         }
 
-        // Clean and short filename (e.g. คะแนน_21910-1002_ปวช.2-2.xlsx)
+        // Clean and short filename (e.g. คะแนน_21910-1002_ปวช.2-2_เช้า.xlsx)
         $subjectPart = $selectedSubject ? str_replace([' ', '/'], ['', '-'], $selectedSubject->code) : 'วิชา';
         $roomPart = '';
         if ($selectedClassroom) {
@@ -590,7 +596,8 @@ class UserController extends Controller
             }
             $roomPart = '_' . str_replace(['/', ' '], ['-', ''], $shortRoom);
         }
-        $fileName = 'คะแนน_' . $subjectPart . $roomPart . '.xlsx';
+        $shiftPart = $normalizedShift ? '_' . ($normalizedShift === 'afternoon' ? 'บ่าย' : 'เช้า') : '';
+        $fileName = 'คะแนน_' . $subjectPart . $roomPart . $shiftPart . '.xlsx';
 
         $writer = new Xlsx($spreadsheet);
 
@@ -637,6 +644,15 @@ class UserController extends Controller
             }
         }
 
+        // Normalize Shift (เช้า / บ่าย)
+        $selectedShift = $request->get('shift');
+        $normalizedShift = null;
+        if (in_array($selectedShift, ['เช้า', 'morning'], true)) {
+            $normalizedShift = 'morning';
+        } elseif (in_array($selectedShift, ['บ่าย', 'afternoon'], true)) {
+            $normalizedShift = 'afternoon';
+        }
+
         // 2. Get classrooms and exams
         if ($selectedSubject) {
             // Classrooms enrolled in this subject or having student attempts
@@ -661,27 +677,40 @@ class UserController extends Controller
                 : Exam::whereIn('subject_id', $subjects->pluck('id'))->orderBy('title')->get();
         }
 
+        // Filter classrooms dropdown by selected shift
+        if ($normalizedShift) {
+            $classrooms = $classrooms->filter(fn($c) => $c->shift === $normalizedShift);
+        }
+
         $selectedClassroomId = $request->get('classroom_id');
         $selectedClassroom = $selectedClassroomId ? Classroom::find($selectedClassroomId) : null;
+        if ($selectedClassroom && $normalizedShift && $selectedClassroom->shift !== $normalizedShift) {
+            $selectedClassroomId = null;
+            $selectedClassroom = null;
+        }
 
         $examStats = collect();
         $reports = collect();
         $studentRoundsHistory = collect();
-        $hasSearchedOrSelected = $selectedSubject !== null || $request->filled('q') || $request->filled('exam_id');
+        $hasSearchedOrSelected = $selectedSubject !== null || $request->filled('q') || $request->filled('exam_id') || !empty($normalizedShift);
 
         if ($hasSearchedOrSelected) {
             // Get statistics per exam
             $statsQuery = Exam::with('subject')
-                ->withCount(['examAttempts as total_attempts' => function ($query) use ($selectedClassroomId) {
+                ->withCount(['examAttempts as total_attempts' => function ($query) use ($selectedClassroomId, $normalizedShift) {
                     $query->where('status', 'completed');
                     if ($selectedClassroomId) {
                         $query->whereHas('user', fn($uq) => $uq->where('classroom_id', $selectedClassroomId));
+                    } elseif ($normalizedShift) {
+                        $query->whereHas('user.classroom', fn($cq) => $cq->where('shift', $normalizedShift));
                     }
                 }])
-                ->withCount(['examAttempts as passed_attempts' => function ($query) use ($selectedClassroomId) {
+                ->withCount(['examAttempts as passed_attempts' => function ($query) use ($selectedClassroomId, $normalizedShift) {
                     $query->where('status', 'completed')->where('is_passed', true);
                     if ($selectedClassroomId) {
                         $query->whereHas('user', fn($uq) => $uq->where('classroom_id', $selectedClassroomId));
+                    } elseif ($normalizedShift) {
+                        $query->whereHas('user.classroom', fn($cq) => $cq->where('shift', $normalizedShift));
                     }
                 }]);
 
@@ -707,6 +736,8 @@ class UserController extends Controller
                     ->where('status', 'completed');
                 if ($selectedClassroomId) {
                     $avgQuery->whereHas('user', fn($uq) => $uq->where('classroom_id', $selectedClassroomId));
+                } elseif ($normalizedShift) {
+                    $avgQuery->whereHas('user.classroom', fn($cq) => $cq->where('shift', $normalizedShift));
                 }
                 $avg = $avgQuery->avg('score') ?? 0;
                 $exam->average_score = round($avg, 2);
@@ -746,6 +777,8 @@ class UserController extends Controller
 
             if ($selectedClassroomId) {
                 $studentsQuery->where('classroom_id', $selectedClassroomId);
+            } elseif ($normalizedShift) {
+                $studentsQuery->whereHas('classroom', fn($cq) => $cq->where('shift', $normalizedShift));
             }
 
             if ($request->filled('q')) {
@@ -791,7 +824,9 @@ class UserController extends Controller
             'attemptsMatrix',
             'reports',
             'studentRoundsHistory',
-            'hasSearchedOrSelected'
+            'hasSearchedOrSelected',
+            'selectedShift',
+            'normalizedShift'
         );
     }
 

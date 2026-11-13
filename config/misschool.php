@@ -30,7 +30,7 @@ return [
     'bridge' => [
         'url' => env('MIS_BRIDGE_URL', ''),
         'key' => env('MIS_BRIDGE_KEY', ''),
-        'timeout' => env('MIS_BRIDGE_TIMEOUT', 10),
+        'timeout' => env('MIS_BRIDGE_TIMEOUT', 3),
     ],
 
     /*

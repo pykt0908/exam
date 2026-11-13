@@ -678,6 +678,9 @@
                 if (typeof timerInterval !== 'undefined') {
                     clearInterval(timerInterval);
                 }
+                if (typeof heartbeatTimeout !== 'undefined' && heartbeatTimeout) {
+                    clearTimeout(heartbeatTimeout);
+                }
                 if (typeof heartbeatInterval !== 'undefined') {
                     clearInterval(heartbeatInterval);
                 }
@@ -715,32 +718,40 @@
                 });
             }
 
-            // Real-time Heartbeat Polling (Checks eligibility every 8 seconds)
-            var heartbeatInterval = setInterval(function() {
-                if (isRevoked || isSubmitted) {
-                    clearInterval(heartbeatInterval);
-                    return;
-                }
+            // Real-time Heartbeat Polling (Checks eligibility every 25-35 seconds with random jitter)
+            var heartbeatTimeout = null;
+            function scheduleHeartbeat() {
+                if (isRevoked || isSubmitted) return;
+                var jitterDelay = 25000 + Math.floor(Math.random() * 10000);
+                heartbeatTimeout = setTimeout(function() {
+                    if (isRevoked || isSubmitted) return;
 
-                $.ajax({
-                    url: "{{ route('student.exam.checkEligibility', $attempt->id) }}",
-                    method: "POST",
-                    data: {
-                        _token: "{{ csrf_token() }}"
-                    },
-                    dataType: "json",
-                    success: function(res) {
-                        if (res && res.eligible === false && !res.completed) {
-                            showRevokedEligibility(res.reason);
+                    $.ajax({
+                        url: "{{ route('student.exam.checkEligibility', $attempt->id) }}",
+                        method: "POST",
+                        data: {
+                            _token: "{{ csrf_token() }}"
+                        },
+                        dataType: "json",
+                        success: function(res) {
+                            if (res && res.eligible === false && !res.completed) {
+                                showRevokedEligibility(res.reason);
+                            }
+                        },
+                        error: function(xhr) {
+                            if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.ineligible) {
+                                showRevokedEligibility(xhr.responseJSON.reason);
+                            }
+                        },
+                        complete: function() {
+                            if (!isRevoked && !isSubmitted) {
+                                scheduleHeartbeat();
+                            }
                         }
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.ineligible) {
-                            showRevokedEligibility(xhr.responseJSON.reason);
-                        }
-                    }
-                });
-            }, 8000);
+                    });
+                }, jitterDelay);
+            }
+            scheduleHeartbeat();
 
             // Click behavior for Choice Box
             $('.choice-box').click(function(e) {

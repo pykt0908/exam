@@ -28,20 +28,11 @@ class AuthController extends Controller
         $loginIdentifier = trim($request->login_identifier);
         $password = $request->password;
 
-        // 1. ตรวจสอบผ่านระบบ MisSchool ก่อนเสมอ (หากเปิดใช้งาน)
-        if (config('misschool.enabled', true)) {
-            $misUser = $misSchool->authenticateAndSync($loginIdentifier, $password);
-            if ($misUser) {
-                Auth::login($misUser, $request->boolean('remember'));
-                $request->session()->regenerate();
-                return $this->redirectUser();
-            }
-        }
-
-        // 2. สำรอง: ตรวจสอบกับฐานข้อมูลในระบบสอบเดิม (สำหรับแอดมินหรือบัญชีท้องถิ่น หรือกรณี MisSchool ออฟไลน์)
-        $user = User::where('email', $loginIdentifier)
+        // 1. ตรวจสอบกับฐานข้อมูลในระบบสอบก่อนเป็นอันดับแรก (Local First - เร็วระดับมิลลิวินาที ไม่ต้องรอ Network/Bridge API)
+        $user = User::where('student_code', $loginIdentifier)
             ->orWhere('username', $loginIdentifier)
-            ->orWhere('student_code', $loginIdentifier)
+            ->orWhere('email', $loginIdentifier)
+            ->orWhere('citizen_id', $loginIdentifier)
             ->orWhere('teacher_code', $loginIdentifier)
             ->orWhereRaw('LOWER(teacher_code) = ?', [strtolower($loginIdentifier)])
             ->orWhereRaw('LOWER(username) = ?', [strtolower($loginIdentifier)])
@@ -51,6 +42,17 @@ class AuthController extends Controller
             Auth::login($user, $request->boolean('remember'));
             $request->session()->regenerate();
             return $this->redirectUser();
+        }
+
+        // 2. สำรอง: หากไม่พบผู้ใช้ หรือรหัสผ่านเดิมไม่ตรง (อาจเป็นผู้ใช้ใหม่ หรือเพิ่งเปลี่ยนรหัสผ่านใน MisSchool)
+        // ค่อยส่งไปตรวจสอบกับระบบ MisSchool
+        if (config('misschool.enabled', true)) {
+            $misUser = $misSchool->authenticateAndSync($loginIdentifier, $password);
+            if ($misUser) {
+                Auth::login($misUser, $request->boolean('remember'));
+                $request->session()->regenerate();
+                return $this->redirectUser();
+            }
         }
 
         return back()->withErrors([

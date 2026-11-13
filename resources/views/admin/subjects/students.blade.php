@@ -235,7 +235,7 @@
                         <tr>
                             <th style="width: 6%" class="text-center">#</th>
                             <th>ชื่อห้องเรียน / ระดับชั้น</th>
-                            <th style="width: 12%" class="text-center">ภาค</th>
+                            <th style="width: 12%" class="text-center">รอบ</th>
                             <th style="width: 20%" class="text-center">จำนวนนักศึกษาในวิชา</th>
                             <th class="text-center" style="width: 1%; white-space: nowrap;">การจัดการ</th>
                         </tr>
@@ -359,12 +359,12 @@
                             </div>
                             <div class="col-md-3 col-sm-6 mb-2">
                                 <label class="font-weight-bold mb-1">
-                                    <i class="far fa-clock text-info mr-1"></i>ภาค
+                                    <i class="far fa-clock text-info mr-1"></i>รอบ
                                 </label>
                                 <select id="modal_cr_shift_filter" class="form-control form-control-sm">
-                                    <option value="">-- ทุกภาค --</option>
-                                    <option value="เช้า">ภาคเช้า</option>
-                                    <option value="บ่าย">ภาคบ่าย</option>
+                                    <option value="">-- ทุกรอบ --</option>
+                                    <option value="เช้า">เช้า</option>
+                                    <option value="บ่าย">บ่าย</option>
                                 </select>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-2">
@@ -430,7 +430,7 @@
                                         </th>
                                         <th style="width: 50px;" class="text-center align-middle">#</th>
                                         <th class="align-middle">ชื่อห้องเรียน / ระดับชั้น</th>
-                                        <th style="width: 100px;" class="text-center align-middle">ภาค</th>
+                                        <th style="width: 100px;" class="text-center align-middle">รอบ</th>
                                         <th style="width: 140px;" class="text-center align-middle">จำนวนนักศึกษา</th>
                                         <th style="width: 150px;" class="text-center align-middle">สถานะในวิชา</th>
                                     </tr>
@@ -439,7 +439,7 @@
                                     @forelse($allClassrooms as $index => $room)
                                         @php
                                             $isEnrolled = in_array($room->id, $enrolledIds);
-                                            $roomShift = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
+                                            $roomShift = $room->shift_text;
                                         @endphp
                                         <tr class="modal-cr-row" data-shift="{{ $roomShift }}" data-level="{{ $room->level }}"
                                             data-year="{{ $room->year }}" data-name="{{ mb_strtolower($room->name) }}"
@@ -550,12 +550,12 @@
                         </div>
                         <div class="col-md-2 col-sm-6 mb-2">
                             <label class="font-weight-bold mb-1">
-                                <i class="far fa-clock text-info mr-1"></i>ภาค
+                                <i class="far fa-clock text-info mr-1"></i>รอบ
                             </label>
                             <select id="modal_student_shift_filter" class="form-control form-control-sm">
-                                <option value="">-- ทุกภาค --</option>
-                                <option value="เช้า">ภาคเช้า</option>
-                                <option value="บ่าย">ภาคบ่าย</option>
+                                <option value="">-- ทุกรอบ --</option>
+                                <option value="เช้า">เช้า</option>
+                                <option value="บ่าย">บ่าย</option>
                             </select>
                         </div>
                         <div class="col-md-3 col-sm-6 mb-2">
@@ -567,7 +567,7 @@
                                 <option value="">-- ทุกกลุ่มเรียน --</option>
                                 @foreach($allClassrooms as $room)
                                     @php
-                                        $roomShift = str_contains($room->name, 'บ่าย') ? 'บ่าย' : 'เช้า';
+                                        $roomShift = $room->shift_text;
                                     @endphp
                                     <option value="{{ $room->id }}" data-shift="{{ $roomShift }}"
                                         data-level="{{ $room->level }}" data-year="{{ $room->year }}" {{ (isset($selectedClassroom) && $selectedClassroom->id == $room->id) ? 'selected' : '' }}>
@@ -633,13 +633,13 @@
                                     <th style="width: 140px;" class="align-middle">รหัสนักศึกษา</th>
                                     <th class="align-middle">ชื่อ-นามสกุล</th>
                                     <th style="width: 200px;" class="align-middle">กลุ่มเรียน</th>
-                                    <th style="width: 100px;" class="text-center align-middle">ภาค</th>
+                                    <th style="width: 100px;" class="text-center align-middle">รอบ</th>
                                 </tr>
                             </thead>
                             <tbody id="modal_students_tbody">
                                 @forelse($availableStudents as $student)
                                     @php
-                                        $studShift = $student->classroom ? (str_contains($student->classroom->name, 'บ่าย') ? 'บ่าย' : 'เช้า') : '';
+                                        $studShift = $student->classroom ? $student->classroom->shift_text : '';
                                     @endphp
                                     <tr class="modal-student-row"
                                         data-classroom-id="{{ $student->classroom_id ?? 'unassigned' }}"
