@@ -1055,17 +1055,85 @@
                 
                 e.preventDefault();
                 var form = this;
+
+                // Validate if all questions are answered
+                var unanswered = [];
+                var firstUnansweredCard = null;
+
+                $('.question-card').each(function(index) {
+                    var $card = $(this);
+                    var isAnswered = false;
+
+                    // 1. Check choice radio
+                    if ($card.find('.exam-radio:checked').length > 0) {
+                        isAnswered = true;
+                    }
+
+                    // 2. Check essay textarea
+                    var $textarea = $card.find('.exam-textarea');
+                    if ($textarea.length > 0 && $textarea.val().trim() !== '') {
+                        isAnswered = true;
+                    }
+
+                    if (!isAnswered) {
+                        var qNumber = index + 1;
+                        unanswered.push(qNumber);
+                        if (!firstUnansweredCard) {
+                            firstUnansweredCard = $card;
+                        }
+                    }
+                });
+
+                if (unanswered.length > 0) {
+                    var missingText = unanswered.length <= 15
+                        ? 'ข้อที่ยังไม่ได้ตอบ: <b>' + unanswered.join(', ') + '</b>'
+                        : 'ยังไม่ได้ตอบอีก <b>' + unanswered.length + '</b> ข้อ (เช่น ข้อ ' + unanswered.slice(0, 10).join(', ') + '...)';
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'คุณยังตอบข้อสอบไม่ครบ!',
+                        html: '<p class="text-secondary mb-3">กรุณาตรวจสอบและตอบคำถามให้ครบทุกข้อก่อนส่งข้อสอบ</p>' +
+                              '<div class="alert alert-warning py-2 px-3 text-left font-weight-bold text-sm" style="border-radius:8px; line-height:1.6;">' +
+                              '<i class="fas fa-exclamation-triangle mr-1"></i> ' + missingText + '</div>',
+                        confirmButtonText: 'ไปทำข้อที่ยังไม่ตอบ (' + unanswered[0] + ')',
+                        confirmButtonColor: '#007bff',
+                        showCancelButton: true,
+                        cancelButtonText: 'ปิดหน้าต่าง',
+                        cancelButtonColor: '#6c757d'
+                    }).then((result) => {
+                        if (result.isConfirmed && firstUnansweredCard) {
+                            // If in section mode and card is in hidden section, advance to that section
+                            var $parentPanel = firstUnansweredCard.closest('.exam-section-panel');
+                            if ($parentPanel.length && $parentPanel.hasClass('d-none')) {
+                                var targetSectionIndex = $parentPanel.data('section-index');
+                                advanceToSection(targetSectionIndex);
+                            }
+                            var offset = $(window).width() < 768 ? 120 : 80;
+                            $('html, body').stop().animate({
+                                'scrollTop': firstUnansweredCard.offset().top - offset
+                            }, 400, 'swing');
+
+                            // Highlight the unanswered question card
+                            firstUnansweredCard.addClass('border-warning').css('box-shadow', '0 0 15px rgba(255,193,7,0.5)');
+                            setTimeout(function() {
+                                firstUnansweredCard.removeClass('border-warning').css('box-shadow', '');
+                            }, 2500);
+                        }
+                    });
+                    return;
+                }
+
                 var hasUnsaved = (typeof AnswerSaver !== 'undefined' && AnswerSaver.hasUnsaved) ? AnswerSaver.hasUnsaved() : false;
                 var warningText = hasUnsaved
                     ? 'ยังมีคำตอบบางข้อกำลังประมวลผลบันทึก ระบบจะทำการส่งคำตอบทั้งหมดบนหน้าจอของคุณไปพร้อมกันโดยอัตโนมัติ คุณแน่ใจหรือไม่ว่าต้องการส่งข้อสอบ?'
-                    : 'คุณแน่ใจหรือไม่ว่าต้องการส่งข้อสอบ? กรุณาตรวจสอบให้แน่ใจว่าทำครบทุกข้อแล้ว!';
+                    : 'คุณตอบคำถามครบทุกข้อแล้ว คุณแน่ใจหรือไม่ว่าต้องการส่งข้อสอบ?';
 
                 Swal.fire({
                     title: 'ยืนยันการส่งข้อสอบ?',
                     text: warningText,
                     icon: hasUnsaved ? 'warning' : 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#007bff',
+                    confirmButtonColor: '#28a745',
                     cancelButtonColor: '#6c757d',
                     confirmButtonText: 'ตกลง, ส่งข้อสอบ!',
                     cancelButtonText: 'ยกเลิก'
