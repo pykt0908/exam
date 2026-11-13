@@ -166,6 +166,18 @@
 
                 <p class="login-box-msg text-secondary text-sm mb-4">กรุณาเข้าสู่ระบบเพื่อเข้าใช้งานระบบสอบออนไลน์</p>
 
+                @if(session('error'))
+                    <div class="alert alert-danger py-2 px-3 mb-3 text-sm font-weight-bold" role="alert" style="border-radius: 8px;">
+                        <i class="fas fa-exclamation-circle mr-1"></i> {{ session('error') }}
+                    </div>
+                @endif
+
+                @if(session('status'))
+                    <div class="alert alert-info py-2 px-3 mb-3 text-sm" role="alert" style="border-radius: 8px;">
+                        <i class="fas fa-info-circle mr-1"></i> {{ session('status') }}
+                    </div>
+                @endif
+
                 <!-- Login Form -->
                 <form action="{{ route('login') }}" method="post">
                     @csrf

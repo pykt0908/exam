@@ -20,4 +20,24 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // ดักจับกรณี Session หมดอายุ / CSRF Token ไม่ตรง (Error 419 Page Expired)
+        // แทนที่จะแสดงหน้าขาวดำ Error 419 ให้ Redirect กลับมาที่หน้า Login พร้อมข้อความภาษาไทยเข้าใจง่าย
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, Request $request) {
+            if ($request->is('login') || $request->routeIs('login')) {
+                return redirect()->route('login')
+                    ->withInput($request->except('password', '_token'))
+                    ->with('error', 'เซสชันหมดอายุเนื่องจากเปิดหน้าจอนานเกินไป กรุณากรอกรหัสผ่านเพื่อเข้าสู่ระบบอีกครั้ง');
+            }
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'error' => 'session_expired',
+                    'message' => 'เซสชันหมดอายุ กรุณารีเฟรชหน้าเว็บหรือเข้าสู่ระบบใหม่',
+                ], 419);
+            }
+
+            return redirect()->route('login')
+                ->with('error', 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        });
     })->create();
