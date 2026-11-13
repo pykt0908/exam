@@ -33,3 +33,9 @@ sample_students_data.txt
 sample_students_and_promotion_guide.txt
 *teachers_data*.txt
 *students_data*.txt
+database/database.sqlite
+exam-correctness-audit.md
+
+# Uploaded content
+/public/uploads/questions/*
+!/public/uploads/questions/.gitkeep
