@@ -337,6 +337,14 @@
             -webkit-overflow-scrolling: touch;
         }
 
+        /* Allow students to select and edit their own text inside essay textareas */
+        .exam-textarea, textarea, input[type="text"] {
+            -webkit-user-select: text !important;
+            -moz-user-select: text !important;
+            -ms-user-select: text !important;
+            user-select: text !important;
+        }
+
         /* Prevent iPadOS Safari from bounce-scrolling and revealing the URL bar */
         .wrapper, .content-wrapper, .main-header {
             overscroll-behavior-y: none !important;
@@ -641,19 +649,28 @@
             function updateTimer() {
                 if (timeRemaining <= 0) {
                     clearInterval(timerInterval);
+                    isSubmitted = true;
                     if (countdownEl.length) {
                         countdownEl.html('<i class="far fa-clock mr-1"></i> เวลาที่เหลือ 00:00');
                     }
+                    var timeoutSubmitDone = false;
+                    function triggerTimeoutSubmit() {
+                        if (timeoutSubmitDone) return;
+                        timeoutSubmitDone = true;
+                        $('#examForm')[0].submit();
+                    }
+                    setTimeout(triggerTimeoutSubmit, 4000);
                     Swal.fire({
                         icon: 'warning',
                         title: 'หมดเวลาแล้ว!',
-                        text: 'หมดเวลาทำข้อสอบแล้ว! ระบบจะทำการส่งข้อสอบของคุณโดยอัตโนมัติ',
-                        confirmButtonText: 'ตกลง',
+                        text: 'หมดเวลาทำข้อสอบแล้ว! ระบบกำลังส่งข้อสอบของคุณโดยอัตโนมัติ...',
+                        confirmButtonText: 'ตกลง (ส่งข้อสอบทันที)',
+                        timer: 3500,
+                        timerProgressBar: true,
                         allowOutsideClick: false,
                         allowEscapeKey: false
                     }).then(() => {
-                        isSubmitted = true;
-                        $('#examForm').submit();
+                        triggerTimeoutSubmit();
                     });
                     return;
                 }
@@ -1154,6 +1171,17 @@
             var isWarningOpen = false;
             var lastEscapeReason = '';
             var isWarningModalShown = false;
+            var isPageUnloading = false;
+            var lastTickTime = Date.now();
+            var pageGracePeriodUntil = Date.now() + 2500;
+            var unfocusedDuration = 0;
+            var touchFromBottom = false;
+            var touchStartTime = 0;
+            var touchStartsAtTop = false;
+
+            window.addEventListener('beforeunload', function() {
+                isPageUnloading = true;
+            });
 
             // iPad & Standalone PWA detection
             var isIPad = (/Macintosh/i.test(navigator.userAgent) && (navigator.maxTouchPoints && navigator.maxTouchPoints > 1)) || /iPad/i.test(navigator.userAgent);
@@ -1176,7 +1204,10 @@
             }
 
             function handleFocusEscape(reason) {
-                if (isSubmitted || isWarningOpen) {
+                if (isSubmitted || isWarningOpen || isPageUnloading || Date.now() < pageGracePeriodUntil) {
+                    return;
+                }
+                if (typeof Swal !== 'undefined' && Swal.isVisible()) {
                     return;
                 }
                 isWarningOpen = true;
@@ -1226,19 +1257,32 @@
                 
                 if (maxFocusEscapes > 0 && focusEscapeCount >= maxFocusEscapes) {
                     isSubmitted = true;
+                    timeRemaining = 0; // Bypass unanswered validation & confirm prompt
+
+                    var forcedSubmitDone = false;
+                    function executeForcedSubmit() {
+                        if (forcedSubmitDone) return;
+                        forcedSubmitDone = true;
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen().catch(function() {});
+                        }
+                        $('#examForm')[0].submit();
+                    }
+
+                    // Ensure submission executes within 4.5s even if student refuses to click button
+                    setTimeout(executeForcedSubmit, 4500);
+
                     Swal.fire({
                         title: 'ทำผิดกฎการสอบ!',
-                        text: reason + ` เนื่องจากคุณออกจากหน้าจอข้อสอบหรือยกเลิกโหมดเต็มหน้าจอเกินจำนวนครั้งที่กำหนด (${maxFocusEscapes} ครั้ง) ระบบจะส่งข้อสอบโดยอัตโนมัติทันที!`,
+                        text: reason + ` เนื่องจากคุณออกจากหน้าจอข้อสอบหรือยกเลิกโหมดเต็มหน้าจอเกินจำนวนครั้งที่กำหนด (${maxFocusEscapes} ครั้ง) ระบบกำลังส่งข้อสอบโดยอัตโนมัติทันที!`,
                         icon: 'error',
-                        confirmButtonText: 'ตกลง',
+                        confirmButtonText: 'ตกลง (ส่งข้อสอบทันที)',
+                        timer: 4000,
+                        timerProgressBar: true,
                         allowOutsideClick: false,
                         allowEscapeKey: false
                     }).then(() => {
-                        if (document.exitFullscreen) {
-                            document.exitFullscreen().catch(() => {});
-                        }
-                        timeRemaining = 0; // Bypass confirm prompt
-                        $('#examForm').submit();
+                        executeForcedSubmit();
                     });
                 } else {
                     var remainingMsg = maxFocusEscapes > 0 
@@ -1252,27 +1296,19 @@
                         allowOutsideClick: false,
                         allowEscapeKey: false
                     }).then(() => {
+                        pageGracePeriodUntil = Date.now() + 1500;
                         isWarningOpen = false;
                         isWarningModalShown = false;
                         lastEscapeReason = '';
-                        lastHeartbeat = Date.now();
                         lastTickTime = Date.now();
                         unfocusedDuration = 0;
                         touchFromBottom = false;
-                        pageGracePeriodUntil = Date.now() + 1000;
                         if (forceFullscreen) {
                             enterFullscreen();
                         }
                     });
                 }
             }
-
-            var lastTickTime = Date.now();
-            var pageGracePeriodUntil = Date.now() + 2500;
-            var unfocusedDuration = 0;
-            var touchFromBottom = false;
-            var touchStartTime = 0;
-            var touchStartsAtTop = false;
 
             @if(!empty($wasRefreshed))
                 isWarningOpen = true;
@@ -1284,17 +1320,18 @@
                     allowOutsideClick: false,
                     allowEscapeKey: false
                 }).then(() => {
+                    pageGracePeriodUntil = Date.now() + 1500;
                     isWarningOpen = false;
                     lastTickTime = Date.now();
                     unfocusedDuration = 0;
                     touchFromBottom = false;
-                    pageGracePeriodUntil = Date.now() + 1000;
                     if (forceFullscreen) {
                         enterFullscreen();
                     }
                 });
             @elseif($exam->force_fullscreen)
                 // Show fullscreen prompt modal immediately on page load
+                isWarningOpen = true;
                 var ipadNoticeHtml = (isIPad && !isStandalone)
                     ? '<div class="alert alert-info text-left mt-3 py-2 px-3 mb-0" style="font-size: 0.88rem; border-radius: 8px;"><i class="fas fa-tablet-alt mr-1"></i> <b>คำแนะนำสำหรับ iPad:</b> เพื่อการทำข้อสอบแบบเต็มจอ 100% โดยไม่มีแถบ URL รบกวน สามารถกดปุ่มแชร์ใน Safari แล้วเลือก <b>"เพิ่มไปยังหน้าจอโฮม"</b> (Add to Home Screen) หรือแตะปุ่ม <b>aA</b> บนช่อง URL แล้วเลือก <b>"ซ่อนแถบเครื่องมือ"</b> ได้ครับ</div>'
                     : '';
@@ -1307,10 +1344,11 @@
                     allowOutsideClick: false,
                     allowEscapeKey: false
                 }).then((result) => {
+                    pageGracePeriodUntil = Date.now() + 1500;
+                    isWarningOpen = false;
                     lastTickTime = Date.now();
                     unfocusedDuration = 0;
                     touchFromBottom = false;
-                    pageGracePeriodUntil = Date.now() + 1000;
                     enterFullscreen();
                 });
             @endif
@@ -1318,7 +1356,7 @@
             if (forceFullscreen) {
                 $(document).on('fullscreenchange webkitfullscreenchange mozfullscreenchange MSFullscreenChange', function() {
                     if (!isFullscreenActive()) {
-                        if (!isSubmitted && !isWarningOpen) {
+                        if (!isSubmitted && !isWarningOpen && Date.now() >= pageGracePeriodUntil) {
                             // If user is on iPad/iOS and was actively scrolling/touching within the last 1500ms while tab is still visible,
                             // it was caused by Safari's dynamic URL bar gesture rather than an intentional exit
                             if ((isIPad || /iPhone|iPad|iPod/i.test(navigator.userAgent)) && document.visibilityState === 'visible' && (Date.now() - lastTouchInteractionTime < 1500)) {
@@ -1330,15 +1368,10 @@
                 });
             }
 
-            var isPageUnloading = false;
-            window.addEventListener('beforeunload', function() {
-                isPageUnloading = true;
-            });
-
             if (maxFocusEscapes > 0) {
                 // 1. Desktop & Window blur
                 $(window).on('blur', function() {
-                    if (isPageUnloading) return;
+                    if (isPageUnloading || Date.now() < pageGracePeriodUntil) return;
                     if (!isSubmitted && !isWarningOpen && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
                         handleFocusEscape('คุณสลับหน้าจอหรือเปิดแท็บใหม่!');
                     }
@@ -1346,7 +1379,7 @@
 
                 // 2. Mobile Visibility Change
                 document.addEventListener('visibilitychange', function() {
-                    if (isPageUnloading) return;
+                    if (isPageUnloading || Date.now() < pageGracePeriodUntil) return;
                     if (document.visibilityState === 'hidden' || document.hidden) {
                         if (!isSubmitted && !isWarningOpen && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
                             handleFocusEscape('คุณสลับหน้าจอหรือเปิดแอปพลิเคชันอื่น!');
@@ -1365,8 +1398,8 @@
                         } else {
                             touchStartsAtTop = false;
                         }
-                        // iOS Home indicator zone is bottom ~85px
-                        if (y >= window.innerHeight - 85) {
+                        // iOS Home indicator zone is bottom ~40px (tightened from 85px to avoid palm/button false triggers)
+                        if (y >= window.innerHeight - 40) {
                             touchFromBottom = true;
                             touchStartTime = Date.now();
                         } else {
@@ -1385,11 +1418,16 @@
                 }, { passive: false });
 
                 window.addEventListener('touchcancel', function(e) {
-                    if (touchFromBottom && (Date.now() - touchStartTime < 3000)) {
+                    if (touchFromBottom && (Date.now() - touchStartTime < 2500)) {
                         touchFromBottom = false;
-                        if (!isSubmitted && !isWarningOpen && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
-                            handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
-                        }
+                        // Verify after 250ms if the page actually lost focus or visibility (avoids false positives from palm/2-finger touch)
+                        setTimeout(function() {
+                            if (isSubmitted || isWarningOpen || isPageUnloading || Date.now() < pageGracePeriodUntil) return;
+                            var lostFocus = (typeof document.hasFocus === 'function' && !document.hasFocus()) || document.hidden || document.visibilityState === 'hidden';
+                            if (lostFocus && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
+                                handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
+                            }
+                        }, 250);
                     }
                 }, { passive: true });
 
@@ -1411,7 +1449,8 @@
                     var now = Date.now();
                     var delta = now - lastTickTime;
                     lastTickTime = now;
-                    if (now > pageGracePeriodUntil && delta > 750) {
+                    // Use 3500ms threshold so normal mobile keyboard/rendering pauses do not trigger false positives
+                    if (now > pageGracePeriodUntil && delta > 3500) {
                         if (!isSubmitted && !isWarningOpen && !(typeof Swal !== 'undefined' && Swal.isVisible())) {
                             handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
                         }
@@ -1428,6 +1467,7 @@
                     lastTickTime = now;
 
                     if (now < pageGracePeriodUntil) {
+                        unfocusedDuration = 0;
                         return;
                     }
 
@@ -1436,32 +1476,39 @@
                         return;
                     }
 
-                    // A: Thread suspension gap (browser paused/backgrounded by iOS)
-                    if (delta > 750) {
+                    // A: Thread suspension gap (browser paused/backgrounded by iOS for > 3.5 seconds)
+                    if (delta > 3500) {
                         handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
                         return;
                     }
 
-                    // B: document.hasFocus() check (SpringBoard or other window holds focus)
+                    // B: document.hasFocus() check (SpringBoard or other window holds focus continuously for >= 1.2s)
                     if (typeof document.hasFocus === 'function' && !document.hasFocus()) {
-                        unfocusedDuration += 150;
-                        if (unfocusedDuration >= 450) {
+                        unfocusedDuration += 200;
+                        if (unfocusedDuration >= 1200) {
                             handleFocusEscape('คุณเปิดหน้าสลับแอป (App Switcher) หรือออกจากหน้าจอสอบ!');
                         }
                     } else {
                         unfocusedDuration = 0;
                     }
-                }, 150);
+                }, 200);
             }
 
             // Disable copy, cut, paste and context menu (right click) to prevent cheating
+            // (Allow text selection inside .exam-textarea so students can edit their own essay answers)
             $(document).on('contextmenu', function(e) {
+                if ($(e.target).is('.exam-textarea, textarea')) {
+                    return;
+                }
                 e.preventDefault();
             });
             $(document).on('cut copy paste', function(e) {
                 e.preventDefault();
             });
             $(document).on('selectstart', function(e) {
+                if ($(e.target).is('.exam-textarea, textarea, input[type="text"]')) {
+                    return;
+                }
                 e.preventDefault();
             });
 

@@ -516,16 +516,33 @@ class StudentExamController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $attempt->loadMissing('exam');
-        $student = Auth::user()->fresh();
-        $student->load('enrolledSubjects');
-        $eligibility = $student->getExamEligibility($attempt->exam);
-        if (!$eligibility['eligible']) {
+        $student = Auth::user();
+        if ($student->is_exam_eligible === false || (int)$student->is_exam_eligible === 0) {
+            $reason = $student->ineligible_reason ?: 'ถูกระงับสิทธิ์สอบ';
             return response()->json([
                 'ineligible' => true,
                 'error' => 'สิทธิ์การสอบของคุณถูกระงับ',
-                'reason' => $eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ'
+                'reason' => $reason
             ], 403);
+        }
+
+        $attempt->loadMissing('exam:id,subject_id');
+        $subjectId = $attempt->exam?->subject_id;
+        if ($subjectId) {
+            $pivot = \Illuminate\Support\Facades\DB::table('subject_user')
+                ->where('user_id', $student->id)
+                ->where('subject_id', $subjectId)
+                ->select('is_eligible', 'ineligible_reason')
+                ->first();
+
+            if (!$pivot || $pivot->is_eligible === false || (int)$pivot->is_eligible === 0) {
+                $reason = ($pivot && $pivot->ineligible_reason) ? $pivot->ineligible_reason : 'ถูกระงับสิทธิ์สอบในรายวิชานี้';
+                return response()->json([
+                    'ineligible' => true,
+                    'error' => 'สิทธิ์การสอบของคุณถูกระงับ',
+                    'reason' => $reason
+                ], 403);
+            }
         }
 
         $lastAjax = session('last_ajax_focus_escape_at_' . $attempt->id, 0);
@@ -552,16 +569,33 @@ class StudentExamController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $attempt->loadMissing('exam');
-        $student = Auth::user()->fresh();
-        $student->load('enrolledSubjects');
-        $eligibility = $student->getExamEligibility($attempt->exam);
-        if (!$eligibility['eligible']) {
+        $student = Auth::user();
+        if ($student->is_exam_eligible === false || (int)$student->is_exam_eligible === 0) {
+            $reason = $student->ineligible_reason ?: 'ถูกระงับสิทธิ์สอบ';
             return response()->json([
                 'ineligible' => true,
                 'error' => 'สิทธิ์การสอบของคุณถูกระงับ',
-                'reason' => $eligibility['reason'] ?: 'ถูกระงับสิทธิ์สอบ'
+                'reason' => $reason
             ], 403);
+        }
+
+        $attempt->loadMissing('exam:id,subject_id');
+        $subjectId = $attempt->exam?->subject_id;
+        if ($subjectId) {
+            $pivot = \Illuminate\Support\Facades\DB::table('subject_user')
+                ->where('user_id', $student->id)
+                ->where('subject_id', $subjectId)
+                ->select('is_eligible', 'ineligible_reason')
+                ->first();
+
+            if (!$pivot || $pivot->is_eligible === false || (int)$pivot->is_eligible === 0) {
+                $reason = ($pivot && $pivot->ineligible_reason) ? $pivot->ineligible_reason : 'ถูกระงับสิทธิ์สอบในรายวิชานี้';
+                return response()->json([
+                    'ineligible' => true,
+                    'error' => 'สิทธิ์การสอบของคุณถูกระงับ',
+                    'reason' => $reason
+                ], 403);
+            }
         }
 
         $request->validate(['section_id' => ['required']]);
