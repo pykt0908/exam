@@ -14,9 +14,11 @@
 @stop
 
 @section('content_header')
-    <div>
-        <!-- <-h1 class="text-dark font-weightbold">กำลังทำข้อสอบ</h1> -->
-        <h5 class="text-muted mt-1">{{ $exam->title }} ({{ $exam->subject->code }})</h5>
+    <div class="d-flex flex-wrap justify-content-between align-items-center">
+        <h5 class="text-muted mt-1 mb-1">{{ $exam->title }} ({{ $exam->subject->code }})</h5>
+        <div id="saveStatusIndicator" class="text-xs font-weight-bold text-success mb-1" style="transition: color 0.3s;">
+            <i class="fas fa-check-circle mr-1"></i> <span id="saveStatusText">บันทึกคำตอบอัตโนมัติแล้ว</span>
+        </div>
     </div>
 @stop
 
@@ -422,6 +424,21 @@
             border-color: #007bff !important;
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.35);
         }
+        .nav-grid-btn.save-pending {
+            border-color: #ffc107 !important;
+            box-shadow: 0 0 0 2.5px rgba(255, 193, 7, 0.5) !important;
+            position: relative;
+        }
+        .nav-grid-btn.save-pending::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #ff9800;
+        }
 
         /* Responsive Layout Overrides */
         .nav-buttons-container {
@@ -753,6 +770,160 @@
             }
             scheduleHeartbeat();
 
+            // ====================================================
+            // ATOMIC QUEUED ANSWER SAVER (No race conditions, serialized per question)
+            // ====================================================
+            var csrfToken = "{{ csrf_token() }}";
+            var saveUrl = "{{ route('student.exam.saveAnswer', $attempt->id) }}";
+
+            var AnswerSaver = (function () {
+                var state = {}; // qid -> { inFlight: bool, pending: payload, lastSentKey: str }
+
+                function getPayloadKey(payload) {
+                    if (!payload) return '';
+                    if (payload.choice_id !== undefined) {
+                        return 'c:' + (payload.choice_id || 'null');
+                    }
+                    return 't:' + (payload.answer_text !== null && payload.answer_text !== undefined ? payload.answer_text.trim() : '');
+                }
+
+                function updateSaveIndicator() {
+                    var $ind = $('#saveStatusIndicator');
+                    var $txt = $('#saveStatusText');
+                    if (!$ind.length) return;
+
+                    var activeCount = 0;
+                    for (var q in state) {
+                        if (state[q].inFlight || state[q].pending) activeCount++;
+                    }
+
+                    if (activeCount > 0) {
+                        $ind.removeClass('text-success text-danger').addClass('text-warning');
+                        $ind.find('i').removeClass('fa-check-circle fa-exclamation-triangle').addClass('fa-sync fa-spin');
+                        $txt.text('กำลังบันทึกคำตอบ (' + activeCount + ' ข้อ)...');
+                    } else {
+                        $ind.removeClass('text-warning text-danger').addClass('text-success');
+                        $ind.find('i').removeClass('fa-sync fa-spin fa-exclamation-triangle').addClass('fa-check-circle');
+                        $txt.text('บันทึกคำตอบอัตโนมัติแล้ว');
+                    }
+                }
+
+                function markNavPending(qid, isPending) {
+                    var btn = $('#nav-btn-' + qid);
+                    if (isPending) {
+                        btn.addClass('save-pending');
+                    } else {
+                        btn.removeClass('save-pending');
+                    }
+                }
+
+                function showSessionExpired() {
+                    if (isSubmitted) return;
+                    isSubmitted = true;
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'เซสชันการเชื่อมต่อหมดอายุ!',
+                        text: 'เซสชันหมดอายุเนื่องจากเปิดหน้าสอบทิ้งไว้นานหรือสัญญาณขาดหาย กรุณาเข้าสู่ระบบใหม่ คำตอบที่บันทึกแล้วจะไม่สูญหาย',
+                        confirmButtonText: 'เข้าสู่ระบบใหม่',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false
+                    }).then(function() {
+                        window.location.href = "{{ route('login') }}";
+                    });
+                }
+
+                function queue(qid, payload) {
+                    if (isRevoked) return;
+
+                    var s = state[qid] || (state[qid] = { inFlight: false, pending: null, lastSentKey: null });
+                    var currentKey = getPayloadKey(payload);
+
+                    // If identical to last successfully saved value and not currently transmitting, skip
+                    if (currentKey === s.lastSentKey && !s.inFlight) {
+                        return;
+                    }
+
+                    s.pending = payload;
+                    markNavPending(qid, true);
+                    updateSaveIndicator();
+
+                    if (!s.inFlight) {
+                        flush(qid, 0);
+                    }
+                }
+
+                function flush(qid, retryAttempt) {
+                    if (isRevoked) return;
+                    var s = state[qid];
+                    if (!s || !s.pending) return;
+
+                    var payloadToSent = s.pending;
+                    s.pending = null;
+                    s.inFlight = true;
+
+                    var postData = $.extend({
+                        _token: csrfToken,
+                        question_id: qid
+                    }, payloadToSent);
+
+                    $.ajax({
+                        url: saveUrl,
+                        method: "POST",
+                        data: postData,
+                        timeout: 15000,
+                        dataType: "json",
+                        success: function (res) {
+                            s.lastSentKey = getPayloadKey(payloadToSent);
+                            markNavPending(qid, false);
+                        },
+                        error: function (xhr) {
+                            console.error("Save answer failed for question " + qid, xhr);
+                            if (xhr.status === 403 && xhr.responseJSON && xhr.responseJSON.ineligible) {
+                                showRevokedEligibility(xhr.responseJSON.reason);
+                                return;
+                            }
+                            if (xhr.status === 419) {
+                                showSessionExpired();
+                                return;
+                            }
+
+                            // Keep current payload pending for retry if no newer value was queued in the meantime
+                            if (!s.pending) {
+                                s.pending = payloadToSent;
+                            }
+
+                            // Exponential backoff retry (1s, 2s, 4s, up to 8s)
+                            var delay = Math.min(1000 * Math.pow(2, retryAttempt), 8000);
+                            setTimeout(function () {
+                                if (!s.inFlight && s.pending) {
+                                    flush(qid, retryAttempt + 1);
+                                }
+                            }, delay);
+                        },
+                        complete: function () {
+                            s.inFlight = false;
+                            updateSaveIndicator();
+                            if (s.pending) {
+                                flush(qid, 0);
+                            }
+                        }
+                    });
+                }
+
+                function hasUnsaved() {
+                    for (var q in state) {
+                        if (state[q].inFlight || state[q].pending) return true;
+                    }
+                    return false;
+                }
+
+                return {
+                    queue: queue,
+                    hasUnsaved: hasUnsaved,
+                    updateIndicator: updateSaveIndicator
+                };
+            })();
+
             // Click behavior for Choice Box
             $('.choice-box').click(function(e) {
                 if (!$(e.target).is('input')) {
@@ -760,7 +931,7 @@
                 }
             });
 
-            // Ajax saving logic for radio options
+            // Ajax saving logic for radio options (Serialized per question)
             $('.exam-radio').change(function() {
                 var radio = $(this);
                 var questionId = radio.attr('data-question-id');
@@ -775,31 +946,18 @@
                 var navBtn = $('#nav-btn-' + questionId);
                 navBtn.addClass('answered');
 
-                // Save answer in database
-                $.ajax({
-                    url: "{{ route('student.exam.saveAnswer', $attempt->id) }}",
-                    method: "POST",
-                    data: {
-                        _token: "{{ csrf_token() }}",
-                        question_id: questionId,
-                        choice_id: choiceId
-                    },
-                    success: function(response) {
-                        console.log("Saved answer for question " + questionId);
-                    },
-                    error: function(xhr) {
-                        console.error("Failed to save answer", xhr);
-                    }
-                });
+                // Queue to atomic AnswerSaver
+                AnswerSaver.queue(questionId, { choice_id: choiceId });
             });
 
-            // Ajax saving logic for textareas (essay questions)
-            $('.exam-textarea').on('change blur', function() {
+            // Ajax saving logic for textareas (essay questions) - Debounced input + immediate on blur
+            var essayTimers = {};
+            $('.exam-textarea').on('input', function() {
                 var textarea = $(this);
                 var questionId = textarea.attr('data-question-id');
                 var answerText = textarea.val();
 
-                // Highlight navigator button
+                // Highlight navigator button immediately
                 var navBtn = $('#nav-btn-' + questionId);
                 if (answerText.trim() !== '') {
                     navBtn.addClass('answered');
@@ -807,22 +965,17 @@
                     navBtn.removeClass('answered');
                 }
 
-                // Save answer in database
-                $.ajax({
-                    url: "{{ route('student.exam.saveAnswer', $attempt->id) }}",
-                    method: "POST",
-                    data: {
-                        _token: "{{ csrf_token() }}",
-                        question_id: questionId,
-                        answer_text: answerText
-                    },
-                    success: function(response) {
-                        console.log("Saved text answer for question " + questionId);
-                    },
-                    error: function(xhr) {
-                        console.error("Failed to save text answer", xhr);
-                    }
-                });
+                clearTimeout(essayTimers[questionId]);
+                essayTimers[questionId] = setTimeout(function() {
+                    AnswerSaver.queue(questionId, { answer_text: answerText });
+                }, 800);
+            }).on('blur', function() {
+                var textarea = $(this);
+                var questionId = textarea.attr('data-question-id');
+                var answerText = textarea.val();
+
+                clearTimeout(essayTimers[questionId]);
+                AnswerSaver.queue(questionId, { answer_text: answerText });
             });
 
             // Smooth scroll for anchor tags (with automatic section switching!)
@@ -902,10 +1055,15 @@
                 
                 e.preventDefault();
                 var form = this;
+                var hasUnsaved = (typeof AnswerSaver !== 'undefined' && AnswerSaver.hasUnsaved) ? AnswerSaver.hasUnsaved() : false;
+                var warningText = hasUnsaved
+                    ? 'ยังมีคำตอบบางข้อกำลังประมวลผลบันทึก ระบบจะทำการส่งคำตอบทั้งหมดบนหน้าจอของคุณไปพร้อมกันโดยอัตโนมัติ คุณแน่ใจหรือไม่ว่าต้องการส่งข้อสอบ?'
+                    : 'คุณแน่ใจหรือไม่ว่าต้องการส่งข้อสอบ? กรุณาตรวจสอบให้แน่ใจว่าทำครบทุกข้อแล้ว!';
+
                 Swal.fire({
                     title: 'ยืนยันการส่งข้อสอบ?',
-                    text: 'คุณแน่ใจหรือไม่ว่าต้องการส่งข้อสอบ? กรุณาตรวจสอบให้แน่ใจว่าทำครบทุกข้อแล้ว!',
-                    icon: 'question',
+                    text: warningText,
+                    icon: hasUnsaved ? 'warning' : 'question',
                     showCancelButton: true,
                     confirmButtonColor: '#007bff',
                     cancelButtonColor: '#6c757d',

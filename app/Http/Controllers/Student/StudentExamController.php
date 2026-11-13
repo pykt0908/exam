@@ -329,7 +329,7 @@ class StudentExamController extends Controller
             return response()->json(['error' => 'Unauthorized or exam already completed'], 403);
         }
 
-        // Fast check if student exam eligibility is revoked in real-time
+        // Fast check if student exam eligibility is revoked in real-time (Global check)
         $student = Auth::user();
         if ($student->is_exam_eligible === false || (int)$student->is_exam_eligible === 0) {
             $reason = $student->ineligible_reason ?: 'ระงับสิทธิ์สอบระดับผู้ใช้งาน (ติดต่อฝ่ายการเงิน/ทะเบียน)';
@@ -338,6 +338,26 @@ class StudentExamController extends Controller
                 'error' => 'สิทธิ์การสอบของคุณถูกระงับ (' . $reason . ')',
                 'reason' => $reason
             ], 403);
+        }
+
+        // Subject enrollment eligibility check via fast direct pivot query
+        $attempt->loadMissing('exam:id,subject_id');
+        $subjectId = $attempt->exam?->subject_id;
+        if ($subjectId) {
+            $pivot = \Illuminate\Support\Facades\DB::table('subject_user')
+                ->where('user_id', $student->id)
+                ->where('subject_id', $subjectId)
+                ->select('is_eligible', 'ineligible_reason')
+                ->first();
+
+            if (!$pivot || $pivot->is_eligible === false || (int)$pivot->is_eligible === 0) {
+                $reason = ($pivot && $pivot->ineligible_reason) ? $pivot->ineligible_reason : 'ระงับสิทธิ์สอบในรายวิชานี้ (ติดต่ออาจารย์ผู้สอน)';
+                return response()->json([
+                    'ineligible' => true,
+                    'error' => 'สิทธิ์การสอบของคุณถูกระงับ (' . $reason . ')',
+                    'reason' => $reason
+                ], 403);
+            }
         }
 
         $request->validate([
@@ -362,14 +382,11 @@ class StudentExamController extends Controller
                     $isCorrect = (mb_strtolower($studentAnswerText) === mb_strtolower($expectedAnswerText));
                 }
 
-                StudentAnswer::updateOrCreate(
-                    ['exam_attempt_id' => $attempt->id, 'question_id' => $questionId],
-                    [
-                        'choice_id' => null,
-                        'answer_text' => $request->answer_text,
-                        'is_correct' => $isCorrect
-                    ]
-                );
+                $this->storeAnswer($attempt->id, $questionId, [
+                    'choice_id' => null,
+                    'answer_text' => $request->answer_text,
+                    'is_correct' => $isCorrect,
+                ]);
             } else {
                 StudentAnswer::where('exam_attempt_id', $attempt->id)
                     ->where('question_id', $questionId)
@@ -398,17 +415,35 @@ class StudentExamController extends Controller
             return response()->json(['error' => 'Invalid choice for this question'], 422);
         }
 
-        // Save or update answer
-        StudentAnswer::updateOrCreate(
-            ['exam_attempt_id' => $attempt->id, 'question_id' => $questionId],
-            [
-                'choice_id' => $choice->id,
-                'answer_text' => null,
-                'is_correct' => $choice->is_correct
-            ]
-        );
+        // Atomic Upsert using Composite Unique Key
+        $this->storeAnswer($attempt->id, $questionId, [
+            'choice_id' => $choice->id,
+            'answer_text' => null,
+            'is_correct' => (bool)$choice->is_correct,
+        ]);
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Helper สำหรับบันทึกคำตอบแบบ Atomic Upsert (ป้องกันการเกิดแถวซ้ำ 100%)
+     */
+    private function storeAnswer(int $attemptId, int $questionId, array $values): void
+    {
+        $attributes = array_merge([
+            'exam_attempt_id' => $attemptId,
+            'question_id' => $questionId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $values);
+
+        $updateColumns = array_merge(array_keys($values), ['updated_at']);
+
+        StudentAnswer::upsert(
+            [$attributes],
+            ['exam_attempt_id', 'question_id'],
+            $updateColumns
+        );
     }
 
     public function checkEligibility(ExamAttempt $attempt)
@@ -575,100 +610,150 @@ class StudentExamController extends Controller
         ]);
     }
 
-    public function submitAttempt(ExamAttempt $attempt)
+    public function submitAttempt(Request $request, ExamAttempt $attempt)
     {
-        return $this->submit($attempt);
+        return $this->submit($attempt, $request->input('answers', []), $request->input('text_answers', []));
     }
 
-    private function submit(ExamAttempt $attempt)
+    private function submit(ExamAttempt $attempt, array $finalChoices = [], array $finalTexts = [])
     {
-        if ($attempt->status === 'completed') {
-            return redirect()->route('student.exam.result', $attempt->id);
+        if ($attempt->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
         }
 
-        $attempt->loadMissing('exam');
-        $student = Auth::user()->fresh();
-        $student->load('enrolledSubjects');
-        $eligibility = $student->getExamEligibility($attempt->exam);
-        if (!$eligibility['eligible']) {
-            return redirect()->route('student.dashboard')->with('error', 'คุณไม่มีสิทธิ์ส่งข้อสอบวิชานี้เนื่องจากถูกระงับสิทธิ์ (' . ($eligibility['reason'] ?: 'ถูกระงับสิทธิ์') . ')');
-        }
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($attempt, $finalChoices, $finalTexts) {
+            // Lock attempt for update to prevent concurrent submissions (e.g., auto-submit on timeout vs manual click)
+            $lockedAttempt = ExamAttempt::whereKey($attempt->id)->lockForUpdate()->first();
+            if (!$lockedAttempt || $lockedAttempt->status === 'completed') {
+                return redirect()->route('student.exam.result', $attempt->id);
+            }
 
-        $attempt->load(['exam.questions', 'exam.sections']);
-        $exam = $attempt->exam;
+            $lockedAttempt->loadMissing('exam');
+            $student = Auth::user();
+            if ($student->is_exam_eligible === false || (int)$student->is_exam_eligible === 0) {
+                return redirect()->route('student.dashboard')->with('error', 'คุณไม่มีสิทธิ์ส่งข้อสอบวิชานี้เนื่องจากถูกระงับสิทธิ์');
+            }
 
-        $essayQuestions = $exam->questions->where('type', 'essay');
-        $hasEssayWithoutKey = $essayQuestions->contains(function ($q) {
-            return empty(trim($q->essay_answer ?? ''));
-        });
-        $gradingStatus = $hasEssayWithoutKey ? 'pending_grading' : 'graded';
+            $lockedAttempt->load(['exam.questions.choices', 'exam.sections']);
+            $exam = $lockedAttempt->exam;
 
-        // Calculate score and populate score_awarded for each answer
-        $studentAnswers = StudentAnswer::where('exam_attempt_id', $attempt->id)->get()->keyBy('question_id');
-        
-        foreach ($exam->questions as $question) {
-            $ans = $studentAnswers->get($question->id);
-            if ($question->type === 'essay') {
-                $hasKey = !empty(trim($question->essay_answer ?? ''));
-                if ($hasKey) {
-                    $studentText = trim($ans->answer_text ?? '');
-                    $expectedText = trim($question->essay_answer);
-                    $isCorrect = (!empty($studentText) && mb_strtolower($studentText) === mb_strtolower($expectedText));
-                    $awarded = $isCorrect ? (float)$question->score : 0.0;
-                    if ($ans) {
-                        $ans->update([
+            // 1. Final Sync: Sync on-screen answers if submitted through form (safety net if autosave missed any)
+            $this->applyFinalAnswers($lockedAttempt, $exam, $finalChoices, $finalTexts);
+
+            // 2. Score questions
+            $essayQuestions = $exam->questions->where('type', 'essay');
+            $hasEssayWithoutKey = $essayQuestions->contains(function ($q) {
+                return empty(trim($q->essay_answer ?? ''));
+            });
+            $gradingStatus = $hasEssayWithoutKey ? 'pending_grading' : 'graded';
+
+            // Calculate score and populate score_awarded for each answer
+            $studentAnswers = StudentAnswer::where('exam_attempt_id', $lockedAttempt->id)->get()->keyBy('question_id');
+            
+            foreach ($exam->questions as $question) {
+                $ans = $studentAnswers->get($question->id);
+                if ($question->type === 'essay') {
+                    $hasKey = !empty(trim($question->essay_answer ?? ''));
+                    if ($hasKey) {
+                        $studentText = trim($ans->answer_text ?? '');
+                        $expectedText = trim($question->essay_answer);
+                        $isCorrect = (!empty($studentText) && mb_strtolower($studentText) === mb_strtolower($expectedText));
+                        $awarded = $isCorrect ? (float)$question->score : 0.0;
+                        $this->storeAnswer($lockedAttempt->id, $question->id, [
+                            'choice_id' => null,
+                            'answer_text' => $ans?->answer_text,
                             'is_correct' => $isCorrect,
                             'score_awarded' => $awarded,
                         ]);
                     } else {
-                        StudentAnswer::create([
-                            'exam_attempt_id' => $attempt->id,
-                            'question_id' => $question->id,
-                            'choice_id' => null,
-                            'answer_text' => null,
-                            'is_correct' => false,
-                            'score_awarded' => 0.0,
-                        ]);
+                        if ($ans) {
+                            $ans->update([
+                                'is_correct' => false,
+                                'score_awarded' => null,
+                            ]);
+                        }
                     }
                 } else {
                     if ($ans) {
-                        $ans->update([
-                            'is_correct' => false,
-                            'score_awarded' => null,
-                        ]);
+                        $awarded = $ans->is_correct ? (float)$question->score : 0.0;
+                        $ans->update(['score_awarded' => $awarded]);
                     }
                 }
-            } else {
-                if ($ans) {
-                    $awarded = $ans->is_correct ? (float)$question->score : 0.0;
-                    $ans->update(['score_awarded' => $awarded]);
-                }
+            }
+
+            // Set grading status before calculation
+            $lockedAttempt->grading_status = $gradingStatus;
+            $lockedAttempt->unsetRelation('studentAnswers');
+            $calc = $lockedAttempt->calculateFinalScore();
+
+            // Update attempt
+            $lockedAttempt->update([
+                'completed_at' => now(),
+                'score' => $calc['score'],
+                'raw_score' => $calc['raw_score'],
+                'total_raw_score' => $calc['total_raw_score'],
+                'is_passed' => $calc['is_passed'],
+                'status' => 'completed',
+                'grading_status' => $gradingStatus,
+            ]);
+
+            session()->flash('just_submitted', true);
+
+            $successMsg = $hasEssayWithoutKey 
+                ? 'ส่งข้อสอบเรียบร้อยแล้ว (มีข้อสอบข้อเขียนที่อยู่ระหว่างรอผู้สอนตรวจให้คะแนน)' 
+                : 'ส่งข้อสอบและบันทึกคะแนนเรียบร้อยแล้ว';
+
+            return redirect()->route('student.exam.result', $lockedAttempt->id)
+                ->with('success', $successMsg);
+        });
+    }
+
+    private function applyFinalAnswers(ExamAttempt $attempt, Exam $exam, array $finalChoices, array $finalTexts): void
+    {
+        $questions = $exam->questions->keyBy('id');
+
+        // Apply choice answers
+        foreach ($finalChoices as $questionId => $choiceId) {
+            $questionId = (int)$questionId;
+            $choiceId = (int)$choiceId;
+            $question = $questions->get($questionId);
+            if (!$question || $question->type === 'essay') {
+                continue;
+            }
+
+            $choice = $question->choices->firstWhere('id', $choiceId);
+            if ($choice) {
+                $this->storeAnswer($attempt->id, $questionId, [
+                    'choice_id' => $choice->id,
+                    'answer_text' => null,
+                    'is_correct' => (bool)$choice->is_correct,
+                ]);
             }
         }
 
-        // Set grading status before calculation
-        $attempt->grading_status = $gradingStatus;
-        $calc = $attempt->calculateFinalScore();
+        // Apply essay text answers
+        foreach ($finalTexts as $questionId => $answerText) {
+            $questionId = (int)$questionId;
+            $question = $questions->get($questionId);
+            if (!$question || $question->type !== 'essay') {
+                continue;
+            }
 
-        // Update attempt
-        $attempt->update([
-            'completed_at' => now(),
-            'score' => $calc['score'],
-            'raw_score' => $calc['raw_score'],
-            'total_raw_score' => $calc['total_raw_score'],
-            'is_passed' => $calc['is_passed'],
-            'status' => 'completed',
-            'grading_status' => $gradingStatus,
-        ]);
+            if ($answerText !== null && trim($answerText) !== '') {
+                $isCorrect = false;
+                if ($question->essay_answer !== null) {
+                    $studentAnswerText = trim($answerText);
+                    $expectedAnswerText = trim($question->essay_answer);
+                    $isCorrect = (mb_strtolower($studentAnswerText) === mb_strtolower($expectedAnswerText));
+                }
 
-        session()->flash('just_submitted', true);
-
-        $successMsg = $hasEssayWithoutKey 
-            ? 'ส่งข้อสอบเรียบร้อยแล้ว (มีข้อสอบข้อเขียนที่อยู่ระหว่างรอผู้สอนตรวจให้คะแนน)' 
-            : 'ส่งข้อสอบและบันทึกคะแนนเรียบร้อยแล้ว';
-
-        return redirect()->route('student.exam.result', $attempt->id)
-            ->with('success', $successMsg);
+                $this->storeAnswer($attempt->id, $questionId, [
+                    'choice_id' => null,
+                    'answer_text' => $answerText,
+                    'is_correct' => $isCorrect,
+                ]);
+            }
+        }
     }
 
     public function result(ExamAttempt $attempt)
@@ -703,24 +788,16 @@ class StudentExamController extends Controller
                         $expectedText = trim($q->essay_answer ?? '');
                         $isCorrect = (!empty($studentText) && mb_strtolower($studentText) === mb_strtolower($expectedText));
                         $awarded = $isCorrect ? (float)$q->score : 0.0;
-                        if ($ans) {
-                            $ans->update([
-                                'is_correct' => $isCorrect,
-                                'score_awarded' => $awarded,
-                            ]);
-                        } else {
-                            StudentAnswer::create([
-                                'exam_attempt_id' => $attempt->id,
-                                'question_id' => $q->id,
-                                'choice_id' => null,
-                                'answer_text' => null,
-                                'is_correct' => false,
-                                'score_awarded' => 0.0,
-                            ]);
-                        }
+                        $this->storeAnswer($attempt->id, $q->id, [
+                            'choice_id' => null,
+                            'answer_text' => $ans?->answer_text,
+                            'is_correct' => $isCorrect,
+                            'score_awarded' => $awarded,
+                        ]);
                     }
                 }
                 $attempt->grading_status = 'graded';
+                $attempt->unsetRelation('studentAnswers');
                 $calc = $attempt->calculateFinalScore();
                 $attempt->update([
                     'score' => $calc['score'],

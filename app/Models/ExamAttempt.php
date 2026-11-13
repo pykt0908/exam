@@ -352,6 +352,6 @@ class ExamAttempt extends Model
 
     public function studentAnswers()
     {
-        return $this->hasMany(StudentAnswer::class);
+        return $this->hasMany(StudentAnswer::class)->orderBy('id');
     }
 }

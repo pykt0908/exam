@@ -40,4 +40,24 @@ return Application::configure(basePath: dirname(__DIR__))
             return redirect()->route('login')
                 ->with('error', 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
         });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, Request $request) {
+            if ($e->getStatusCode() === 419) {
+                if ($request->is('login') || $request->routeIs('login')) {
+                    return redirect()->route('login')
+                        ->withInput($request->except('password', '_token'))
+                        ->with('error', 'เซสชันหมดอายุเนื่องจากเปิดหน้าจอนานเกินไป กรุณากรอกรหัสผ่านเพื่อเข้าสู่ระบบอีกครั้ง');
+                }
+
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json([
+                        'error' => 'session_expired',
+                        'message' => 'เซสชันหมดอายุ กรุณารีเฟรชหน้าเว็บหรือเข้าสู่ระบบใหม่',
+                    ], 419);
+                }
+
+                return redirect()->route('login')
+                    ->with('error', 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+            }
+        });
     })->create();
