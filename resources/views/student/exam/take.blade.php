@@ -752,11 +752,11 @@
                 });
             }
 
-            // Real-time Heartbeat Polling (Checks eligibility every 25-35 seconds with random jitter)
+            // Real-time Heartbeat Polling (Checks eligibility every 60-90 seconds with random jitter)
             var heartbeatTimeout = null;
             function scheduleHeartbeat() {
                 if (isRevoked || isSubmitted) return;
-                var jitterDelay = 25000 + Math.floor(Math.random() * 10000);
+                var jitterDelay = 60000 + Math.floor(Math.random() * 30000);
                 heartbeatTimeout = setTimeout(function() {
                     if (isRevoked || isSubmitted) return;
 
