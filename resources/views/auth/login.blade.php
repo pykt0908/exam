@@ -199,7 +199,7 @@
                     </div>
 
                     {{-- Password field --}}
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-3">
                         <input type="password" name="password" class="form-control @error('password') is-invalid @enderror"
                                placeholder="รหัสผ่าน" required>
                         <div class="input-group-append">
@@ -214,18 +214,8 @@
                         @enderror
                     </div>
 
-                    {{-- Password Hint Helper --}}
-                    <div class="alert alert-light border py-2 px-3 mb-3 text-xs shadow-sm" style="border-radius: 8px; background-color: #f8fafc;">
-                        <div class="text-dark font-weight-medium">
-                            <i class="fas fa-id-card text-primary mr-1"></i> <strong>นักศึกษา:</strong> รหัสผ่านคือ <span class="text-primary font-weight-bold">เลขประจำตัวประชาชน 13 หลัก</span>
-                        </div>
-                        <div class="text-secondary mt-1">
-                            <i class="fas fa-user-tie text-info mr-1"></i> <strong>อาจารย์/บุคลากร:</strong> รหัสผ่านเริ่มต้นคือรหัสอาจารย์
-                        </div>
-                    </div>
-
                     {{-- Remember me & Login button --}}
-                    <div class="row align-items-center mt-3 mb-3">
+                    <div class="row align-items-center mt-4 mb-3">
                         <div class="col-7">
                             <div class="custom-control custom-checkbox">
                                 <input type="checkbox" name="remember" class="custom-control-input" id="remember" {{ old('remember') ? 'checked' : '' }}>
