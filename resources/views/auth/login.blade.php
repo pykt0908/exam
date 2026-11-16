@@ -240,6 +240,13 @@
 
 @section('adminlte_js')
 <script>
+    // Prevent browser bfcache (Back/Forward Cache) from showing login screen after login
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted || (window.performance && window.performance.getEntriesByType && window.performance.getEntriesByType("navigation")[0]?.type === 'back_forward')) {
+            window.location.replace('/');
+        }
+    });
+
     // Prevent double submissions and re-tapping on mobile/LINE
     var loginForm = document.getElementById('loginForm');
     if (loginForm) {
