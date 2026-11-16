@@ -199,7 +199,6 @@ class StudentExamController extends Controller
             $existingAttempt = ExamAttempt::where('user_id', $student->id)
                 ->where('exam_id', $exam->id)
                 ->where('status', 'in_progress')
-                ->lockForUpdate()
                 ->first();
 
             if ($existingAttempt) {
@@ -208,7 +207,6 @@ class StudentExamController extends Controller
 
             $attemptNumber = ExamAttempt::where('user_id', $student->id)
                 ->where('exam_id', $exam->id)
-                ->lockForUpdate()
                 ->count() + 1;
 
             return ExamAttempt::create([
@@ -219,7 +217,7 @@ class StudentExamController extends Controller
                 'total_questions' => $exam->questions()->count(),
                 'status' => 'in_progress',
             ]);
-        });
+        }, 5);
 
         session()->put('exam_just_started_' . $attempt->id, true);
 
