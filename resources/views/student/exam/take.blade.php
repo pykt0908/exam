@@ -887,7 +887,7 @@
                         url: saveUrl,
                         method: "POST",
                         data: postData,
-                        timeout: 15000,
+                        timeout: 30000,
                         dataType: "json",
                         success: function (res) {
                             s.lastSentKey = getPayloadKey(payloadToSent);

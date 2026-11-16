@@ -18,7 +18,7 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request, \App\Services\MisSchoolService $misSchool)
+    public function login(Request $request)
     {
         $request->validate([
             'login_identifier' => ['required', 'string'],
@@ -28,7 +28,7 @@ class AuthController extends Controller
         $loginIdentifier = trim($request->login_identifier);
         $password = $request->password;
 
-        // 1. ตรวจสอบกับฐานข้อมูลในระบบสอบก่อนเป็นอันดับแรก (Local First - เร็วระดับมิลลิวินาที ไม่ต้องรอ Network/Bridge API)
+        // ตรวจสอบกับฐานข้อมูลในระบบสอบ (Local First - รวดเร็วระดับเสี้ยววินาที ป้องกันคอขวดตอนคนเข้าระบบพร้อมกัน)
         $user = User::where('student_code', $loginIdentifier)
             ->orWhere('username', $loginIdentifier)
             ->orWhere('email', $loginIdentifier)
@@ -42,17 +42,6 @@ class AuthController extends Controller
             Auth::login($user, $request->boolean('remember'));
             $request->session()->regenerate();
             return $this->redirectUser();
-        }
-
-        // 2. สำรอง: หากไม่พบผู้ใช้ หรือรหัสผ่านเดิมไม่ตรง (อาจเป็นผู้ใช้ใหม่ หรือเพิ่งเปลี่ยนรหัสผ่านใน MisSchool)
-        // ค่อยส่งไปตรวจสอบกับระบบ MisSchool
-        if (config('misschool.enabled', true)) {
-            $misUser = $misSchool->authenticateAndSync($loginIdentifier, $password);
-            if ($misUser) {
-                Auth::login($misUser, $request->boolean('remember'));
-                $request->session()->regenerate();
-                return $this->redirectUser();
-            }
         }
 
         return back()->withErrors([

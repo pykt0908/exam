@@ -23,24 +23,20 @@ class MisSchoolAuthTest extends TestCase
         ]);
     }
 
-    public function test_student_login_via_misschool_bridge_creates_local_user_and_authenticates(): void
+    public function test_student_login_via_local_database_authenticates(): void
     {
-        // สร้างห้องเรียนรอไว้เพื่อทดสอบการจับคู่ห้องเรียนอัตโนมัติ
         $classroom = Classroom::create(['name' => 'ปวช.1/1 การบัญชี เช้า']);
 
-        Http::fake([
-            'https://bridge.test/index.php?action=verify-student' => Http::response([
-                'success' => true,
-                'data' => [
-                    'std_no' => '66209010001',
-                    'full_name' => 'นายสมชาย ใจดี',
-                    'level_no' => '1',
-                    'depart_no' => '2',
-                    'year' => '1',
-                    'room' => '1',
-                    'email' => 'somchai@gmail.com',
-                ],
-            ], 200),
+        $student = User::create([
+            'name' => 'นายสมชาย ใจดี',
+            'username' => '66209010001',
+            'student_code' => '66209010001',
+            'citizen_id' => '1234567890123',
+            'email' => 'somchai@gmail.com',
+            'password' => Hash::make('1234567890123'),
+            'role' => 'student',
+            'classroom_id' => $classroom->id,
+            'is_exam_eligible' => 1,
         ]);
 
         $response = $this->post('/login', [
@@ -49,36 +45,21 @@ class MisSchoolAuthTest extends TestCase
         ]);
 
         $response->assertRedirect(route('student.dashboard'));
-        $this->assertAuthenticated();
-
-        $user = User::where('student_code', '66209010001')->first();
-        $this->assertNotNull($user);
-        $this->assertEquals('นายสมชาย ใจดี', $user->name);
-        $this->assertEquals('student', $user->role);
-        $this->assertEquals('1234567890123', $user->citizen_id);
-        $this->assertEquals('somchai@gmail.com', $user->email);
-        $this->assertEquals($classroom->id, $user->classroom_id);
-        $this->assertNotNull($user->mis_synced_at);
-        $this->assertTrue((bool)$user->is_exam_eligible);
+        $this->assertAuthenticatedAs($student);
     }
 
-    public function test_teacher_login_via_misschool_bridge_creates_local_teacher_and_authenticates(): void
+    public function test_teacher_login_via_local_database_authenticates(): void
     {
-        Http::fake([
-            'https://bridge.test/index.php?action=verify-student' => Http::response([
-                'success' => false,
-                'message' => 'ไม่พบข้อมูลนักเรียน',
-            ], 200),
-            'https://bridge.test/index.php?action=verify-teacher' => Http::response([
-                'success' => true,
-                'data' => [
-                    'teacher_no' => 'T2005',
-                    'username' => 'somchai_t',
-                    'full_name' => 'อาจารย์สมชาย มั่นคง',
-                    'depart_no' => '1',
-                    'is_admin' => false,
-                ],
-            ], 200),
+        $dept = Department::create(['name' => 'สาขาวิชาการบัญชี']);
+
+        $teacher = User::create([
+            'name' => 'อาจารย์สมชาย มั่นคง',
+            'username' => 'somchai_t',
+            'teacher_code' => 'T2005',
+            'email' => 'somchai_t@test.com',
+            'password' => Hash::make('pass1234'),
+            'role' => 'teacher',
+            'department_id' => $dept->id,
         ]);
 
         $response = $this->post('/login', [
@@ -87,32 +68,18 @@ class MisSchoolAuthTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.dashboard'));
-        $this->assertAuthenticated();
-
-        $user = User::where('teacher_code', 'T2005')->first();
-        $this->assertNotNull($user);
-        $this->assertEquals('อาจารย์สมชาย มั่นคง', $user->name);
-        $this->assertEquals('teacher', $user->role);
-        $this->assertEquals('somchai_t', $user->username);
-        $this->assertNotNull($user->mis_synced_at);
+        $this->assertAuthenticatedAs($teacher);
     }
 
-    public function test_admin_teacher_login_via_misschool_bridge_assigned_admin_role(): void
+    public function test_admin_teacher_login_via_local_database_assigned_admin_role(): void
     {
-        Http::fake([
-            'https://bridge.test/index.php?action=verify-student' => Http::response([
-                'success' => false,
-            ], 200),
-            'https://bridge.test/index.php?action=verify-teacher' => Http::response([
-                'success' => true,
-                'data' => [
-                    'teacher_no' => 'ADMIN01',
-                    'username' => 'head_mis',
-                    'full_name' => 'อาจารย์หัวหน้างาน แอดมิน',
-                    'depart_no' => '1',
-                    'is_admin' => true,
-                ],
-            ], 200),
+        $admin = User::create([
+            'name' => 'อาจารย์หัวหน้างาน แอดมิน',
+            'username' => 'head_mis',
+            'teacher_code' => 'ADMIN01',
+            'email' => 'admin@test.com',
+            'password' => Hash::make('adminpass'),
+            'role' => 'admin',
         ]);
 
         $response = $this->post('/login', [
@@ -121,11 +88,7 @@ class MisSchoolAuthTest extends TestCase
         ]);
 
         $response->assertRedirect(route('admin.dashboard'));
-        $this->assertAuthenticated();
-
-        $user = User::where('teacher_code', 'ADMIN01')->first();
-        $this->assertNotNull($user);
-        $this->assertEquals('admin', $user->role);
+        $this->assertAuthenticatedAs($admin);
     }
 
     public function test_fallback_to_local_user_when_misschool_verification_fails(): void
