@@ -249,6 +249,7 @@
             $('.confirm-start-form').on('submit', function(e) {
                 e.preventDefault();
                 var form = this;
+                var $btn = $(form).find('button[type="submit"]');
                 Swal.fire({
                     title: 'ยืนยันการเริ่มทำข้อสอบ?',
                     text: 'คุณแน่ใจแล้วใช่ไหมที่จะเริ่มทำข้อสอบนี้? เวลาจะเริ่มนับถอยหลังทันทีและไม่สามารถหยุดได้',
@@ -259,6 +260,16 @@
                     cancelButtonText: 'ยกเลิก'
                 }).then((result) => {
                     if (result.isConfirmed) {
+                        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> กำลังเข้าสู่ห้องสอบ...');
+                        Swal.fire({
+                            title: 'กำลังเตรียมข้อสอบ...',
+                            text: 'กรุณารอสักครู่ กำลังเปิดหน้าข้อสอบ',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
                         form.submit();
                     }
                 });

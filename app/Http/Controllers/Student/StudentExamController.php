@@ -181,17 +181,6 @@ class StudentExamController extends Controller
             return redirect()->route('student.dashboard')->with('error', 'คุณผ่านเกณฑ์การสอบวิชานี้เรียบร้อยแล้ว ไม่จำเป็นต้องสอบซ่อม');
         }
 
-        // If there's an existing in-progress attempt, redirect to it instead of creating a new one
-        $existingAttempt = ExamAttempt::where('user_id', $student->id)
-            ->where('exam_id', $exam->id)
-            ->where('status', 'in_progress')
-            ->first();
-
-        if ($existingAttempt) {
-            session()->put('exam_just_started_' . $existingAttempt->id, true);
-            return redirect()->route('student.exam.take', [$exam->id, $existingAttempt->id]);
-        }
-
         // Validate passcode if set
         if ($exam->passcode) {
             $request->validate([
@@ -205,20 +194,32 @@ class StudentExamController extends Controller
             }
         }
 
-        // Determine attempt number for this student and exam
-        $attemptNumber = ExamAttempt::where('user_id', $student->id)
-            ->where('exam_id', $exam->id)
-            ->count() + 1;
+        // Atomically create or retrieve in-progress attempt to prevent double-click race conditions
+        $attempt = \Illuminate\Support\Facades\DB::transaction(function () use ($student, $exam) {
+            $existingAttempt = ExamAttempt::where('user_id', $student->id)
+                ->where('exam_id', $exam->id)
+                ->where('status', 'in_progress')
+                ->lockForUpdate()
+                ->first();
 
-        // Create new attempt
-        $attempt = ExamAttempt::create([
-            'user_id' => $student->id,
-            'exam_id' => $exam->id,
-            'attempt_number' => $attemptNumber,
-            'started_at' => now(),
-            'total_questions' => $exam->questions()->count(),
-            'status' => 'in_progress',
-        ]);
+            if ($existingAttempt) {
+                return $existingAttempt;
+            }
+
+            $attemptNumber = ExamAttempt::where('user_id', $student->id)
+                ->where('exam_id', $exam->id)
+                ->lockForUpdate()
+                ->count() + 1;
+
+            return ExamAttempt::create([
+                'user_id' => $student->id,
+                'exam_id' => $exam->id,
+                'attempt_number' => $attemptNumber,
+                'started_at' => now(),
+                'total_questions' => $exam->questions()->count(),
+                'status' => 'in_progress',
+            ]);
+        });
 
         session()->put('exam_just_started_' . $attempt->id, true);
 
